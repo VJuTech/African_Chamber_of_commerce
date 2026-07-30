@@ -1,0 +1,33 @@
+# Each item listed in this file will be ignored by git
+# and will not be uploaded to GitHub. The blank lines
+# and comments are unnecessary, but included for
+# clarification.
+
+# node_modules is a storage folder for Node and
+# can get very large.
+node_modules
+
+# .env file is for local use only. It contains
+# values not to be shared and most of the values
+# will be manually created by you or dynamically
+# created on the hosting server.
+.env
+
+# Keep the lockfile in version control so dependency versions are reproducible.
+pnpm-lock.yaml
+
+# Runtime logs, temp files, and package manager artifacts should not be committed.
+logs/
+*.log
+*.tmp
+.pnpm-lock.yaml.*.tmp
+.pnpm-store/
+.vscode/
+.idea/
+
+# .DS_Store is only for Mac users.
+**/.DS_Store
+
+# README.md is the file that contains the documentation for your project.
+# It should be included in your repository and not ignored by git.
+README.md

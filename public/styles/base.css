@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f7fb;
+  color: #1f2937;
+
+  .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: #0f172a;
+    color: #fff;
+
+    a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 12px;
+    }
+  }
+
+  .brand {
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 32px auto;
+    padding: 0 16px;
+  }
+}

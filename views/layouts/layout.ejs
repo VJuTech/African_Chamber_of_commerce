@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Include the shared head partial with metadata and styling. -->
+    <%- include('../Partials/head') %>
+  </head>
+  <body>
+    <!-- Shared navigation bar for the application shell. -->
+    <nav class="navbar">
+      <a class="brand" href="/">African Chamber of Commerce</a>
+      <div class="nav-links">
+        <% if (typeof user !== 'undefined' && user) { %>
+          <a href="/dashboard">Dashboard</a>
+          <a href="/logout">Logout</a>
+        <% } else { %>
+          <a href="/login">Login</a>
+          <a href="/register">Register</a>
+        <% } %>
+      </div>
+    </nav>
+
+    <!-- Main content area where page-specific templates are rendered. -->
+    <main class="container">
+      <%- body %>
+    </main>
+  </body>
+</html>
