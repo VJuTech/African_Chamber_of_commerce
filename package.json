@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "The African Chamber of Commerce (ACC) is a digital business ecosystem designed to connect, empower, and accelerate the growth of businesses across Africa. Rather than functioning solely as a business directory, ACC will serve as a comprehensive digital platform where businesses can establish a trusted online presence, connect with customers and strategic partners, discover new markets, access business opportunities, and utilize digital tools to improve operational efficiency. Built with Node.js, Express, and PostgreSQL",
     "main": "server.js",
-    "packageManager": "pnpm@8",
+    "packageManager": "pnpm@11.17.0",
     "scripts": {
         "build": "node -e \"console.log('Build step complete: no compilation required')\"",
         "start": "node server.js",
