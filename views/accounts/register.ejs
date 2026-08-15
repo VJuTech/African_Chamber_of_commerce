@@ -12,13 +12,13 @@
 
   <form method="post" action="/register">
     <label for="name">Full name</label>
-    <input id="name" name="name" type="text" required />
+    <input id="name" name="name" type="text" required minlength="2" aria-required="true" placeholder="Jane Doe" />
 
     <label for="email">Email</label>
     <input id="email" name="email" type="email" required />
 
     <label for="phone">Mobile number</label>
-    <input id="phone" name="phone" type="text" />
+    <input id="phone" name="phone" type="tel" inputmode="tel" pattern="[0-9+\- ]{7,20}" required aria-required="true" placeholder="e.g. +1234567890" title="Enter a valid phone number" />
 
     <label for="password">Password</label>
     <input id="password" name="password" type="password" required />
@@ -27,7 +27,8 @@
     <input id="password2" name="password2" type="password" required />
 
     <label for="role">Role</label>
-    <select id="role" name="role">
+    <select id="role" name="role" required aria-required="true">
+      <option value="">Select a role</option>
       <option value="member">Member</option>
       <option value="admin">Admin</option>
     </select>

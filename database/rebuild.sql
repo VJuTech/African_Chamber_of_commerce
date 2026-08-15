@@ -12,6 +12,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL DEFAULT 'member',
   status VARCHAR(50) NOT NULL DEFAULT 'active',
+  verified_member BOOLEAN NOT NULL DEFAULT FALSE,
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   last_login_at TIMESTAMP NULL,
   locked_until TIMESTAMP NULL,
@@ -33,3 +34,13 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- Table used by connect-pg-simple for session storage
+DROP TABLE IF EXISTS session;
+CREATE TABLE session (
+  sid varchar NOT NULL COLLATE "default",
+  sess json NOT NULL,
+  expire timestamp(6) NOT NULL
+);
+ALTER TABLE session ADD CONSTRAINT session_pkey PRIMARY KEY (sid);
+CREATE INDEX idx_session_expire ON session (expire);

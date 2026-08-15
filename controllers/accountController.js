@@ -1,7 +1,7 @@
 const authModel = require("../models/accountModel");
 const { sendError } = require("../utility/responseHelper");
 const { validateAccountPayload } = require("../utility/account-validation");
-
+const pool = require("../database/connection");
 // Render the login page with any status message from the redirect flow.
 function loginPage(req, res) {
   res.render("accounts/login", {
@@ -38,7 +38,7 @@ async function registerUser(req, res, next) {
       });
     }
 
-    const result = authModel.createUser({
+    const result = await authModel.createUser({
       name,
       email,
       phone,
@@ -61,7 +61,7 @@ async function registerUser(req, res, next) {
 }
 
 // Authenticate a user and handle login-flow errors.
-function loginUser(req, res, next) {
+async function loginUser(req, res, next) {
   try {
     const { identifier, password, rememberMe } = req.body;
 
@@ -73,7 +73,7 @@ function loginUser(req, res, next) {
       });
     }
 
-    const result = authModel.authenticateUser(identifier, password);
+    const result = await authModel.authenticateUser(identifier, password);
 
     if (!result.success) {
       return res.render("accounts/login", {
@@ -103,9 +103,9 @@ function loginUser(req, res, next) {
 }
 
 // Log the current user out and surface session cleanup errors.
-function logoutUser(req, res, next) {
+async function logoutUser(req, res, next) {
   try {
-    authModel.logEvent("logout", {
+    await authModel.logEvent("logout", {
       userId: req.session.user ? req.session.user.id : null,
       outcome: "success",
     });

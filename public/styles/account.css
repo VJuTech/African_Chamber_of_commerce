@@ -1,13 +1,16 @@
 .card {
-  background: #fff;
   border-radius: 10px;
   padding: 24px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 20px rgba(250, 246, 246, 0.08);
+  border: 1px solid #e2e8f0;
+  color: #eee;
+
 
   form {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    color: #eee;
 
     input,
     select,
@@ -17,8 +20,24 @@
       border: 1px solid #cbd5e1;
     }
 
+    & input, & select {
+      opacity: 0.5;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    & input:required:valid, & select:required:valid {
+      border-color: #03c013;
+      border-width: 2px;
+    }
+
+    & input:required:invalid, & select:required:invalid {
+      border-color: #e11d48;
+      border-width: 2px;
+    }
+
     button {
-      background: #2563eb;
+      background: #8b1ba1;
       color: #fff;
       cursor: pointer;
       border: none;
@@ -48,6 +67,14 @@
   }
 
   .muted {
-    color: #64748b;
+    color: #eee;
+
+    & a {
+      color: #8b1ba1;
+    }
+
+    a:visited {
+      color: #b79abd;
+    }
   }
 }
