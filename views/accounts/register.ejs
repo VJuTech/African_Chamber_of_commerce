@@ -1,40 +1,106 @@
 <!-- Registration form template for new users. -->
-<div class="card">
-  <h2>Create an account</h2>
-  <!-- Show any validation errors returned by the controller. -->
-  <% if (error) { %>
-    <div class="message error"><%= error %></div>
-  <% } %>
-  <!-- Show a success message after a successful account creation. -->
-  <% if (success) { %>
-    <div class="message success"><%= success %></div>
-  <% } %>
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-header">
+      <span class="eyebrow">African Chamber of Commerce</span>
+      <h2>Create your account</h2>
+      <p>Join ACC and start building trusted business connections.</p>
+    </div>
 
-  <form method="post" action="/register">
-    <label for="name">Full name</label>
-    <input id="name" name="name" type="text" required minlength="2" aria-required="true" placeholder="Jane Doe" />
+    <% if (error) { %>
+      <div class="message error"><%= error %></div>
+    <% } %>
+    <% if (success) { %>
+      <div class="message success"><%= success %></div>
+    <% } %>
 
-    <label for="email">Email</label>
-    <input id="email" name="email" type="email" required />
+    <form method="post" action="/register" class="auth-form">
+      <div class="form-section">
+        <h3>Personal details</h3>
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="firstName">First name</label>
+            <input id="firstName" name="firstName" type="text" value="<%= formData && formData.firstName ? formData.firstName : '' %>" required aria-required="true" maxlength="100" />
+          </div>
+          <div class="field-group">
+            <label for="lastName">Last name</label>
+            <input id="lastName" name="lastName" type="text" value="<%= formData && formData.lastName ? formData.lastName : '' %>" required aria-required="true" maxlength="100" />
+          </div>
+          <div class="field-group">
+            <label for="middleName">Middle name (optional)</label>
+            <input id="middleName" name="middleName" type="text" value="<%= formData && formData.middleName ? formData.middleName : '' %>" maxlength="100" />
+          </div>
+          <div class="field-group">
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" value="<%= formData && formData.email ? formData.email : '' %>" required aria-required="true" maxlength="255" />
+          </div>
+          <div class="field-group">
+            <label for="phone">Mobile number</label>
+            <input id="phone" name="phone" type="tel" inputmode="tel" value="<%= formData && formData.phone ? formData.phone : '' %>" pattern="[0-9+\-()\s]{7,20}" required aria-required="true" placeholder="e.g. +2348123456789" title="Enter a valid phone number" />
+          </div>
+          <div class="field-group">
+            <label for="country">Country</label>
+            <input id="country" name="country" type="text" value="<%= formData && formData.country ? formData.country : '' %>" required aria-required="true" maxlength="100" placeholder="Nigeria" />
+          </div>
+        </div>
+      </div>
 
-    <label for="phone">Mobile number</label>
-    <input id="phone" name="phone" type="tel" inputmode="tel" pattern="[0-9+\- ]{7,20}" required aria-required="true" placeholder="e.g. +1234567890" title="Enter a valid phone number" />
+      <div class="form-section">
+        <h3>Account details</h3>
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="preferredLanguage">Preferred language (optional)</label>
+            <select id="preferredLanguage" name="preferredLanguage">
+              <option value="">Select a language</option>
+              <option value="English" <%= formData && formData.preferredLanguage === 'English' ? 'selected' : '' %>>English</option>
+              <option value="French" <%= formData && formData.preferredLanguage === 'French' ? 'selected' : '' %>>French</option>
+              <option value="Arabic" <%= formData && formData.preferredLanguage === 'Arabic' ? 'selected' : '' %>>Arabic</option>
+              <option value="Portuguese" <%= formData && formData.preferredLanguage === 'Portuguese' ? 'selected' : '' %>>Portuguese</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="organizationName">Organization name (optional)</label>
+            <input id="organizationName" name="organizationName" type="text" value="<%= formData && formData.organizationName ? formData.organizationName : '' %>" maxlength="200" />
+          </div>
+          <div class="field-group">
+            <label for="referralCode">Referral code (optional)</label>
+            <input id="referralCode" name="referralCode" type="text" value="<%= formData && formData.referralCode ? formData.referralCode : '' %>" maxlength="80" />
+          </div>
+          <div class="field-group">
+            <label for="role">Role</label>
+            <select id="role" name="role" required aria-required="true">
+              <option value="">Select a role</option>
+              <option value="member" selected>Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required aria-required="true" minlength="8" />
+          </div>
+          <div class="field-group">
+            <label for="password2">Confirm password</label>
+            <input id="password2" name="password2" type="password" required aria-required="true" minlength="8" />
+          </div>
+        </div>
+      </div>
 
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" required />
+      <div class="consent-block">
+        <label class="check-option">
+          <input type="checkbox" name="acceptTerms" value="true" required />
+          <span>I accept the Terms of Service.</span>
+        </label>
+        <label class="check-option">
+          <input type="checkbox" name="acceptPrivacy" value="true" required />
+          <span>I accept the Privacy Policy.</span>
+        </label>
+      </div>
 
-    <label for="password2">Confirm password</label>
-    <input id="password2" name="password2" type="password" required />
+      <p class="helper-text">Password must contain at least 8 characters, including uppercase, lowercase, a number, and a special character.</p>
 
-    <label for="role">Role</label>
-    <select id="role" name="role" required aria-required="true">
-      <option value="">Select a role</option>
-      <option value="member">Member</option>
-      <option value="admin">Admin</option>
-    </select>
+      <button type="submit" class="primary-btn">Create account</button>
+    </form>
 
-    <button type="submit">Register</button>
-  </form>
-
-  <p class="muted">Already have an account? <a href="/login">Sign in</a>.</p>
+    <p class="switch-link">Already have an account? <a href="/login">Sign in</a>.</p>
+  </div>
 </div>

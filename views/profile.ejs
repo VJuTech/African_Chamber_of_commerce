@@ -1,0 +1,143 @@
+<div class="card">
+  <h2>My Profile</h2>
+
+  <% if (error) { %>
+    <div class="message error"><%= error %></div>
+  <% } %>
+  <% if (success) { %>
+    <div class="message success"><%= success %></div>
+  <% } %>
+
+  <section class="profile-section">
+    <h3>Personal information</h3>
+    <form method="post" action="/profile">
+      <div class="form-grid">
+        <div>
+          <label for="firstName">First name</label>
+          <input id="firstName" name="firstName" type="text" value="<%= profile && profile.firstName ? profile.firstName : '' %>" required />
+        </div>
+        <div>
+          <label for="lastName">Last name</label>
+          <input id="lastName" name="lastName" type="text" value="<%= profile && profile.lastName ? profile.lastName : '' %>" required />
+        </div>
+        <div>
+          <label for="middleName">Middle name</label>
+          <input id="middleName" name="middleName" type="text" value="<%= profile && profile.middleName ? profile.middleName : '' %>" />
+        </div>
+        <div>
+          <label for="preferredDisplayName">Preferred display name</label>
+          <input id="preferredDisplayName" name="preferredDisplayName" type="text" value="<%= profile && profile.preferredDisplayName ? profile.preferredDisplayName : '' %>" />
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" value="<%= profile && profile.email ? profile.email : '' %>" required />
+        </div>
+        <div>
+          <label for="phone">Mobile number</label>
+          <input id="phone" name="phone" type="tel" value="<%= profile && profile.phone ? profile.phone : '' %>" />
+        </div>
+        <div>
+          <label for="country">Country</label>
+          <input id="country" name="country" type="text" value="<%= profile && profile.country ? profile.country : '' %>" />
+        </div>
+        <div>
+          <label for="preferredLanguage">Preferred language</label>
+          <select id="preferredLanguage" name="preferredLanguage">
+            <option value="">Select language</option>
+            <option value="English" <%= profile && profile.preferredLanguage === 'English' ? 'selected' : '' %>>English</option>
+            <option value="French" <%= profile && profile.preferredLanguage === 'French' ? 'selected' : '' %>>French</option>
+            <option value="Arabic" <%= profile && profile.preferredLanguage === 'Arabic' ? 'selected' : '' %>>Arabic</option>
+            <option value="Portuguese" <%= profile && profile.preferredLanguage === 'Portuguese' ? 'selected' : '' %>>Portuguese</option>
+          </select>
+        </div>
+        <div>
+          <label for="timeZone">Time zone</label>
+          <input id="timeZone" name="timeZone" type="text" value="<%= profile && profile.timeZone ? profile.timeZone : '' %>" />
+        </div>
+        <div>
+          <label for="address">Address</label>
+          <input id="address" name="address" type="text" value="<%= profile && profile.address ? profile.address : '' %>" />
+        </div>
+      </div>
+      <button type="submit">Save profile</button>
+    </form>
+  </section>
+
+  <section class="profile-section">
+    <h3>Change password</h3>
+    <form method="post" action="/profile/password">
+      <div class="form-grid">
+        <div>
+          <label for="currentPassword">Current password</label>
+          <input id="currentPassword" name="currentPassword" type="password" required />
+        </div>
+        <div>
+          <label for="newPassword">New password</label>
+          <input id="newPassword" name="newPassword" type="password" required minlength="8" />
+        </div>
+        <div>
+          <label for="confirmNewPassword">Confirm new password</label>
+          <input id="confirmNewPassword" name="confirmNewPassword" type="password" required minlength="8" />
+        </div>
+      </div>
+      <button type="submit">Update password</button>
+    </form>
+  </section>
+
+  <section class="profile-section">
+    <h3>Communication preferences</h3>
+    <form method="post" action="/profile/preferences">
+      <div class="checkbox-list">
+        <label><input type="checkbox" name="emailNotifications" value="true" <%= profile && profile.preferences && profile.preferences.emailNotifications !== false ? 'checked' : '' %>> Email alerts</label>
+        <label><input type="checkbox" name="smsNotifications" value="true" <%= profile && profile.preferences && profile.preferences.smsNotifications !== false ? 'checked' : '' %>> SMS alerts</label>
+        <label><input type="checkbox" name="pushNotifications" value="true" <%= profile && profile.preferences && profile.preferences.pushNotifications !== false ? 'checked' : '' %>> Push notifications</label>
+        <label><input type="checkbox" name="marketingCommunications" value="true" <%= profile && profile.preferences && profile.preferences.marketingCommunications ? 'checked' : '' %>> Marketing communications</label>
+        <label><input type="checkbox" name="newsletterSubscription" value="true" <%= profile && profile.preferences && profile.preferences.newsletterSubscription ? 'checked' : '' %>> Newsletter subscription</label>
+        <label><input type="checkbox" name="eventReminders" value="true" <%= profile && profile.preferences && profile.preferences.eventReminders !== false ? 'checked' : '' %>> Event reminders</label>
+        <label><input type="checkbox" name="procurementNotifications" value="true" <%= profile && profile.preferences && profile.preferences.procurementNotifications !== false ? 'checked' : '' %>> Procurement notifications</label>
+        <label><input type="checkbox" name="marketplaceUpdates" value="true" <%= profile && profile.preferences && profile.preferences.marketplaceUpdates !== false ? 'checked' : '' %>> Marketplace updates</label>
+      </div>
+      <button type="submit">Save preferences</button>
+    </form>
+  </section>
+
+  <section class="profile-section">
+    <h3>Active sessions</h3>
+    <% if (sessions && sessions.length) { %>
+      <ul>
+        <% sessions.forEach(function(sessionItem) { %>
+          <li>
+            <strong><%= sessionItem.device || 'Web Browser' %></strong>
+            <% if (sessionItem.location) { %>
+              - <%= sessionItem.location %>
+            <% } %>
+            <% if (sessionItem.lastActivity) { %>
+              <br />Last activity: <%= sessionItem.lastActivity %>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p>No active sessions detected.</p>
+    <% } %>
+  </section>
+
+  <section class="profile-section">
+    <h3>Recent account activity</h3>
+    <% if (activity && activity.length) { %>
+      <ul>
+        <% activity.forEach(function(item) { %>
+          <li>
+            <strong><%= item.eventType %></strong>
+            <span> — <%= item.timestamp %></span>
+            <% if (item.outcome) { %>
+              <span> (<%= item.outcome %>)</span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p>No recent activity recorded.</p>
+    <% } %>
+  </section>
+</div>

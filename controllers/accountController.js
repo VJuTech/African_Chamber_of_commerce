@@ -1,33 +1,38 @@
-const authModel = require("../models/accountModel");
-const { sendError } = require("../utility/responseHelper");
+const authModel = require("../models/authModel");
 const { validateAccountPayload } = require("../utility/account-validation");
-const pool = require("../database/connection");
-// Render the login page with any status message from the redirect flow.
-function loginPage(req, res) {
-  res.render("accounts/login", {
-    title: "Sign In",
-    message: req.query.message || "",
-    error: "",
-  });
-}
-
-async function registerPage(req, res) {
-  res.render("accounts/register", {
-    title: "Create Account",
-    error: "",
-    success: "",
-  });
-}
 
 // Handle account registration and route validation errors.
 async function registerUser(req, res, next) {
   try {
-    const { name, email, phone, password, password2, role } = req.body;
-    const errors = validateAccountPayload({
-      name,
+    const {
+      firstName,
+      lastName,
+      middleName,
       email,
+      phone,
+      country,
       password,
       password2,
+      preferredLanguage,
+      referralCode,
+      organizationName,
+      role,
+      acceptTerms,
+      acceptPrivacy,
+      termsAccepted,
+      privacyAccepted,
+    } = req.body;
+
+    const errors = validateAccountPayload({
+      firstName,
+      lastName,
+      email,
+      phone,
+      country,
+      password,
+      password2,
+      acceptTerms: acceptTerms ?? termsAccepted,
+      acceptPrivacy: acceptPrivacy ?? privacyAccepted,
     });
 
     if (errors.length > 0) {
@@ -35,14 +40,24 @@ async function registerUser(req, res, next) {
         title: "Create Account",
         error: errors.join(" "),
         success: "",
+        formData: req.body,
       });
     }
 
     const result = await authModel.createUser({
-      name,
+      firstName,
+      lastName,
+      middleName,
       email,
       phone,
+      country,
+      preferredLanguage,
+      referralCode,
+      organizationName,
       password,
+      password2,
+      acceptTerms: acceptTerms ?? termsAccepted,
+      acceptPrivacy: acceptPrivacy ?? privacyAccepted,
       role: role || "member",
     });
 
@@ -51,10 +66,11 @@ async function registerUser(req, res, next) {
         title: "Create Account",
         error: result.message,
         success: "",
+        formData: req.body,
       });
     }
 
-    return res.redirect("/login?message=Account created successfully. Please sign in.");
+    return res.redirect("/login?message=Registration submitted successfully. Please verify your email or mobile number to activate your account.");
   } catch (error) {
     return next(error);
   }
@@ -85,6 +101,7 @@ async function loginUser(req, res, next) {
 
     req.session.authenticated = true;
     req.session.user = {
+      ...result.user,
       id: result.user.id,
       name: result.user.name,
       email: result.user.email,
@@ -129,19 +146,9 @@ function ensureAuthenticated(req, res, next) {
   return res.redirect("/login?message=Please sign in to continue.");
 }
 
-function dashboardPage(req, res) {
-  res.render("dashboard", {
-    title: "Dashboard",
-    user: req.session.user,
-  });
-}
-
 module.exports = {
-  loginPage,
-  registerPage,
   registerUser,
   loginUser,
   logoutUser,
   ensureAuthenticated,
-  dashboardPage,
 };

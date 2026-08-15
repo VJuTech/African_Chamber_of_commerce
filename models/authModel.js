@@ -11,7 +11,6 @@ const auditLogPath = path.join(__dirname, "..", "logs", "auth-audit.log");
 
 fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
 
-// Use the shared PostgreSQL pool from database/connection.js.
 let dbAvailable = Boolean(process.env.DATABASE_URL || process.env.PGHOST);
 
 function fileLogEvent(eventType, details = {}) {
@@ -44,7 +43,6 @@ async function logEvent(eventType, details = {}) {
   return pool && dbAvailable ? dbLogEvent(eventType, details) : fileLogEvent(eventType, details);
 }
 
-// In-memory fallback storage for environments without a DB configured.
 const users = [];
 function seedDemoUser() {
   if (users.some((user) => user.email === "admin@acc.com")) return;
@@ -117,11 +115,7 @@ async function createUser(userData) {
       (user) => user.email.toLowerCase() === email || (phone && user.phone === phone)
     );
     if (existingUser) {
-      await logEvent("duplicate_registration_attempt", {
-        email,
-        phone,
-        outcome: "duplicate_identity",
-      });
+      await logEvent("duplicate_registration_attempt", { email, phone, outcome: "duplicate_identity" });
       return { success: false, message: "A user with that email or mobile number already exists." };
     }
 
@@ -173,11 +167,7 @@ async function createUser(userData) {
     const checkText = `SELECT id FROM users WHERE lower(email)=lower($1) OR phone=$2 LIMIT 1`;
     const checkRes = await client.query(checkText, [email, phone]);
     if (checkRes.rows.length > 0) {
-      await logEvent("duplicate_registration_attempt", {
-        email,
-        phone,
-        outcome: "duplicate_identity",
-      });
+      await logEvent("duplicate_registration_attempt", { email, phone, outcome: "duplicate_identity" });
       return { success: false, message: "A user with that email or mobile number already exists." };
     }
 

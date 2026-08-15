@@ -1,0 +1,21 @@
+<div class="card">
+  <h2>Dashboard</h2>
+  <p>Welcome back, <strong><%= user && user.name ? user.name : 'Member' %></strong>.</p>
+
+  <div class="dashboard-grid">
+    <div class="panel">
+      <h3>Quick access</h3>
+      <ul>
+        <li><a href="/profile">My Profile</a></li>
+        <li><a href="/logout">Logout</a></li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>Account summary</h3>
+      <p><strong>Status:</strong> <%= user && user.status ? user.status : 'Active' %></p>
+      <p><strong>Role:</strong> <%= user && user.role ? user.role : 'Member' %></p>
+      <p><strong>Email:</strong> <%= user && user.email ? user.email : 'Not available' %></p>
+    </div>
+  </div>
+</div>

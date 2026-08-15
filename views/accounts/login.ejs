@@ -1,29 +1,40 @@
 <!-- Login form template for existing users. -->
-<div class="card">
-  <h2>Sign in</h2>
-  <!-- Display any success message passed from the controller. -->
-  <% if (message) { %>
-    <div class="message success"><%= message %></div>
-  <% } %>
-  <!-- Display validation or authentication errors. -->
-  <% if (error) { %>
-    <div class="message error"><%= error %></div>
-  <% } %>
+<div class="auth-shell">
+  <div class="auth-card" style="max-width: 500px;">
+    <div class="auth-header">
+      <span class="eyebrow">African Chamber of Commerce</span>
+      <h2>Welcome back</h2>
+      <p>Sign in to continue to your account.</p>
+    </div>
 
-  <form method="post" action="/login">
-    <label for="identifier">Email or mobile number</label>
-    <input id="identifier" name="identifier" type="text" required />
+    <% if (message) { %>
+      <div class="message success"><%= message %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="message error"><%= error %></div>
+    <% } %>
 
-    <label for="password">Password</label>
-    <input id="password" name="password" type="password" required />
+    <form method="post" action="/login" class="auth-form">
+      <div class="form-section">
+        <div class="field-group">
+          <label for="identifier">Email or mobile number</label>
+          <input id="identifier" name="identifier" type="text" required />
+        </div>
 
-    <label class="checkbox">
-      <input name="rememberMe" type="checkbox" value="true" />
-      Remember me for 7 days
-    </label>
+        <div class="field-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required />
+        </div>
+      </div>
 
-    <button type="submit">Sign In</button>
-  </form>
+      <label class="check-option">
+        <input name="rememberMe" type="checkbox" value="true" />
+        <span>Remember me for 7 days</span>
+      </label>
 
-  <p class="muted">No account yet? <a href="/register">Create one</a>.</p>
+      <button type="submit" class="primary-btn">Sign In</button>
+    </form>
+
+    <p class="switch-link">No account yet? <a href="/register">Create one</a>.</p>
+  </div>
 </div>

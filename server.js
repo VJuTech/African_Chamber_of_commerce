@@ -11,8 +11,11 @@ const path = require("path");
 const pool = require("./database/connection");
 require("dotenv").config();
 
-// Load the account-related routes and error handlers.
+// Load route modules and error handlers.
 const accountRoutes = require("./routes/accountRoute");
+const pageRoutes = require("./routes/pageRoute");
+const dashboardRoutes = require("./routes/dashboardRoute");
+const profileRoutes = require("./routes/profileRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -76,7 +79,10 @@ async function initApp() {
   }
 
   // Register the main application routes.
+  app.use("/", pageRoutes);
   app.use("/", accountRoutes);
+  app.use("/", dashboardRoutes);
+  app.use("/", profileRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

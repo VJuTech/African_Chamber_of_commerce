@@ -1,11 +1,8 @@
 const express = require("express");
 const {
-  loginPage,
-  registerPage,
   registerUser,
   loginUser,
   logoutUser,
-  dashboardPage,
   ensureAuthenticated,
 } = require("../controllers/accountController");
 
@@ -18,11 +15,8 @@ router.get("/", (req, res) => {
   return res.redirect("/login");
 });
 
-router.get("/login", loginPage);
 router.post("/login", loginUser);
-router.get("/register", registerPage);
 router.post("/register", registerUser);
 router.get("/logout", logoutUser);
-router.get("/dashboard", ensureAuthenticated, dashboardPage);
 
 module.exports = router;
