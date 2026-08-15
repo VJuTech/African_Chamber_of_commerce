@@ -75,7 +75,7 @@
 .field-group label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #334155;
+  color: #ffff;
 }
 
 .field-group input,
@@ -114,7 +114,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #334155;
+  color: #fff;
   font-size: 0.95rem;
 }
 
@@ -128,6 +128,91 @@
   margin: 0;
   color: #64748b;
   font-size: 0.83rem;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  padding-right: 44px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #64748b;
+  transition: color 0.2s ease;
+  padding: 0;
+  margin: 0;
+}
+
+.password-toggle-btn:hover {
+  color: #0f172a;
+}
+
+.eye-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.password-requirements {
+  margin-top: 10px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.requirements-title {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.requirement-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.requirement-list li {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.requirement-list li::before {
+  content: "○";
+  position: absolute;
+  left: -16px;
+  color: #cbd5e1;
+  font-weight: bold;
+}
+
+.requirement-list li.met {
+  color: #166534;
+}
+
+.requirement-list li.met::before {
+  content: "✓";
+  color: #16a34a;
 }
 
 .primary-btn {
@@ -174,7 +259,7 @@
 .switch-link {
   margin-top: 18px;
   text-align: center;
-  color: #475569;
+  color: #fff;
 }
 
 .switch-link a {
