@@ -1,0 +1,528 @@
+<!-- views/membership/payment.ejs -->
+<!-- Payment Page for Membership Upgrade -->
+
+<div class="payment-container">
+  <div class="payment-header">
+    <h1>Complete Your Upgrade</h1>
+    <p>Secure payment for your membership upgrade</p>
+  </div>
+
+  <div class="payment-content">
+    <!-- Payment Summary -->
+    <div class="payment-summary">
+      <h2>Order Summary</h2>
+      <div class="summary-details">
+        <div class="detail-row">
+          <span>Membership Tier:</span>
+          <strong><%= pendingUpgrade.tierName %></strong>
+        </div>
+        <div class="detail-row">
+          <span>Monthly Cost:</span>
+          <strong>$<%= parseFloat(pendingUpgrade.amount).toFixed(2) %></strong>
+        </div>
+        <div class="detail-row">
+          <span>Billing Cycle:</span>
+          <strong>Monthly (cancel anytime)</strong>
+        </div>
+        <div class="detail-row total">
+          <span>Total Due Today:</span>
+          <strong>$<%= parseFloat(pendingUpgrade.amount).toFixed(2) %></strong>
+        </div>
+      </div>
+
+      <div class="security-notice">
+        <i class="icon-lock"></i>
+        <span>Your payment information is secure and encrypted</span>
+      </div>
+    </div>
+
+    <!-- Payment Form -->
+    <div class="payment-form-section">
+      <h2>Payment Method</h2>
+      
+      <form id="paymentForm">
+        <!-- Card Details -->
+        <div class="form-group">
+          <label for="cardName">Full Name</label>
+          <input type="text" id="cardName" name="cardName" placeholder="John Doe" required>
+        </div>
+
+        <div class="form-group">
+          <label for="cardNumber">Card Number</label>
+          <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expiryDate">Expiry Date</label>
+            <input type="text" id="expiryDate" name="expiryDate" placeholder="MM/YY" maxlength="5" required>
+          </div>
+          <div class="form-group">
+            <label for="cvv">CVV</label>
+            <input type="text" id="cvv" name="cvv" placeholder="123" maxlength="4" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="your@email.com" required>
+        </div>
+
+        <!-- Billing Address -->
+        <h3 style="margin-top: 25px;">Billing Address</h3>
+
+        <div class="form-group">
+          <label for="address">Street Address</label>
+          <input type="text" id="address" name="address" placeholder="123 Main St" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" required>
+          </div>
+          <div class="form-group">
+            <label for="state">State</label>
+            <input type="text" id="state" name="state" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="zipCode">ZIP Code</label>
+            <input type="text" id="zipCode" name="zipCode" required>
+          </div>
+          <div class="form-group">
+            <label for="country">Country</label>
+            <input type="text" id="country" name="country" required>
+          </div>
+        </div>
+
+        <!-- Terms -->
+        <div class="form-group checkbox">
+          <label>
+            <input type="checkbox" name="agreeTerms" required>
+            I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+          </label>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+          Complete Payment - $<%= parseFloat(pendingUpgrade.amount).toFixed(2) %>
+        </button>
+
+        <button type="button" class="btn btn-secondary btn-lg" onclick="window.history.back()">
+          Cancel
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Payment Methods Info -->
+  <div class="payment-methods-info">
+    <h3>Accepted Payment Methods</h3>
+    <div class="methods">
+      <div class="method">
+        <div class="method-icon">💳</div>
+        <div>Visa</div>
+      </div>
+      <div class="method">
+        <div class="method-icon">💳</div>
+        <div>Mastercard</div>
+      </div>
+      <div class="method">
+        <div class="method-icon">💳</div>
+        <div>American Express</div>
+      </div>
+      <div class="method">
+        <div class="method-icon">💳</div>
+        <div>Discover</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="payment-faq">
+    <h3>Payment FAQ</h3>
+    <div class="faq-item">
+      <h4>Is my payment secure?</h4>
+      <p>Yes, all payments are processed through encrypted, PCI-DSS compliant payment gateways.</p>
+    </div>
+    <div class="faq-item">
+      <h4>Can I cancel anytime?</h4>
+      <p>Yes, you can cancel your subscription anytime. No questions asked.</p>
+    </div>
+    <div class="faq-item">
+      <h4>Will I be charged monthly?</h4>
+      <p>Yes, your subscription will renew monthly unless you cancel it.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .payment-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .payment-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .payment-header h1 {
+    color: #333;
+    margin: 0 0 10px 0;
+    font-size: 2.5rem;
+  }
+
+  .payment-header p {
+    color: #666;
+    margin: 0;
+  }
+
+  .payment-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+  }
+
+  .payment-summary {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: fit-content;
+  }
+
+  .payment-summary h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+
+  .summary-details {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    color: #666;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-row.total {
+    background-color: white;
+    padding: 15px;
+    margin: 15px -5px -5px -5px;
+    border-top: 2px solid #667eea;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .security-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+    border-radius: 4px;
+    font-size: 0.95rem;
+  }
+
+  .security-notice i {
+    color: #28a745;
+    font-size: 1.2rem;
+  }
+
+  .payment-form-section {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .payment-form-section h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+
+  .payment-form-section h3 {
+    color: #333;
+    font-size: 1.1rem;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  .form-group label {
+    display: block;
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .form-group.checkbox label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-weight: normal;
+    margin: 0;
+  }
+
+  .form-group.checkbox input {
+    width: auto;
+    margin-top: 3px;
+  }
+
+  .form-group.checkbox a {
+    color: #667eea;
+    text-decoration: none;
+  }
+
+  .form-group.checkbox a:hover {
+    text-decoration: underline;
+  }
+
+  .btn {
+    padding: 12px 20px;
+    border-radius: 4px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-block;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .btn-lg {
+    padding: 15px 20px;
+    font-size: 1.1rem;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+  }
+
+  .payment-methods-info {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+  }
+
+  .payment-methods-info h3 {
+    color: #333;
+    margin: 0 0 20px 0;
+  }
+
+  .methods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+  }
+
+  .method {
+    text-align: center;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+  }
+
+  .method-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .method {
+    color: #666;
+    font-weight: 600;
+  }
+
+  .payment-faq {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .payment-faq h3 {
+    color: #333;
+    margin: 0 0 20px 0;
+  }
+
+  .faq-item {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .faq-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .faq-item h4 {
+    color: #333;
+    margin: 0 0 8px 0;
+  }
+
+  .faq-item p {
+    color: #666;
+    margin: 0;
+  }
+
+  @media (max-width: 968px) {
+    .payment-content {
+      grid-template-columns: 1fr;
+    }
+
+    .payment-summary {
+      height: auto;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .payment-header h1 {
+      font-size: 2rem;
+    }
+
+    .methods {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
+
+<script>
+  // Format card number
+  document.getElementById('cardNumber')?.addEventListener('input', (e) => {
+    let value = e.target.value.replace(/\s/g, '');
+    let formatted = value.replace(/(\d{4})/g, '$1 ').trim();
+    e.target.value = formatted;
+  });
+
+  // Format expiry date
+  document.getElementById('expiryDate')?.addEventListener('input', (e) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+    }
+    e.target.value = value;
+  });
+
+  // Format CVV (only numbers)
+  document.getElementById('cvv')?.addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+  });
+
+  // Handle form submission
+  document.getElementById('paymentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Processing...';
+
+    // In a real implementation, this would send to a payment processor
+    // For now, simulate payment processing
+    try {
+      // Validate form
+      const formData = new FormData(document.getElementById('paymentForm'));
+
+      // Send to payment confirmation endpoint
+      const response = await fetch('/membership/payment/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(Object.fromEntries(formData)),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Payment successful! Your membership has been upgraded.');
+        window.location.href = '/membership/status';
+      } else {
+        alert('Payment failed: ' + (data.message || 'Unknown error'));
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Complete Payment';
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('An error occurred processing your payment');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Complete Payment';
+    }
+  });
+</script>

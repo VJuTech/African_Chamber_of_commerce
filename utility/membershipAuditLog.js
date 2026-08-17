@@ -1,279 +1,289 @@
 /**
- * Membership Audit Logging Utility
- * Requirement ACC-FRS-MEM-008: Membership Audit Logging
- * Logs all membership-related activities
+ * membershipAuditLog.js - Audit logging utility for membership operations
+ * Implements ACC-FRS-MEM-008: Membership Audit Logging
  */
+
+const pool = require("../database/connection");
 
 /**
- * Log membership audit event
- * Handles database-level audit logging with fallback to file logging
- * 
- * Logged Events:
- * - Upgrade
- * - Downgrade
- * - Suspension
- * - Reactivation
- * - Expiry
- * - Deactivation
- * 
- * @param {Object} client - Database client or pool
- * @param {Object} auditData - Audit event data
- * @returns {Promise<Object>} Result of audit log creation
+ * Log a membership event
+ * Logs all membership-related activities with IP, timestamp, and details
  */
-async function membershipAuditLog(client, auditData = {}) {
-  const {
-    userId = null,
-    eventType = "UNKNOWN",
-    action = "unknown_action",
-    previousTier = null,
-    newTier = null,
-    statusBefore = null,
-    statusAfter = null,
-    initiatedBy = "system",
-    ipAddress = "unknown",
-    reason = null,
-    metadata = null,
-    outcome = "success"
-  } = auditData;
-
-  const query = `
-    INSERT INTO membership_audit_logs 
-      (user_id, event_type, action, previous_tier, new_tier, status_before, 
-       status_after, initiated_by, ip_address, reason, metadata, outcome, created_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-    RETURNING id, user_id, event_type, action, created_at
-  `;
-
-  const params = [
-    userId,
-    eventType,
-    action,
-    previousTier,
-    newTier,
-    statusBefore,
-    statusAfter,
-    initiatedBy,
-    ipAddress,
-    reason,
-    metadata ? JSON.stringify(metadata) : null,
-    outcome
-  ];
-
+const logMembershipAudit = async (auditData) => {
   try {
-    const result = await client.query(query, params);
-    return {
-      success: true,
-      auditId: result.rows[0].id,
-      data: result.rows[0]
-    };
-  } catch (error) {
-    console.error("Error logging membership audit event:", error);
-    throw error;
-  }
-}
+    const {
+      userId = null,
+      adminId = null,
+      eventType,
+      membershipTier = null,
+      oldStatus = null,
+      newStatus = null,
+      ipAddress = null,
+      userAgent = null,
+      details = null,
+      outcome = "success",
+    } = auditData;
 
-/**
- * Get audit log summary for a user
- * @param {Object} client - Database client or pool
- * @param {number} userId - User ID
- * @returns {Promise<Array>} Summary of user's membership audit events
- */
-async function getUserAuditSummary(client, userId) {
-  const query = `
-    SELECT 
-      event_type,
-      COUNT(*) as count,
-      MAX(created_at) as last_occurrence
-    FROM membership_audit_logs
-    WHERE user_id = $1
-    GROUP BY event_type
-    ORDER BY last_occurrence DESC
-  `;
+    const query = `
+      INSERT INTO membership_audit_logs 
+      (user_id, admin_id, event_type, membership_tier, old_status, new_status, ip_address, user_agent, details, outcome)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `;
 
-  try {
-    const result = await client.query(query, [userId]);
-    return result.rows;
-  } catch (error) {
-    console.error("Error fetching audit summary:", error);
-    throw error;
-  }
-}
-
-/**
- * Retrieve recent membership events
- * @param {Object} client - Database client or pool
- * @param {number} limit - Number of records to return
- * @param {number} offset - Pagination offset
- * @returns {Promise<Array>} Recent membership events
- */
-async function getRecentMembershipEvents(client, limit = 50, offset = 0) {
-  const query = `
-    SELECT 
-      id,
-      user_id,
-      event_type,
-      action,
-      previous_tier,
-      new_tier,
-      status_before,
-      status_after,
-      initiated_by,
-      ip_address,
-      reason,
-      outcome,
-      created_at
-    FROM membership_audit_logs
-    ORDER BY created_at DESC
-    LIMIT $1 OFFSET $2
-  `;
-
-  try {
-    const result = await client.query(query, [limit, offset]);
-    return result.rows;
-  } catch (error) {
-    console.error("Error fetching recent membership events:", error);
-    throw error;
-  }
-}
-
-/**
- * Get audit events by type
- * @param {Object} client - Database client or pool
- * @param {string} eventType - Event type to filter by
- * @param {number} limit - Number of records to return
- * @returns {Promise<Array>} Events of specified type
- */
-async function getEventsByType(client, eventType, limit = 100) {
-  const query = `
-    SELECT 
-      id,
-      user_id,
-      event_type,
-      action,
-      status_before,
-      status_after,
-      initiated_by,
-      reason,
-      outcome,
-      created_at
-    FROM membership_audit_logs
-    WHERE event_type = $1
-    ORDER BY created_at DESC
-    LIMIT $2
-  `;
-
-  try {
-    const result = await client.query(query, [eventType, limit]);
-    return result.rows;
-  } catch (error) {
-    console.error("Error fetching events by type:", error);
-    throw error;
-  }
-}
-
-/**
- * Generate audit report
- * @param {Object} client - Database client or pool
- * @param {Object} options - Report options (startDate, endDate, eventType, userId)
- * @returns {Promise<Object>} Audit report
- */
-async function generateAuditReport(client, options = {}) {
-  const {
-    startDate = null,
-    endDate = null,
-    eventType = null,
-    userId = null
-  } = options;
-
-  let query = `
-    SELECT 
-      event_type,
-      COUNT(*) as total_events,
-      COUNT(DISTINCT user_id) as affected_users,
-      COUNT(CASE WHEN outcome = 'success' THEN 1 END) as successful,
-      COUNT(CASE WHEN outcome = 'failed' THEN 1 END) as failed,
-      COUNT(CASE WHEN outcome = 'scheduled' THEN 1 END) as scheduled,
-      MIN(created_at) as first_event,
-      MAX(created_at) as last_event
-    FROM membership_audit_logs
-    WHERE 1=1
-  `;
-
-  const params = [];
-  let paramIndex = 1;
-
-  if (startDate) {
-    query += ` AND created_at >= $${paramIndex}`;
-    params.push(startDate);
-    paramIndex++;
-  }
-
-  if (endDate) {
-    query += ` AND created_at <= $${paramIndex}`;
-    params.push(endDate);
-    paramIndex++;
-  }
-
-  if (eventType) {
-    query += ` AND event_type = $${paramIndex}`;
-    params.push(eventType);
-    paramIndex++;
-  }
-
-  if (userId) {
-    query += ` AND user_id = $${paramIndex}`;
-    params.push(userId);
-    paramIndex++;
-  }
-
-  query += ` GROUP BY event_type ORDER BY total_events DESC`;
-
-  try {
-    const result = await client.query(query, params);
-    return {
-      success: true,
-      reportDate: new Date().toISOString(),
-      filters: options,
-      summary: result.rows,
-      totalRecords: result.rows.reduce((sum, row) => sum + parseInt(row.total_events), 0)
-    };
-  } catch (error) {
-    console.error("Error generating audit report:", error);
-    throw error;
-  }
-}
-
-/**
- * Log administrative membership action
- * @param {Object} client - Database client or pool
- * @param {number} adminId - Admin user ID
- * @param {string} action - Action description
- * @param {Object} details - Action details
- * @returns {Promise<Object>} Audit log entry
- */
-async function logAdminMembershipAction(client, adminId, action, details = {}) {
-  return membershipAuditLog(client, {
-    userId: details.targetUserId || null,
-    eventType: action.toUpperCase(),
-    action: action.toLowerCase(),
-    statusBefore: details.statusBefore || null,
-    statusAfter: details.statusAfter || null,
-    initiatedBy: "admin",
-    ipAddress: details.ipAddress || "unknown",
-    reason: details.reason || `Admin action by user ${adminId}`,
-    metadata: {
+    const result = await pool.query(query, [
+      userId,
       adminId,
-      ...details.metadata
-    },
-    outcome: details.outcome || "success"
-  });
-}
+      eventType,
+      membershipTier,
+      oldStatus,
+      newStatus,
+      ipAddress,
+      userAgent,
+      details ? JSON.stringify(details) : null,
+      outcome,
+    ]);
 
+    return result.rows[0];
+  } catch (err) {
+    console.error("Error logging membership audit:", err.message);
+    // Don't throw - audit logging should not block operations
+    return null;
+  }
+};
+
+/**
+ * Get audit logs for a user
+ */
+const getUserAuditLogs = async (userId, limit = 50) => {
+  try {
+    const query = `
+      SELECT * FROM membership_audit_logs
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
+    const result = await pool.query(query, [userId, limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("Error fetching audit logs:", err.message);
+    return [];
+  }
+};
+
+/**
+ * Get audit logs by event type
+ */
+const getAuditLogsByEventType = async (eventType, limit = 100) => {
+  try {
+    const query = `
+      SELECT * FROM membership_audit_logs
+      WHERE event_type = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
+    const result = await pool.query(query, [eventType, limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("Error fetching logs by event type:", err.message);
+    return [];
+  }
+};
+
+/**
+ * Get all audit logs (admin view)
+ */
+const getAllAuditLogs = async (limit = 100, offset = 0) => {
+  try {
+    const query = `
+      SELECT 
+        mal.*,
+        u.email as user_email,
+        u.name as user_name,
+        admin.email as admin_email
+      FROM membership_audit_logs mal
+      LEFT JOIN users u ON mal.user_id = u.id
+      LEFT JOIN users admin ON mal.admin_id = admin.id
+      ORDER BY mal.created_at DESC
+      LIMIT $1 OFFSET $2
+    `;
+    const result = await pool.query(query, [limit, offset]);
+    return result.rows;
+  } catch (err) {
+    console.error("Error fetching all audit logs:", err.message);
+    return [];
+  }
+};
+
+/**
+ * Get audit logs for a date range
+ */
+const getAuditLogsByDateRange = async (startDate, endDate, limit = 100) => {
+  try {
+    const query = `
+      SELECT * FROM membership_audit_logs
+      WHERE created_at BETWEEN $1 AND $2
+      ORDER BY created_at DESC
+      LIMIT $3
+    `;
+    const result = await pool.query(query, [startDate, endDate, limit]);
+    return result.rows;
+  } catch (err) {
+    console.error("Error fetching logs by date range:", err.message);
+    return [];
+  }
+};
+
+/**
+ * Log upgrade event
+ */
+const logUpgradeEvent = async (userId, fromTier, toTier, ipAddress, userAgent) => {
+  return logMembershipAudit({
+    userId,
+    eventType: "upgrade",
+    membershipTier: toTier,
+    oldStatus: "active",
+    newStatus: "active",
+    ipAddress,
+    userAgent,
+    outcome: "success",
+  });
+};
+
+/**
+ * Log downgrade event
+ */
+const logDowngradeEvent = async (userId, fromTier, toTier, ipAddress, userAgent) => {
+  return logMembershipAudit({
+    userId,
+    eventType: "downgrade",
+    membershipTier: fromTier,
+    oldStatus: "active",
+    newStatus: "scheduled",
+    ipAddress,
+    userAgent,
+    outcome: "success",
+  });
+};
+
+/**
+ * Log suspension event
+ */
+const logSuspensionEvent = async (userId, adminId, reason, ipAddress, userAgent) => {
+  return logMembershipAudit({
+    userId,
+    adminId,
+    eventType: "suspension",
+    oldStatus: "active",
+    newStatus: "suspended",
+    ipAddress,
+    userAgent,
+    details: { reason },
+    outcome: "success",
+  });
+};
+
+/**
+ * Log reactivation event
+ */
+const logReactivationEvent = async (userId, adminId, ipAddress, userAgent) => {
+  return logMembershipAudit({
+    userId,
+    adminId,
+    eventType: "reactivation",
+    oldStatus: "suspended",
+    newStatus: "active",
+    ipAddress,
+    userAgent,
+    outcome: "success",
+  });
+};
+
+/**
+ * Log deactivation event
+ */
+const logDeactivationEvent = async (userId, ipAddress, userAgent) => {
+  return logMembershipAudit({
+    userId,
+    eventType: "deactivation",
+    oldStatus: "active",
+    newStatus: "deactivated",
+    ipAddress,
+    userAgent,
+    outcome: "success",
+  });
+};
+
+/**
+ * Log expiry event
+ */
+const logExpiryEvent = async (userId, tierName, ipAddress = null, userAgent = null) => {
+  return logMembershipAudit({
+    userId,
+    eventType: "expiry",
+    membershipTier: tierName,
+    oldStatus: "active",
+    newStatus: "expired",
+    ipAddress,
+    userAgent,
+    outcome: "success",
+  });
+};
+
+/**
+ * Generate audit report for admin
+ */
+const generateAuditReport = async (startDate, endDate) => {
+  try {
+    const logs = await getAuditLogsByDateRange(startDate, endDate, 10000);
+
+    // Group by event type
+    const eventTypeSummary = {};
+    const userSummary = {};
+
+    logs.forEach((log) => {
+      // Count by event type
+      eventTypeSummary[log.event_type] = (eventTypeSummary[log.event_type] || 0) + 1;
+
+      // Count by user
+      if (log.user_id) {
+        if (!userSummary[log.user_id]) {
+          userSummary[log.user_id] = {
+            events: 0,
+            userName: log.user_email,
+            lastActivity: log.created_at,
+          };
+        }
+        userSummary[log.user_id].events++;
+        userSummary[log.user_id].lastActivity = log.created_at;
+      }
+    });
+
+    return {
+      totalEvents: logs.length,
+      dateRange: { startDate, endDate },
+      eventTypeSummary,
+      userSummary,
+      logs,
+    };
+  } catch (err) {
+    console.error("Error generating audit report:", err.message);
+    return null;
+  }
+};
+
+// Export all functions
 module.exports = {
-  membershipAuditLog,
-  getUserAuditSummary,
-  getRecentMembershipEvents,
-  getEventsByType,
+  logMembershipAudit,
+  getUserAuditLogs,
+  getAuditLogsByEventType,
+  getAllAuditLogs,
+  getAuditLogsByDateRange,
+  logUpgradeEvent,
+  logDowngradeEvent,
+  logSuspensionEvent,
+  logReactivationEvent,
+  logDeactivationEvent,
+  logExpiryEvent,
   generateAuditReport,
-  logAdminMembershipAction
 };

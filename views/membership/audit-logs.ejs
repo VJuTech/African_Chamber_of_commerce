@@ -1,0 +1,465 @@
+<!-- views/membership/audit-logs.ejs -->
+<!-- ACC-FRS-MEM-008: Membership Audit Logs -->
+
+<div class="audit-logs-container">
+  <div class="page-header">
+    <h1>Your Membership Activity Logs</h1>
+    <p>Complete record of all membership-related actions on your account</p>
+  </div>
+
+  <% if (auditLogs && auditLogs.length > 0) { %>
+    <div class="logs-section">
+      <div class="logs-filter">
+        <input type="text" id="filterSearch" placeholder="Search by event type..." class="filter-input">
+      </div>
+
+      <div class="logs-list">
+        <% auditLogs.forEach((log, index) => { %>
+          <div class="log-entry">
+            <div class="log-icon event-<%= log.event_type %>">
+              <%= log.event_type.charAt(0).toUpperCase() %>
+            </div>
+            <div class="log-content">
+              <div class="log-header">
+                <h3><%= log.event_type.replace(/_/g, ' ').toUpperCase() %></h3>
+                <span class="log-date">
+                  <%= new Date(log.created_at).toLocaleString() %>
+                </span>
+              </div>
+
+              <% if (log.membership_tier) { %>
+                <p class="log-detail">
+                  <strong>Membership Tier:</strong> <%= log.membership_tier %>
+                </p>
+              <% } %>
+
+              <% if (log.old_status || log.new_status) { %>
+                <p class="log-detail">
+                  <strong>Status Change:</strong>
+                  <span class="status-badge old"><%= log.old_status %></span>
+                  <i>→</i>
+                  <span class="status-badge new"><%= log.new_status %></span>
+                </p>
+              <% } %>
+
+              <% if (log.ip_address) { %>
+                <p class="log-detail">
+                  <strong>IP Address:</strong> <code><%= log.ip_address %></code>
+                </p>
+              <% } %>
+
+              <div class="log-footer">
+                <span class="outcome <%= log.outcome %>">
+                  <%= log.outcome.toUpperCase() %>
+                </span>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h3>Event Types</h3>
+      <div class="legend-items">
+        <div class="legend-item">
+          <span class="badge badge-upgrade">upgrade</span>
+          Membership upgrade
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-downgrade">downgrade</span>
+          Scheduled downgrade
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-suspension">suspension</span>
+          Account suspension
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-reactivation">reactivation</span>
+          Account reactivation
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-deactivation">deactivation</span>
+          Account deactivation
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-expiry">expiry</span>
+          Membership expiry
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-view-status">view_status</span>
+          Status viewed
+        </div>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h2>No Activity Yet</h2>
+      <p>Your membership activity log is empty. Once you make changes to your membership, they will appear here.</p>
+      <a href="/membership/status" class="btn btn-primary">View Your Membership</a>
+    </div>
+  <% } %>
+
+  <div class="back-section">
+    <a href="/membership/status" class="btn btn-secondary">← Back to Membership Status</a>
+  </div>
+</div>
+
+<style>
+  .audit-logs-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .page-header h1 {
+    color: #333;
+    margin: 0 0 10px 0;
+    font-size: 2.5rem;
+  }
+
+  .page-header p {
+    color: #666;
+    margin: 0;
+  }
+
+  .logs-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    overflow: hidden;
+  }
+
+  .logs-filter {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background-color: #f9f9f9;
+  }
+
+  .filter-input {
+    width: 100%;
+    max-width: 300px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+  }
+
+  .filter-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .logs-list {
+    padding: 20px;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+  }
+
+  .log-entry:hover {
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .log-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .log-icon.event-upgrade {
+    background-color: #28a745;
+  }
+
+  .log-icon.event-downgrade {
+    background-color: #ffc107;
+  }
+
+  .log-icon.event-suspension {
+    background-color: #dc3545;
+  }
+
+  .log-icon.event-reactivation {
+    background-color: #17a2b8;
+  }
+
+  .log-icon.event-deactivation {
+    background-color: #6c757d;
+  }
+
+  .log-icon.event-expiry {
+    background-color: #fd7e14;
+  }
+
+  .log-icon.event-view-status {
+    background-color: #667eea;
+  }
+
+  .log-content {
+    flex-grow: 1;
+  }
+
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .log-header h3 {
+    color: #333;
+    margin: 0;
+    font-size: 1.1rem;
+    text-transform: capitalize;
+  }
+
+  .log-date {
+    color: #999;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .log-detail {
+    color: #666;
+    margin: 8px 0;
+    font-size: 0.95rem;
+  }
+
+  .log-detail strong {
+    color: #333;
+  }
+
+  .log-detail code {
+    background-color: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    color: #d63384;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 5px;
+  }
+
+  .status-badge.old {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .status-badge.new {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .log-footer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+  }
+
+  .outcome {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .outcome.success {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .outcome.failure {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .outcome.pending {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+  }
+
+  .badge-upgrade {
+    background-color: #28a745;
+  }
+
+  .badge-downgrade {
+    background-color: #ffc107;
+    color: #333;
+  }
+
+  .badge-suspension {
+    background-color: #dc3545;
+  }
+
+  .badge-reactivation {
+    background-color: #17a2b8;
+  }
+
+  .badge-deactivation {
+    background-color: #6c757d;
+  }
+
+  .badge-expiry {
+    background-color: #fd7e14;
+  }
+
+  .badge-view-status {
+    background-color: #667eea;
+  }
+
+  .legend {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+  }
+
+  .legend h3 {
+    color: #333;
+    margin: 0 0 15px 0;
+  }
+
+  .legend-items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 0.95rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h2 {
+    color: #333;
+    margin: 0 0 10px 0;
+  }
+
+  .empty-state p {
+    color: #666;
+    margin: 0 0 20px 0;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #5568d3;
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+  }
+
+  .back-section {
+    text-align: center;
+    margin-top: 30px;
+  }
+
+  @media (max-width: 768px) {
+    .log-entry {
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .log-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .log-date {
+      margin-top: 5px;
+    }
+
+    .legend-items {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  document.getElementById('filterSearch')?.addEventListener('keyup', (e) => {
+    const searchTerm = e.target.value.toLowerCase();
+    const entries = document.querySelectorAll('.log-entry');
+
+    entries.forEach((entry) => {
+      const title = entry.querySelector('h3').textContent.toLowerCase();
+      entry.style.display = title.includes(searchTerm) ? 'flex' : 'none';
+    });
+  });
+</script>

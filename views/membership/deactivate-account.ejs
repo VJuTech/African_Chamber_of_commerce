@@ -1,294 +1,412 @@
-<!-- Deactivate Account View -->
-<!-- Requirement ACC-FRS-MEM-006: Deactivate Account (User Initiated) -->
+<!-- views/membership/deactivate-account.ejs -->
+<!-- ACC-FRS-MEM-006: Deactivate Account (User-Initiated) -->
 
 <div class="deactivate-account-container">
-  <div class="page-header">
+  <div class="warning-section">
+    <div class="warning-icon">⚠️</div>
     <h1>Deactivate Your Account</h1>
-    <p class="subtitle">Permanently deactivate your account</p>
+    <p class="warning-message">This action will permanently deactivate your account and you will lose access to all services immediately.</p>
   </div>
 
-  <div class="warning-alert">
-    <h3>⚠️ Warning: This Action Cannot Be Undone</h3>
-    <ul>
-      <li>Your account will be immediately deactivated</li>
-      <li>You will lose access to all platform features</li>
-      <li>All active memberships will be terminated</li>
-      <li>Your data will be retained for 30 days before deletion</li>
-      <li>You will no longer be able to log in</li>
-    </ul>
+  <div class="deactivation-details">
+    <h2>What Happens When You Deactivate?</h2>
+    <div class="consequence-grid">
+      <div class="consequence">
+        <h3>❌ Immediate Access Loss</h3>
+        <p>You will be logged out immediately and cannot access your account.</p>
+      </div>
+      <div class="consequence">
+        <h3>📊 Data Preservation</h3>
+        <p>Your data will be retained for 90 days. After that, it will be permanently deleted.</p>
+      </div>
+      <div class="consequence">
+        <h3>💳 Billing Stops</h3>
+        <p>No further charges will be made to your account.</p>
+      </div>
+      <div class="consequence">
+        <h3>↩️ Reactivation Window</h3>
+        <p>You can reactivate your account within 90 days by contacting support.</p>
+      </div>
+    </div>
   </div>
 
-  <div class="deactivation-form-container">
-    <form id="deactivateForm" method="POST" action="/membership/api/deactivate" onsubmit="handleDeactivation(event)">
-      <div class="form-section">
-        <h3>Before You Go...</h3>
-        <p>Please tell us why you're deactivating your account (optional):</p>
-        
-        <div class="form-group">
-          <label for="reason">Reason for Deactivation:</label>
-          <textarea 
-            id="reason" 
-            name="reason" 
-            placeholder="Help us improve - what could we do better?" 
-            rows="5"
-            maxlength="500"
-          ></textarea>
-          <small>Max 500 characters</small>
-        </div>
+  <div class="current-membership-status">
+    <h2>Your Current Membership</h2>
+    <div class="status-card">
+      <div class="status-detail">
+        <strong>Tier:</strong>
+        <span><%= membershipStatus.tier_name %></span>
       </div>
-
-      <div class="confirmation-section">
-        <h3>Confirm Deactivation</h3>
-        <p>To proceed, please confirm that you understand the consequences:</p>
-        
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input type="checkbox" name="confirmDeactivation" id="confirmDeactivation" required>
-            <span>I understand that deactivating my account is permanent and cannot be reversed</span>
-          </label>
-        </div>
-
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input type="checkbox" name="confirmDataLoss" id="confirmDataLoss" required>
-            <span>I confirm that I will lose all access to my account immediately</span>
-          </label>
-        </div>
-
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input type="checkbox" name="confirmMembershipTermination" id="confirmMembershipTermination" required>
-            <span>I acknowledge that my membership will be terminated</span>
-          </label>
-        </div>
+      <div class="status-detail">
+        <strong>Status:</strong>
+        <span><%= membershipStatus.membership_status %></span>
       </div>
-
-      <div class="action-buttons">
-        <a href="/membership/status" class="btn btn-cancel">Cancel</a>
-        <button type="submit" class="btn btn-danger" id="deactivateBtn" disabled>
-          Deactivate Account Permanently
-        </button>
+      <div class="status-detail">
+        <strong>Member Since:</strong>
+        <span><%= new Date(membershipStatus.membership_start_date).toLocaleDateString() %></span>
       </div>
-    </form>
+    </div>
+  </div>
+
+  <form id="deactivateForm" class="deactivation-form">
+    <h2>Confirm Deactivation</h2>
+    
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="understand" required />
+        I understand that my account will be deactivated immediately and I will lose all access.
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" name="dataLoss" required />
+        I understand that my data will be permanently deleted after 90 days if not reactivated.
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label for="reason">Please tell us why you're deactivating (optional):</label>
+      <select id="reason" name="reason">
+        <option value="">Select a reason...</option>
+        <option value="too_expensive">Too expensive</option>
+        <option value="not_using">Not using the service</option>
+        <option value="poor_experience">Poor experience</option>
+        <option value="technical_issues">Technical issues</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="feedback">Additional feedback (optional):</label>
+      <textarea id="feedback" name="feedback" rows="4" placeholder="We'd love to hear your thoughts..."></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-danger" id="deactivateBtn">
+        Deactivate My Account
+      </button>
+      <a href="/membership/status" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+  <div class="faq">
+    <h2>Frequently Asked Questions</h2>
+    <div class="faq-item">
+      <h4>Can I reactivate my account after deactivation?</h4>
+      <p>Yes, you have 90 days to contact support and request reactivation. After 90 days, your account and data will be permanently deleted.</p>
+    </div>
+    <div class="faq-item">
+      <h4>Will I be charged after deactivating?</h4>
+      <p>No, your subscription will be cancelled immediately and you will not be charged any further.</p>
+    </div>
+    <div class="faq-item">
+      <h4>What if I have a pending upgrade?</h4>
+      <p>Any pending transactions will be cancelled and you will receive a refund if applicable.</p>
+    </div>
   </div>
 </div>
 
-<script>
-// Enable submit button only when all checkboxes are checked
-document.getElementById('confirmDeactivation').addEventListener('change', updateButtonState);
-document.getElementById('confirmDataLoss').addEventListener('change', updateButtonState);
-document.getElementById('confirmMembershipTermination').addEventListener('change', updateButtonState);
-
-function updateButtonState() {
-  const allChecked = 
-    document.getElementById('confirmDeactivation').checked &&
-    document.getElementById('confirmDataLoss').checked &&
-    document.getElementById('confirmMembershipTermination').checked;
-  
-  document.getElementById('deactivateBtn').disabled = !allChecked;
-}
-
-function handleDeactivation(event) {
-  event.preventDefault();
-  
-  const confirmed = confirm(
-    '⚠️ FINAL WARNING: Are you absolutely sure you want to permanently deactivate your account? This cannot be undone!'
-  );
-  
-  if (confirmed) {
-    document.getElementById('deactivateForm').submit();
-  }
-}
-</script>
-
 <style>
   .deactivate-account-container {
-    max-width: 700px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
   }
 
-  .page-header {
+  .warning-section {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 8px;
     text-align: center;
-    margin-bottom: 40px;
-  }
-
-  .page-header h1 {
-    font-size: 2rem;
-    color: #dc3545;
-    margin-bottom: 10px;
-  }
-
-  .subtitle {
-    color: #666;
-    font-size: 1rem;
-  }
-
-  .warning-alert {
-    background-color: #f8d7da;
-    border: 2px solid #f5c6cb;
-    color: #721c24;
-    padding: 20px;
-    border-radius: 12px;
     margin-bottom: 30px;
   }
 
-  .warning-alert h3 {
-    margin-top: 0;
+  .warning-icon {
+    font-size: 3rem;
     margin-bottom: 15px;
-    font-size: 1.2rem;
   }
 
-  .warning-alert ul {
+  .warning-section h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.2rem;
+  }
+
+  .warning-message {
+    font-size: 1.1rem;
     margin: 0;
-    padding-left: 20px;
+    opacity: 0.95;
   }
 
-  .warning-alert li {
-    margin-bottom: 8px;
-  }
-
-  .deactivation-form-container {
+  .deactivation-details {
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     padding: 30px;
-  }
-
-  .form-section,
-  .confirmation-section {
+    border-radius: 8px;
     margin-bottom: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
 
-  .form-section h3,
-  .confirmation-section h3 {
-    font-size: 1.3rem;
+  .deactivation-details h2 {
     color: #333;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #f0f0f0;
+    margin-top: 0;
+    margin-bottom: 20px;
   }
 
-  .form-section p,
-  .confirmation-section p {
+  .consequence-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .consequence {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #dc3545;
+  }
+
+  .consequence h3 {
+    color: #333;
+    margin: 0 0 10px 0;
+    font-size: 0.95rem;
+  }
+
+  .consequence p {
     color: #666;
-    margin-bottom: 15px;
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .current-membership-status {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .current-membership-status h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+
+  .status-card {
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 4px;
+  }
+
+  .status-detail {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .status-detail:last-child {
+    border-bottom: none;
+  }
+
+  .status-detail strong {
+    color: #333;
+  }
+
+  .status-detail span {
+    color: #666;
+  }
+
+  .deactivation-form {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    border: 2px solid #dc3545;
+  }
+
+  .deactivation-form h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 25px;
   }
 
   .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
   }
 
   .form-group label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
     color: #333;
+    font-weight: 600;
+    margin-bottom: 8px;
   }
 
+  .checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-weight: normal;
+    cursor: pointer;
+  }
+
+  .checkbox-label input {
+    margin-top: 3px;
+    cursor: pointer;
+  }
+
+  .form-group select,
   .form-group textarea {
     width: 100%;
-    padding: 12px;
+    padding: 10px 12px;
     border: 1px solid #ddd;
-    border-radius: 8px;
+    border-radius: 4px;
     font-size: 1rem;
     font-family: inherit;
-    resize: vertical;
   }
 
+  .form-group select:focus,
   .form-group textarea:focus {
     outline: none;
     border-color: #dc3545;
     box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
   }
 
-  .form-group small {
-    display: block;
-    color: #999;
-    margin-top: 5px;
+  .form-group textarea {
+    resize: vertical;
   }
 
-  .checkbox-group {
-    margin-bottom: 15px;
-  }
-
-  .checkbox-label {
+  .form-actions {
     display: flex;
-    align-items: flex-start;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .checkbox-label input[type="checkbox"] {
-    margin-right: 12px;
-    margin-top: 3px;
-    cursor: pointer;
-    width: 18px;
-    height: 18px;
-  }
-
-  .checkbox-label span {
-    color: #333;
-    line-height: 1.5;
-  }
-
-  .action-buttons {
-    display: flex;
-    gap: 12px;
+    gap: 10px;
+    justify-content: center;
     margin-top: 30px;
     padding-top: 20px;
-    border-top: 2px solid #f0f0f0;
+    border-top: 1px solid #e0e0e0;
   }
 
   .btn {
-    flex: 1;
-    padding: 15px;
-    border-radius: 8px;
+    padding: 12px 25px;
+    border-radius: 4px;
     text-decoration: none;
-    text-align: center;
     font-weight: 600;
-    transition: all 0.3s ease;
-    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     cursor: pointer;
-    font-size: 1rem;
-  }
-
-  .btn-cancel {
-    background-color: #6c757d;
-    color: white;
-  }
-
-  .btn-cancel:hover {
-    background-color: #5a6268;
+    border: none;
+    transition: all 0.3s ease;
   }
 
   .btn-danger {
     background-color: #dc3545;
     color: white;
+    flex: 1;
   }
 
-  .btn-danger:hover:not(:disabled) {
+  .btn-danger:hover {
     background-color: #c82333;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
   }
 
-  .btn-danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    flex: 1;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+  }
+
+  .faq {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .faq h2 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+
+  .faq-item {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .faq-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .faq-item h4 {
+    color: #333;
+    margin: 0 0 10px 0;
+  }
+
+  .faq-item p {
+    color: #666;
+    margin: 0;
   }
 
   @media (max-width: 768px) {
-    .deactivation-form-container {
-      padding: 20px;
+    .consequence-grid {
+      grid-template-columns: 1fr;
     }
 
-    .action-buttons {
+    .form-actions {
       flex-direction: column;
     }
 
-    .page-header h1 {
-      font-size: 1.5rem;
+    .btn {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>
+
+<script>
+  document.getElementById('deactivateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const btn = document.getElementById('deactivateBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+
+    try {
+      const response = await fetch('/membership/api/deactivate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmDeactivate: true,
+          reason: document.getElementById('reason').value,
+          feedback: document.getElementById('feedback').value,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Your account has been deactivated. You will be logged out now.');
+        window.location.href = '/logout';
+      } else {
+        alert('Error: ' + data.message);
+        btn.disabled = false;
+        btn.textContent = 'Deactivate My Account';
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('An error occurred. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Deactivate My Account';
+    }
+  });
+</script>

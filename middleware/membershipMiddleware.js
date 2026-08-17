@@ -1,296 +1,333 @@
 /**
- * Membership Access Control Middleware
- * Validates user membership status and enforces access restrictions
- * Chapter 9 - Membership & Account Management Integration
+ * membershipMiddleware.js - Middleware for membership management
+ * Provides authentication and authorization checks for membership operations
  */
 
 const membershipModel = require("../models/membershipModel");
 
 /**
- * Middleware to check if user account is active
- * Blocks access if account is suspended or deactivated
+ * Check if user is authenticated
  */
-const ensureAccountActive = async (req, res, next) => {
+const isAuthenticated = (req, res, next) => {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ success: false, message: "User not authenticated" });
+  }
+  next();
+};
+
+/**
+ * Check if user is admin
+ */
+const isAdmin = (req, res, next) => {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ success: false, message: "User not authenticated" });
+  }
+
+  if (req.session.role !== "admin" && req.session.role !== "super_admin") {
+    return res.status(403).json({ success: false, message: "Access denied. Admin role required" });
+  }
+
+  next();
+};
+
+/**
+ * Check if user account is active and not suspended/deactivated
+ */
+const isAccountActive = async (req, res, next) => {
   try {
-    const userId = req.session?.userId || req.user?.id;
-    
-    if (!userId) {
-      return res.status(401).render("accounts/login", {
-        title: "Sign In",
-        error: "Please log in to continue"
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const membership = await membershipModel.getUserMembershipStatus(req.session.userId);
+
+    if (!membership) {
+      return res.status(404).json({ success: false, message: "Membership not found" });
+    }
+
+    // Check if account is suspended or deactivated
+    if (membership.account_status === "suspended") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been suspended",
+        reason: membership.suspension_reason,
       });
     }
 
-    const membershipData = await membershipModel.getUserMembershipStatus(userId);
-    
-    if (!membershipData) {
-      return res.status(404).render("error/404", {
-        title: "Not Found",
-        message: "User account not found"
+    if (membership.account_status === "deactivated") {
+      return res.status(403).json({ success: false, message: "Your account has been deactivated" });
+    }
+
+    // Check if membership is suspended
+    if (membership.membership_status === "suspended") {
+      return res.status(403).json({
+        success: false,
+        message: "Your membership has been suspended",
       });
     }
 
-    // Check if account is suspended
-    if (membershipData.is_suspended) {
-      return res.status(403).render("error/403", {
-        title: "Account Suspended",
-        message: `Your account has been suspended. Reason: ${membershipData.suspension_reason || "No reason provided"}. Please contact support for assistance.`
+    // Check if membership is deactivated
+    if (membership.membership_status === "deactivated") {
+      return res.status(403).json({
+        success: false,
+        message: "Your membership has been deactivated",
       });
     }
 
-    // Check if account is deactivated
-    if (membershipData.is_deactivated) {
-      return res.status(403).render("error/403", {
-        title: "Account Deactivated",
-        message: "Your account has been deactivated. Please contact support if you wish to reactivate it."
-      });
-    }
-
-    // Store membership data in request for later use
-    req.membership = membershipData;
+    // Attach membership to request
+    req.membership = membership;
     next();
   } catch (error) {
-    console.error("Error checking account status:", error);
-    return next(error);
+    console.error("Error checking account status:", error.message);
+    res.status(500).json({ success: false, message: "Error checking account status" });
   }
 };
 
 /**
- * Middleware to check if user's membership is active
- * Allows access but may restrict features based on membership status
- */
-const checkMembershipStatus = async (req, res, next) => {
-  try {
-    const userId = req.session?.userId || req.user?.id;
-    
-    if (!userId) {
-      return next();
-    }
-
-    const membershipData = await membershipModel.getUserMembershipStatus(userId);
-    
-    if (membershipData) {
-      // Check if membership is expired
-      if (membershipData.membership_expiry_date) {
-        const now = new Date();
-        const expiryDate = new Date(membershipData.membership_expiry_date);
-        
-        if (expiryDate < now && membershipData.membership_status !== "expired") {
-          // Membership is expired
-          req.membership = { ...membershipData, membership_status: "expired" };
-        } else {
-          req.membership = membershipData;
-        }
-      } else {
-        req.membership = membershipData;
-      }
-    }
-
-    next();
-  } catch (error) {
-    console.error("Error checking membership status:", error);
-    next();
-  }
-};
-
-/**
- * Middleware to enforce feature access based on membership tier
- * Blocks access to premium features if user doesn't have required tier
+ * Check if membership has a specific feature
  */
 const requireFeatureAccess = (featureName) => {
   return async (req, res, next) => {
     try {
-      const userId = req.session?.userId || req.user?.id;
-      
-      if (!userId) {
-        return res.status(401).render("accounts/login", {
-          title: "Sign In",
-          error: "Please log in to access this feature"
-        });
+      if (!req.membership) {
+        return res.status(401).json({ success: false, message: "User not authenticated" });
       }
 
-      const hasAccess = await membershipModel.hasFeatureAccess(userId, featureName);
-      
-      if (!hasAccess) {
-        return res.status(403).render("error/403", {
-          title: "Premium Feature",
-          message: `This feature is not available in your current membership tier. Please upgrade your membership to access "${featureName}".`
+      // Get tier details to check features
+      const tierDetails = await membershipModel.getMembershipTierDetails(req.membership.tier_id);
+
+      if (!tierDetails) {
+        return res.status(404).json({ success: false, message: "Tier information not found" });
+      }
+
+      // Check if feature is available in tier
+      const hasFeature = tierDetails.features.some((f) => f.feature_name === featureName && f.enabled);
+
+      if (!hasFeature) {
+        return res.status(403).json({
+          success: false,
+          message: `This feature is not available in your ${tierDetails.tier_name} membership`,
+          upgradeRequired: true,
         });
       }
 
       next();
     } catch (error) {
-      console.error("Error checking feature access:", error);
-      return next(error);
+      console.error("Error checking feature access:", error.message);
+      res.status(500).json({ success: false, message: "Error checking feature access" });
     }
   };
 };
 
 /**
- * Middleware to check membership tier requirements
+ * Check usage limits for a membership tier
  */
-const requireMembershipTier = (allowedTiers = []) => {
+const checkUsageLimits = (limitType) => {
   return async (req, res, next) => {
     try {
-      const userId = req.session?.userId || req.user?.id;
-      
-      if (!userId) {
-        return res.status(401).render("accounts/login", {
-          title: "Sign In",
-          error: "Please log in to continue"
-        });
+      if (!req.membership) {
+        return res.status(401).json({ success: false, message: "User not authenticated" });
       }
 
-      const membershipData = await membershipModel.getUserMembershipStatus(userId);
-      
-      if (!membershipData) {
-        return res.status(404).render("error/404", {
-          title: "Not Found",
-          message: "Membership information not found"
-        });
+      // Get tier details to check limits
+      const tierDetails = await membershipModel.getMembershipTierDetails(req.membership.tier_id);
+
+      if (!tierDetails) {
+        return res.status(404).json({ success: false, message: "Tier information not found" });
       }
 
-      // Check if user's tier is in allowed tiers
-      if (allowedTiers.length > 0 && !allowedTiers.includes(membershipData.tier_slug)) {
-        return res.status(403).render("error/403", {
-          title: "Tier Required",
-          message: `This feature requires one of the following membership tiers: ${allowedTiers.join(", ")}. Your current tier is: ${membershipData.tier_slug}`
-        });
-      }
+      // Check if limit exists
+      const limit = tierDetails.limits.find((l) => l.limit_type === limitType);
 
-      req.membership = membershipData;
-      next();
-    } catch (error) {
-      console.error("Error checking membership tier:", error);
-      return next(error);
-    }
-  };
-};
-
-/**
- * Middleware to enforce usage limits
- */
-const checkUsageLimits = (limitKey) => {
-  return async (req, res, next) => {
-    try {
-      const userId = req.session?.userId || req.user?.id;
-      
-      if (!userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const limit = await membershipModel.checkMembershipLimit(userId, limitKey);
-      
-      if (limit !== null) {
-        // Attach limit information to request
-        req.membershipLimit = {
-          key: limitKey,
-          value: limit
-        };
+      if (limit) {
+        // Attach limit to request for controller to use
+        req.membershipLimit = limit;
       }
 
       next();
     } catch (error) {
-      console.error("Error checking usage limits:", error);
-      return next(error);
+      console.error("Error checking usage limits:", error.message);
+      res.status(500).json({ success: false, message: "Error checking usage limits" });
     }
   };
 };
 
 /**
- * Middleware for admin access verification
+ * Check if membership is eligible for upgrade
  */
-const ensureAdmin = (req, res, next) => {
-  if (!req.session?.isAdmin) {
-    return res.status(403).render("error/403", {
-      title: "Forbidden",
-      message: "Admin access required to perform this action"
-    });
+const canUpgrade = async (req, res, next) => {
+  try {
+    if (!req.membership) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const { newTierId } = req.body;
+
+    if (!newTierId) {
+      return res.status(400).json({ success: false, message: "New tier ID is required" });
+    }
+
+    const newTierDetails = await membershipModel.getMembershipTierDetails(newTierId);
+
+    if (!newTierDetails) {
+      return res.status(404).json({ success: false, message: "Tier not found" });
+    }
+
+    // Verify it's an upgrade (higher tier level)
+    if (newTierDetails.tier_level <= req.membership.tier_level) {
+      return res.status(400).json({
+        success: false,
+        message: "You can only upgrade to a higher tier",
+      });
+    }
+
+    req.newTierDetails = newTierDetails;
+    next();
+  } catch (error) {
+    console.error("Error checking upgrade eligibility:", error.message);
+    res.status(500).json({ success: false, message: "Error checking upgrade eligibility" });
   }
-  next();
 };
 
 /**
- * Middleware to check if user is platform administrator
+ * Check if membership is eligible for downgrade
  */
-const ensureSuperAdmin = (req, res, next) => {
-  const userRole = req.session?.role;
-  
-  if (userRole !== "super_admin" && userRole !== "platform_admin") {
-    return res.status(403).render("error/403", {
-      title: "Forbidden",
-      message: "Super administrator access required"
-    });
+const canDowngrade = async (req, res, next) => {
+  try {
+    if (!req.membership) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const { newTierId } = req.body;
+
+    if (!newTierId) {
+      return res.status(400).json({ success: false, message: "New tier ID is required" });
+    }
+
+    const newTierDetails = await membershipModel.getMembershipTierDetails(newTierId);
+
+    if (!newTierDetails) {
+      return res.status(404).json({ success: false, message: "Tier not found" });
+    }
+
+    // Verify it's a downgrade (lower tier level)
+    if (newTierDetails.tier_level >= req.membership.tier_level) {
+      return res.status(400).json({
+        success: false,
+        message: "You can only downgrade to a lower tier",
+      });
+    }
+
+    req.newTierDetails = newTierDetails;
+    next();
+  } catch (error) {
+    console.error("Error checking downgrade eligibility:", error.message);
+    res.status(500).json({ success: false, message: "Error checking downgrade eligibility" });
   }
-  next();
 };
 
 /**
- * Middleware to log membership-related actions
+ * Load user's current membership into request object
  */
-const logMembershipAction = async (req, res, next) => {
-  // Store original send method
-  const originalSend = res.send;
-  
-  // Override send method to capture response
-  res.send = function (data) {
-    try {
-      const userId = req.session?.userId || req.user?.id;
-      
-      if (userId && req.path.includes("/membership")) {
-        // Log membership action
-        console.log({
-          timestamp: new Date().toISOString(),
-          userId,
-          path: req.path,
-          method: req.method,
-          statusCode: res.statusCode,
-          ip: req.ip
+const loadUserMembership = async (req, res, next) => {
+  try {
+    if (req.session && req.session.userId) {
+      const membership = await membershipModel.getUserMembershipStatus(req.session.userId);
+      req.userMembership = membership;
+    }
+    next();
+  } catch (error) {
+    console.error("Error loading user membership:", error.message);
+    // Don't fail the request if membership can't be loaded
+    next();
+  }
+};
+
+/**
+ * Log membership activity
+ */
+const logActivity = (eventType) => {
+  return (req, res, next) => {
+    // Store event type in request for later logging
+    req.auditEventType = eventType;
+    next();
+  };
+};
+
+/**
+ * Verify suspended user can only access limited endpoints
+ */
+const allowSuspendedAccess = async (req, res, next) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+    }
+
+    const membership = await membershipModel.getUserMembershipStatus(req.session.userId);
+
+    if (!membership) {
+      return res.status(404).json({ success: false, message: "Membership not found" });
+    }
+
+    // Suspended users can only access status and reactivation endpoints
+    if (membership.account_status === "suspended" || membership.membership_status === "suspended") {
+      // Allow access to status and help endpoints only
+      const allowedPaths = ["/membership/status", "/help", "/logout"];
+      if (!allowedPaths.some((path) => req.path.includes(path))) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account is suspended. Limited access available.",
         });
       }
-    } catch (error) {
-      console.error("Error logging membership action:", error);
     }
-    
-    // Call original send
-    return originalSend.call(this, data);
-  };
-  
-  next();
+
+    req.membership = membership;
+    next();
+  } catch (error) {
+    console.error("Error checking suspended access:", error.message);
+    res.status(500).json({ success: false, message: "Error checking access" });
+  }
 };
 
 /**
- * Middleware to attach membership data to locals for views
+ * Validate membership expiry and warn if expiring soon
  */
-const attachMembershipToLocals = (req, res, next) => {
-  if (req.membership) {
-    res.locals.membership = req.membership;
-    res.locals.membershipTier = req.membership.tier_slug;
-    res.locals.isMembershipActive = req.membership.membership_status === "active";
-    res.locals.isMembershipExpired = req.membership.membership_status === "expired";
+const checkExpiryWarning = async (req, res, next) => {
+  try {
+    if (!req.membership) {
+      return next();
+    }
+
+    const expiryStatus = await membershipModel.getMembershipExpiryStatus(req.session.userId);
+
+    if (expiryStatus && expiryStatus.expiry_status === "Expiring soon") {
+      res.locals.expiryWarning = {
+        message: "Your membership is expiring soon",
+        expiryDate: expiryStatus.membership_expiry_date,
+        daysRemaining: Math.ceil(
+          (new Date(expiryStatus.membership_expiry_date) - new Date()) / (1000 * 60 * 60 * 24)
+        ),
+      };
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error checking expiry warning:", error.message);
+    next();
   }
-  next();
 };
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
+// Export middleware
 module.exports = {
-  // Account status checks
-  ensureAccountActive,
-  checkMembershipStatus,
-  
-  // Feature and tier access
+  isAuthenticated,
+  isAdmin,
+  isAccountActive,
   requireFeatureAccess,
-  requireMembershipTier,
   checkUsageLimits,
-  
-  // Admin checks
-  ensureAdmin,
-  ensureSuperAdmin,
-  
-  // Logging and data attachment
-  logMembershipAction,
-  attachMembershipToLocals
+  canUpgrade,
+  canDowngrade,
+  loadUserMembership,
+  logActivity,
+  allowSuspendedAccess,
+  checkExpiryWarning,
 };
