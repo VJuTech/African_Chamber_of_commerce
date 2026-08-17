@@ -16,7 +16,12 @@ const accountRoutes = require("./routes/accountRoute");
 const pageRoutes = require("./routes/pageRoute");
 const dashboardRoutes = require("./routes/dashboardRoute");
 const profileRoutes = require("./routes/profileRoute");
+const membershipRoutes = require("./routes/membershipRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
+const {
+  checkMembershipStatus,
+  attachMembershipToLocals
+} = require("./middleware/membershipMiddleware");
 
 // Create the Express application instance.
 const app = express();
@@ -78,11 +83,16 @@ async function initApp() {
     app.set("trust proxy", 1);
   }
 
+  // Apply membership middleware to check status and attach data to locals
+  app.use(checkMembershipStatus);
+  app.use(attachMembershipToLocals);
+
   // Register the main application routes.
   app.use("/", pageRoutes);
   app.use("/", accountRoutes);
   app.use("/", dashboardRoutes);
   app.use("/", profileRoutes);
+  app.use("/membership", membershipRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

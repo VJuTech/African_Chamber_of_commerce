@@ -1,0 +1,443 @@
+<!-- Membership Status View -->
+<!-- Requirement ACC-FRS-MEM-001: View Membership Status -->
+
+<div class="membership-status-container">
+  <div class="page-header">
+    <h1>Your Membership Status</h1>
+    <p class="subtitle">View your current membership tier and benefits</p>
+  </div>
+
+  <% if (membership && membership.membership_tier_id) { %>
+    <div class="membership-card">
+      <div class="tier-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h2><%= membership.tier_name %></h2>
+        <span class="tier-badge"><%= membership.tier_slug.toUpperCase() %></span>
+      </div>
+
+      <div class="tier-details">
+        <div class="detail-section">
+          <h3>Status Information</h3>
+          <div class="detail-row">
+            <span class="label">Current Status:</span>
+            <span class="value status-<%= membership.membership_status %>">
+              <%= membership.membership_status.replace(/_/g, ' ').toUpperCase() %>
+            </span>
+          </div>
+          
+          <% if (membership.membership_start_date) { %>
+            <div class="detail-row">
+              <span class="label">Member Since:</span>
+              <span class="value">
+                <%= new Date(membership.membership_start_date).toLocaleDateString() %>
+              </span>
+            </div>
+          <% } %>
+
+          <% if (membership.membership_expiry_date) { %>
+            <div class="detail-row">
+              <span class="label">Expiry Date:</span>
+              <span class="value">
+                <%= new Date(membership.membership_expiry_date).toLocaleDateString() %>
+              </span>
+            </div>
+          <% } %>
+
+          <% if (membership.membership_renewal_date) { %>
+            <div class="detail-row">
+              <span class="label">Next Renewal:</span>
+              <span class="value">
+                <%= new Date(membership.membership_renewal_date).toLocaleDateString() %>
+              </span>
+            </div>
+          <% } %>
+
+          <% if (membership.is_suspended) { %>
+            <div class="detail-row alert alert-warning">
+              <span class="label">⚠️ Account Suspended</span>
+              <% if (membership.suspension_reason) { %>
+                <span class="value"><%= membership.suspension_reason %></span>
+              <% } %>
+            </div>
+          <% } %>
+
+          <% if (membership.is_deactivated) { %>
+            <div class="detail-row alert alert-danger">
+              <span class="label">❌ Account Deactivated</span>
+              <% if (membership.deactivation_reason) { %>
+                <span class="value"><%= membership.deactivation_reason %></span>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (membership.pricing) { %>
+          <div class="detail-section">
+            <h3>Pricing Information</h3>
+            <div class="detail-row">
+              <span class="label">Price:</span>
+              <span class="value">
+                <% if (membership.pricing === 0) { %>
+                  FREE
+                <% } else { %>
+                  $<%= membership.pricing %> / <%= membership.billing_cycle || 'month' %>
+                <% } %>
+              </span>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (membership.features && membership.features.length > 0) { %>
+          <div class="detail-section">
+            <h3>Included Features</h3>
+            <ul class="features-list">
+              <% membership.features.forEach(feature => { %>
+                <li>
+                  <span class="feature-icon">✓</span>
+                  <span class="feature-name"><%= feature.feature_name %></span>
+                  <% if (feature.feature_description) { %>
+                    <p class="feature-description"><%= feature.feature_description %></p>
+                  <% } %>
+                </li>
+              <% }); %>
+            </ul>
+          </div>
+        <% } %>
+
+        <% if (membership.limits && membership.limits.length > 0) { %>
+          <div class="detail-section">
+            <h3>Membership Limits</h3>
+            <table class="limits-table">
+              <thead>
+                <tr>
+                  <th>Limit</th>
+                  <th>Value</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% membership.limits.forEach(limit => { %>
+                  <tr>
+                    <td><strong><%= limit.limit_key.replace(/_/g, ' ').toUpperCase() %></strong></td>
+                    <td><strong><%= limit.limit_value %></strong></td>
+                    <td><%= limit.description || 'N/A' %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="action-buttons">
+        <a href="/membership/upgrade" class="btn btn-primary">
+          <span class="icon">⬆️</span> Upgrade Membership
+        </a>
+        <a href="/membership/downgrade" class="btn btn-secondary">
+          <span class="icon">⬇️</span> Downgrade Membership
+        </a>
+        <a href="/membership/history" class="btn btn-info">
+          <span class="icon">📋</span> View History
+        </a>
+        <a href="/membership/deactivate" class="btn btn-danger" onclick="return confirm('Are you sure you want to deactivate your account?');">
+          <span class="icon">🔒</span> Deactivate Account
+        </a>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="alert alert-info">
+      <p>No membership information found. Please contact support for assistance.</p>
+    </div>
+  <% } %>
+</div>
+
+<style>
+  .membership-status-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .page-header {
+    margin-bottom: 30px;
+    text-align: center;
+  }
+
+  .page-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: #333;
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 1.1rem;
+  }
+
+  .membership-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  .tier-header {
+    padding: 30px 20px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tier-header h2 {
+    margin: 0;
+    font-size: 2rem;
+  }
+
+  .tier-badge {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+  }
+
+  .tier-details {
+    padding: 30px;
+  }
+
+  .detail-section {
+    margin-bottom: 30px;
+  }
+
+  .detail-section h3 {
+    font-size: 1.3rem;
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #f0f0f0;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-row .label {
+    font-weight: 600;
+    color: #555;
+  }
+
+  .detail-row .value {
+    color: #333;
+    text-align: right;
+  }
+
+  .status-active {
+    color: #28a745;
+    font-weight: bold;
+  }
+
+  .status-suspended {
+    color: #ffc107;
+    font-weight: bold;
+  }
+
+  .status-deactivated {
+    color: #dc3545;
+    font-weight: bold;
+  }
+
+  .status-expired {
+    color: #fd7e14;
+    font-weight: bold;
+  }
+
+  .alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+  }
+
+  .alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+
+  .alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+  }
+
+  .features-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .features-list li {
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .features-list li:last-child {
+    border-bottom: none;
+  }
+
+  .feature-icon {
+    color: #28a745;
+    font-weight: bold;
+    margin-right: 12px;
+    font-size: 1.2rem;
+  }
+
+  .feature-name {
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+  }
+
+  .feature-description {
+    margin: 5px 0 0 0;
+    color: #666;
+    font-size: 0.9rem;
+  }
+
+  .limits-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+
+  .limits-table thead {
+    background-color: #f8f9fa;
+  }
+
+  .limits-table th,
+  .limits-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .limits-table th {
+    font-weight: 600;
+    color: #555;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    padding: 30px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+  }
+
+  .btn {
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+  }
+
+  .btn-info {
+    background-color: #17a2b8;
+    color: white;
+  }
+
+  .btn-info:hover {
+    background-color: #138496;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+  }
+
+  .btn-danger {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background-color: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+  }
+
+  .icon {
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 768px) {
+    .tier-header {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .tier-header h2 {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .page-header h1 {
+      font-size: 1.8rem;
+    }
+
+    .action-buttons {
+      grid-template-columns: 1fr;
+    }
+
+    .detail-row {
+      flex-direction: column;
+    }
+
+    .detail-row .value {
+      text-align: left;
+      margin-top: 5px;
+    }
+  }
+</style>

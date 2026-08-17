@@ -1,0 +1,429 @@
+<!-- Membership History View -->
+<!-- Requirement ACC-FRS-MEM-008: Membership Audit Logging -->
+
+<div class="membership-history-container">
+  <div class="page-header">
+    <h1>Membership History</h1>
+    <p class="subtitle">View all changes to your membership status</p>
+  </div>
+
+  <% if (history && history.length > 0) { %>
+    <div class="history-timeline">
+      <% history.forEach((record, index) => { %>
+        <div class="timeline-item">
+          <div class="timeline-marker <%= record.change_type.toLowerCase() %>">
+            <span class="marker-icon">
+              <% if (record.change_type === 'UPGRADE') { %>
+                ⬆️
+              <% } else if (record.change_type === 'SCHEDULED_DOWNGRADE' || record.change_type === 'DOWNGRADE') { %>
+                ⬇️
+              <% } else if (record.change_type === 'SUSPENSION') { %>
+                ⛔
+              <% } else if (record.change_type === 'REACTIVATION') { %>
+                ✅
+              <% } else if (record.change_type === 'EXPIRY') { %>
+                ⏰
+              <% } else if (record.change_type === 'DEACTIVATION') { %>
+                🔒
+              <% } else { %>
+                📌
+              <% } %>
+            </span>
+          </div>
+
+          <div class="timeline-content">
+            <div class="event-header">
+              <h3 class="event-title">
+                <span class="change-type <%= record.change_type.toLowerCase() %>">
+                  <%= record.change_type.replace(/_/g, ' ') %>
+                </span>
+              </h3>
+              <span class="event-date">
+                <%= new Date(record.created_at).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) %>
+              </span>
+            </div>
+
+            <div class="event-details">
+              <% if (record.previous_tier_name || record.new_tier_name) { %>
+                <div class="detail-row">
+                  <% if (record.previous_tier_name) { %>
+                    <span class="tier-badge from">From: <%= record.previous_tier_name %></span>
+                  <% } %>
+                  <% if (record.new_tier_name) { %>
+                    <span class="tier-badge to">To: <%= record.new_tier_name %></span>
+                  <% } %>
+                </div>
+              <% } %>
+
+              <% if (record.reason) { %>
+                <div class="detail-row">
+                  <strong>Reason:</strong> <%= record.reason %>
+                </div>
+              <% } %>
+
+              <% if (record.initiated_by) { %>
+                <div class="detail-row">
+                  <strong>Initiated by:</strong>
+                  <span class="initiated-by <%= record.initiated_by %>">
+                    <%= record.initiated_by.charAt(0).toUpperCase() + record.initiated_by.slice(1) %>
+                  </span>
+                </div>
+              <% } %>
+
+              <% if (record.effective_date) { %>
+                <div class="detail-row">
+                  <strong>Effective Date:</strong>
+                  <%= new Date(record.effective_date).toLocaleDateString() %>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <div class="history-footer">
+      <p>Showing <%= history.length %> recent membership changes. For complete audit logs, contact support.</p>
+    </div>
+
+  <% } else { %>
+    <div class="alert alert-info">
+      <p>No membership history found. Your membership changes will appear here.</p>
+    </div>
+  <% } %>
+
+  <div class="action-buttons">
+    <a href="/membership/status" class="btn btn-primary">
+      Back to Status
+    </a>
+    <a href="/dashboard" class="btn btn-secondary">
+      Dashboard
+    </a>
+  </div>
+</div>
+
+<style>
+  .membership-history-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .page-header h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 1.1rem;
+  }
+
+  .history-timeline {
+    position: relative;
+    padding: 20px 0;
+  }
+
+  .history-timeline::before {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .timeline-item {
+    display: flex;
+    margin-bottom: 30px;
+    position: relative;
+  }
+
+  .timeline-marker {
+    flex-shrink: 0;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 25px;
+    font-size: 2rem;
+    background: white;
+    border: 3px solid #667eea;
+    z-index: 10;
+  }
+
+  .timeline-marker.upgrade {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+  }
+
+  .timeline-marker.downgrade,
+  .timeline-marker.scheduled_downgrade {
+    border-color: #fd7e14;
+    background: rgba(253, 126, 20, 0.1);
+  }
+
+  .timeline-marker.suspension {
+    border-color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+  }
+
+  .timeline-marker.reactivation {
+    border-color: #28a745;
+    background: rgba(40, 167, 69, 0.1);
+  }
+
+  .timeline-marker.expiry {
+    border-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+  }
+
+  .timeline-marker.deactivation {
+    border-color: #6c757d;
+    background: rgba(108, 117, 125, 0.1);
+  }
+
+  .marker-icon {
+    font-size: 1.8rem;
+  }
+
+  .timeline-content {
+    flex: 1;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .event-title {
+    margin: 0;
+    font-size: 1.3rem;
+  }
+
+  .change-type {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .change-type.upgrade {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .change-type.downgrade,
+  .change-type.scheduled_downgrade {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .change-type.suspension {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .change-type.reactivation {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .change-type.expiry {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .change-type.deactivation {
+    background-color: #e2e3e5;
+    color: #383d41;
+  }
+
+  .event-date {
+    color: #999;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .event-details {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+  }
+
+  .detail-row {
+    margin-bottom: 12px;
+    color: #555;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .detail-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .detail-row strong {
+    color: #333;
+  }
+
+  .tier-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+  }
+
+  .tier-badge.from {
+    background-color: #f0f0f0;
+    color: #666;
+  }
+
+  .tier-badge.to {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .initiated-by {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .initiated-by.user {
+    background-color: #d1ecf1;
+    color: #0c5460;
+  }
+
+  .initiated-by.admin {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .initiated-by.system {
+    background-color: #e7e7ff;
+    color: #333366;
+  }
+
+  .history-footer {
+    text-align: center;
+    color: #999;
+    font-size: 0.9rem;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .btn-primary {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+  }
+
+  .btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    .history-timeline::before {
+      left: 15px;
+    }
+
+    .timeline-marker {
+      width: 50px;
+      height: 50px;
+      font-size: 1.5rem;
+      margin-right: 15px;
+    }
+
+    .timeline-content {
+      padding: 15px;
+    }
+
+    .event-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .page-header h1 {
+      font-size: 1.8rem;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+    }
+  }
+</style>

@@ -1,0 +1,693 @@
+<!-- Admin Membership Management Dashboard -->
+<!-- Requirement ACC-FRS-MEM-008: Membership Audit Logging (Admin View) -->
+
+<div class="admin-membership-dashboard">
+  <div class="page-header">
+    <h1>Membership Management</h1>
+    <p class="subtitle">Administrative dashboard for membership and account management</p>
+  </div>
+
+  <div class="admin-tabs">
+    <div class="tab-navigation">
+      <button class="tab-button active" onclick="switchTab('tiers')">Membership Tiers</button>
+      <button class="tab-button" onclick="switchTab('users')">Manage Users</button>
+      <button class="tab-button" onclick="switchTab('audit')">Audit Logs</button>
+    </div>
+
+    <!-- TIERS TAB -->
+    <div id="tiers-tab" class="tab-content active">
+      <h2>Membership Tiers</h2>
+      
+      <% if (tiers && tiers.length > 0) { %>
+        <div class="tiers-grid">
+          <% tiers.forEach(tier => { %>
+            <div class="tier-card">
+              <div class="tier-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h3><%= tier.tier_name %></h3>
+                <span class="tier-slug"><%= tier.tier_slug.toUpperCase() %></span>
+              </div>
+
+              <div class="tier-body">
+                <div class="tier-info">
+                  <p><strong>Price:</strong> 
+                    <% if (tier.pricing === 0) { %>
+                      FREE
+                    <% } else if (tier.pricing) { %>
+                      $<%= tier.pricing %> / <%= tier.billing_cycle %>
+                    <% } else { %>
+                      Custom
+                    <% } %>
+                  </p>
+                  <p><strong>Description:</strong> <%= tier.description || 'N/A' %></p>
+                  <p><strong>Status:</strong> 
+                    <span class="badge <%= tier.is_active ? 'active' : 'inactive' %>">
+                      <%= tier.is_active ? 'Active' : 'Inactive' %>
+                    </span>
+                  </p>
+                </div>
+
+                <div class="tier-actions">
+                  <button class="btn-small btn-edit" onclick="editTier(<%= tier.id %>)">Edit</button>
+                  <button class="btn-small btn-view" onclick="viewTierDetails(<%= tier.id %>)">View Details</button>
+                </div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <div class="alert alert-warning">
+          <p>No membership tiers configured.</p>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="users-tab" class="tab-content">
+      <h2>Manage User Memberships</h2>
+      
+      <div class="user-management-form">
+        <h3>Change User Membership</h3>
+        <form id="userMembershipForm" method="POST" action="/membership/api/admin/change-tier" onsubmit="handleUserMembershipChange(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="userId">User ID or Email:</label>
+              <input type="text" id="userId" name="userId" placeholder="Enter user ID or email" required>
+            </div>
+
+            <div class="form-group">
+              <label for="tierId">New Tier:</label>
+              <select id="tierId" name="tierId" required>
+                <option value="">Select a tier...</option>
+                <% if (tiers && tiers.length > 0) { %>
+                  <% tiers.forEach(tier => { %>
+                    <option value="<%= tier.id %>"><%= tier.tier_name %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="reason">Reason:</label>
+              <input type="text" id="reason" name="reason" placeholder="Reason for change" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Apply Change</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="user-actions-form">
+        <h3>Account Actions</h3>
+        
+        <div class="action-section">
+          <h4>Suspend Account</h4>
+          <form id="suspendForm" method="POST" action="/membership/api/suspend" onsubmit="handleSuspend(event)">
+            <div class="form-row">
+              <input type="hidden" name="userId" id="suspendUserId">
+              <div class="form-group">
+                <input type="text" id="suspendUserInput" placeholder="Enter user ID" required>
+              </div>
+              <div class="form-group">
+                <input type="text" id="suspendReason" name="reason" placeholder="Reason for suspension" required>
+              </div>
+              <button type="submit" class="btn btn-danger">Suspend</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="action-section">
+          <h4>Reactivate Account</h4>
+          <form id="reactivateForm" method="POST" action="/membership/api/reactivate" onsubmit="handleReactivate(event)">
+            <div class="form-row">
+              <input type="hidden" name="userId" id="reactivateUserId">
+              <div class="form-group">
+                <input type="text" id="reactivateUserInput" placeholder="Enter user ID" required>
+              </div>
+              <button type="submit" class="btn btn-success">Reactivate</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="action-section">
+          <h4>Process Expired Memberships</h4>
+          <p>Find and update all expired memberships to 'expired' status</p>
+          <form id="processExpiryForm" method="POST" action="/membership/api/process-expired" onsubmit="handleProcessExpiry(event)">
+            <button type="submit" class="btn btn-warning">Process Expiries</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT TAB -->
+    <div id="audit-tab" class="tab-content">
+      <h2>Membership Audit Logs</h2>
+      
+      <div class="audit-filters">
+        <h3>Filter Logs</h3>
+        <form id="auditFilterForm" method="GET" action="/membership/api/audit-logs">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="eventType">Event Type:</label>
+              <select id="eventType" name="eventType">
+                <option value="">All Events</option>
+                <option value="UPGRADE">Upgrade</option>
+                <option value="DOWNGRADE">Downgrade</option>
+                <option value="SUSPENSION">Suspension</option>
+                <option value="REACTIVATION">Reactivation</option>
+                <option value="EXPIRY">Expiry</option>
+                <option value="DEACTIVATION">Deactivation</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="auditUserId">User ID:</label>
+              <input type="text" id="auditUserId" name="userId" placeholder="Filter by user">
+            </div>
+
+            <button type="submit" class="btn btn-primary">Filter</button>
+          </div>
+        </form>
+      </div>
+
+      <% if (recentAuditLogs && recentAuditLogs.length > 0) { %>
+        <div class="audit-table-container">
+          <h3>Recent Events (Last 50)</h3>
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Event Type</th>
+                <th>Action</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Initiated By</th>
+                <th>Outcome</th>
+                <th>Date/Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% recentAuditLogs.forEach(log => { %>
+                <tr class="audit-row <%= log.outcome %>">
+                  <td><%= log.user_id || 'N/A' %></td>
+                  <td>
+                    <span class="event-badge <%= log.event_type.toLowerCase() %>">
+                      <%= log.event_type %>
+                    </span>
+                  </td>
+                  <td><%= log.action %></td>
+                  <td><%= log.previous_tier || 'N/A' %></td>
+                  <td><%= log.new_tier || 'N/A' %></td>
+                  <td>
+                    <span class="initiated-by <%= log.initiated_by %>">
+                      <%= log.initiated_by %>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="outcome-badge <%= log.outcome %>">
+                      <%= log.outcome %>
+                    </span>
+                  </td>
+                  <td><%= new Date(log.created_at).toLocaleString() %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info">
+          <p>No audit logs found.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tabName) {
+  // Hide all tabs
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Remove active class from all buttons
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  // Show selected tab
+  document.getElementById(tabName + '-tab').classList.add('active');
+  event.target.classList.add('active');
+}
+
+function editTier(tierId) {
+  alert('Edit tier functionality would be implemented here for tier ID: ' + tierId);
+}
+
+function viewTierDetails(tierId) {
+  alert('View tier details for tier ID: ' + tierId);
+}
+
+function handleUserMembershipChange(event) {
+  event.preventDefault();
+  if (confirm('Are you sure you want to change this user\'s membership?')) {
+    document.getElementById('userMembershipForm').submit();
+  }
+}
+
+function handleSuspend(event) {
+  event.preventDefault();
+  const userId = document.getElementById('suspendUserInput').value;
+  document.getElementById('suspendUserId').value = userId;
+  
+  if (confirm('Are you sure you want to suspend this account? User will lose access.')) {
+    document.getElementById('suspendForm').submit();
+  }
+}
+
+function handleReactivate(event) {
+  event.preventDefault();
+  const userId = document.getElementById('reactivateUserInput').value;
+  document.getElementById('reactivateUserId').value = userId;
+  
+  if (confirm('Reactivate this account?')) {
+    document.getElementById('reactivateForm').submit();
+  }
+}
+
+function handleProcessExpiry(event) {
+  event.preventDefault();
+  if (confirm('Process all expired memberships? This will update their status to "expired".')) {
+    document.getElementById('processExpiryForm').submit();
+  }
+}
+</script>
+
+<style>
+  .admin-membership-dashboard {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    color: #666;
+  }
+
+  .admin-tabs {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  .tab-navigation {
+    display: flex;
+    border-bottom: 2px solid #f0f0f0;
+    background-color: #f8f9fa;
+  }
+
+  .tab-button {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #666;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+  }
+
+  .tab-button:hover {
+    color: #333;
+    background-color: #f0f0f0;
+  }
+
+  .tab-button.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+  }
+
+  .tab-content {
+    display: none;
+    padding: 30px;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  .tab-content h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: #333;
+  }
+
+  .tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .tier-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .tier-header {
+    color: white;
+    padding: 15px;
+  }
+
+  .tier-header h3 {
+    margin: 0 0 8px 0;
+  }
+
+  .tier-slug {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .tier-body {
+    padding: 15px;
+  }
+
+  .tier-info p {
+    margin: 8px 0;
+    font-size: 0.95rem;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+  }
+
+  .badge.active {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .badge.inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .tier-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+  }
+
+  .btn-small {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+  }
+
+  .btn-edit {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .btn-edit:hover {
+    background-color: #5568d3;
+  }
+
+  .btn-view {
+    background-color: #17a2b8;
+    color: white;
+  }
+
+  .btn-view:hover {
+    background-color: #138496;
+  }
+
+  .user-management-form,
+  .user-actions-form,
+  .audit-filters {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+  }
+
+  .user-management-form h3,
+  .user-actions-form h3,
+  .audit-filters h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+  }
+
+  .action-section {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+  }
+
+  .action-section h4 {
+    margin: 0 0 12px 0;
+  }
+
+  .action-section p {
+    margin: 0 0 12px 0;
+    color: #666;
+    font-size: 0.95rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: flex-end;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-group label {
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    background-color: #667eea;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #5568d3;
+  }
+
+  .btn-danger {
+    background-color: #dc3545;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background-color: #c82333;
+  }
+
+  .btn-success {
+    background-color: #28a745;
+    color: white;
+  }
+
+  .btn-success:hover {
+    background-color: #218838;
+  }
+
+  .btn-warning {
+    background-color: #ffc107;
+    color: #333;
+  }
+
+  .btn-warning:hover {
+    background-color: #e0a800;
+  }
+
+  .audit-table-container {
+    overflow-x: auto;
+  }
+
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .audit-table thead {
+    background-color: #f8f9fa;
+  }
+
+  .audit-table th,
+  .audit-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .audit-table th {
+    font-weight: 600;
+    color: #333;
+  }
+
+  .event-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .event-badge.upgrade {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .event-badge.downgrade {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .event-badge.suspension {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .initiated-by {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .initiated-by.user {
+    background-color: #d1ecf1;
+    color: #0c5460;
+  }
+
+  .initiated-by.admin {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .initiated-by.system {
+    background-color: #e7e7ff;
+    color: #333366;
+  }
+
+  .outcome-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .outcome-badge.success {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .outcome-badge.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .outcome-badge.scheduled {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .alert {
+    padding: 15px;
+    border-radius: 6px;
+    margin: 20px 0;
+  }
+
+  .alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+  }
+
+  .alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+  }
+
+  @media (max-width: 768px) {
+    .tab-navigation {
+      flex-direction: column;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .audit-table {
+      font-size: 0.85rem;
+    }
+
+    .audit-table th,
+    .audit-table td {
+      padding: 8px;
+    }
+  }
+</style>

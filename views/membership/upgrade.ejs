@@ -1,0 +1,319 @@
+<!-- Membership Upgrade View -->
+<!-- Requirement ACC-FRS-MEM-002: Upgrade Membership -->
+
+<div class="upgrade-membership-container">
+  <div class="page-header">
+    <h1>Upgrade Your Membership</h1>
+    <p class="subtitle">Choose a higher tier to unlock more features and benefits</p>
+  </div>
+
+  <% if (currentMembership) { %>
+    <div class="current-tier-card">
+      <h3>Your Current Membership</h3>
+      <div class="tier-info">
+        <strong><%= currentMembership.tier_name %></strong>
+        <span class="badge"><%= currentMembership.tier_slug.toUpperCase() %></span>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (availableTiers && availableTiers.length > 0) { %>
+    <div class="tiers-grid">
+      <% availableTiers.forEach(tier => { %>
+        <div class="tier-card">
+          <div class="tier-header">
+            <h3><%= tier.tier_name %></h3>
+            <span class="tier-slug"><%= tier.tier_slug %></span>
+          </div>
+
+          <div class="tier-price">
+            <% if (tier.pricing === 0) { %>
+              <span class="price">FREE</span>
+            <% } else if (tier.pricing) { %>
+              <span class="price">$<%= tier.pricing %></span>
+              <span class="billing">/ <%= tier.billing_cycle || 'month' %></span>
+            <% } else { %>
+              <span class="price">Custom</span>
+            <% } %>
+          </div>
+
+          <div class="tier-description">
+            <p><%= tier.description || 'Premium membership tier' %></p>
+          </div>
+
+          <% if (tier.features && tier.features.length > 0) { %>
+            <div class="features-list">
+              <h4>Features Included:</h4>
+              <ul>
+                <% tier.features.slice(0, 5).forEach(feature => { %>
+                  <li>
+                    <span class="checkmark">✓</span>
+                    <span><%= feature.feature_name %></span>
+                  </li>
+                <% }); %>
+                <% if (tier.features.length > 5) { %>
+                  <li class="more-features">
+                    + <%= tier.features.length - 5 %> more features
+                  </li>
+                <% } %>
+              </ul>
+            </div>
+          <% } %>
+
+          <% if (tier.limits && tier.limits.length > 0) { %>
+            <div class="limits-list">
+              <h4>Limits:</h4>
+              <ul>
+                <% tier.limits.slice(0, 3).forEach(limit => { %>
+                  <li>
+                    <span class="limit-key"><%= limit.limit_key.replace(/_/g, ' ').toUpperCase() %>:</span>
+                    <span class="limit-value"><%= limit.limit_value %></span>
+                  </li>
+                <% }); %>
+              </ul>
+            </div>
+          <% } %>
+
+          <button class="btn-upgrade" onclick="initiateMembershipUpgrade(<%= tier.id %>)">
+            Upgrade Now
+          </button>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="alert alert-info">
+      <p>No higher membership tiers are available for upgrade at this time.</p>
+    </div>
+  <% } %>
+</div>
+
+<script>
+function initiateMembershipUpgrade(tierId) {
+  if (confirm('Are you sure you want to upgrade your membership? You will be redirected to payment.')) {
+    // In a production system, this would integrate with a payment gateway
+    // For now, we'll submit the form to process the upgrade
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/membership/api/upgrade';
+    
+    const tierInput = document.createElement('input');
+    tierInput.type = 'hidden';
+    tierInput.name = 'newTierId';
+    tierInput.value = tierId;
+    form.appendChild(tierInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
+
+<style>
+  .upgrade-membership-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .page-header h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    color: #666;
+    font-size: 1.1rem;
+  }
+
+  .current-tier-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+  }
+
+  .current-tier-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+  }
+
+  .tier-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tier-info strong {
+    font-size: 1.5rem;
+  }
+
+  .badge {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+  }
+
+  .tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 40px;
+  }
+
+  .tier-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tier-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .tier-card .tier-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+  }
+
+  .tier-card .tier-header h3 {
+    margin: 0 0 10px 0;
+  }
+
+  .tier-slug {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+  }
+
+  .tier-price {
+    padding: 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .price {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+  }
+
+  .billing {
+    display: block;
+    color: #666;
+    font-size: 0.95rem;
+    margin-top: 5px;
+  }
+
+  .tier-description {
+    padding: 15px 20px;
+    color: #666;
+  }
+
+  .features-list,
+  .limits-list {
+    padding: 0 20px;
+  }
+
+  .features-list h4,
+  .limits-list h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1rem;
+  }
+
+  .features-list ul,
+  .limits-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .features-list li,
+  .limits-list li {
+    padding: 8px 0;
+    color: #555;
+    display: flex;
+    align-items: center;
+  }
+
+  .checkmark {
+    color: #28a745;
+    font-weight: bold;
+    margin-right: 10px;
+  }
+
+  .more-features {
+    color: #667eea;
+    font-style: italic;
+  }
+
+  .limit-key {
+    font-weight: 600;
+    margin-right: 8px;
+  }
+
+  .limit-value {
+    color: #667eea;
+    font-weight: bold;
+  }
+
+  .btn-upgrade {
+    margin: 20px;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: auto;
+  }
+
+  .btn-upgrade:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .alert {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+  }
+
+  @media (max-width: 768px) {
+    .tiers-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .page-header h1 {
+      font-size: 1.8rem;
+    }
+  }
+</style>
