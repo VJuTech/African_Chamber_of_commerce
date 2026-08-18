@@ -1,8 +1,16 @@
 -- Rebuild the database schema for the account/authentication flow.
 -- Run this script from a PostgreSQL-compatible SQL client.
 
-DROP TABLE IF EXISTS audit_logs;
-DROP TABLE IF EXISTS users;
+-- Drop dependent tables first so the script can be rerun safely.
+DROP TABLE IF EXISTS membership_audit_logs CASCADE;
+DROP TABLE IF EXISTS membership_history CASCADE;
+DROP TABLE IF EXISTS user_memberships CASCADE;
+DROP TABLE IF EXISTS membership_features CASCADE;
+DROP TABLE IF EXISTS membership_limits CASCADE;
+DROP TABLE IF EXISTS membership_tiers CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS session CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -51,7 +59,6 @@ CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- Table used by connect-pg-simple for session storage
-DROP TABLE IF EXISTS session;
 CREATE TABLE session (
   sid varchar NOT NULL COLLATE "default",
   sess json NOT NULL,
@@ -65,7 +72,6 @@ CREATE INDEX idx_session_expire ON session (expire);
 -- ========================================
 
 -- Membership Tiers Table (ACC-FRS-MEM-001, MEM-002, MEM-003)
-DROP TABLE IF EXISTS membership_tiers CASCADE;
 CREATE TABLE membership_tiers (
   id SERIAL PRIMARY KEY,
   tier_name VARCHAR(100) NOT NULL UNIQUE,
@@ -78,7 +84,6 @@ CREATE TABLE membership_tiers (
 );
 
 -- Membership Features Table (Feature availability per tier)
-DROP TABLE IF EXISTS membership_features CASCADE;
 CREATE TABLE membership_features (
   id SERIAL PRIMARY KEY,
   tier_id INTEGER NOT NULL REFERENCES membership_tiers(id) ON DELETE CASCADE,
@@ -89,7 +94,6 @@ CREATE TABLE membership_features (
 );
 
 -- Membership Limits Table (Usage limits per tier)
-DROP TABLE IF EXISTS membership_limits CASCADE;
 CREATE TABLE membership_limits (
   id SERIAL PRIMARY KEY,
   tier_id INTEGER NOT NULL REFERENCES membership_tiers(id) ON DELETE CASCADE,
@@ -100,7 +104,6 @@ CREATE TABLE membership_limits (
 );
 
 -- User Membership Tracking (ACC-FRS-MEM-001)
-DROP TABLE IF EXISTS user_memberships CASCADE;
 CREATE TABLE user_memberships (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -115,7 +118,6 @@ CREATE TABLE user_memberships (
 );
 
 -- Membership History Table (Track all membership changes)
-DROP TABLE IF EXISTS membership_history CASCADE;
 CREATE TABLE membership_history (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -129,7 +131,6 @@ CREATE TABLE membership_history (
 );
 
 -- Membership Audit Logs Table (ACC-FRS-MEM-008)
-DROP TABLE IF EXISTS membership_audit_logs CASCADE;
 CREATE TABLE membership_audit_logs (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -142,10 +143,7 @@ CREATE TABLE membership_audit_logs (
   user_agent TEXT,
   details JSONB,
   outcome VARCHAR(100),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_user_id (user_id),
-  INDEX idx_event_type (event_type),
-  INDEX idx_created_at (created_at)
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Update users table to add membership-related columns (ACC-FRS-MEM-004, MEM-005, MEM-006, MEM-007)
@@ -163,6 +161,9 @@ CREATE INDEX IF NOT EXISTS idx_user_memberships_tier_id ON user_memberships(tier
 CREATE INDEX IF NOT EXISTS idx_user_memberships_status ON user_memberships(membership_status);
 CREATE INDEX IF NOT EXISTS idx_membership_history_user_id ON membership_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_membership_history_change_type ON membership_history(change_type);
+CREATE INDEX IF NOT EXISTS idx_membership_audit_logs_user_id ON membership_audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_membership_audit_logs_event_type ON membership_audit_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_membership_audit_logs_created_at ON membership_audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_current_tier_id ON users(current_tier_id);
 CREATE INDEX IF NOT EXISTS idx_users_account_status ON users(account_status);
 
