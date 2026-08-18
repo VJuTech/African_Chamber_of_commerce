@@ -23,6 +23,36 @@ const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandl
 const app = express();
 const PORT = process.env.PORT || 5500;
 
+// Derive a lightweight device label for active-session displays without adding
+// another runtime dependency.
+function inferDevice(userAgent) {
+  const ua = String(userAgent || "").toLowerCase();
+  if (/tablet|ipad/.test(ua)) return "Tablet";
+  if (/mobile|iphone|android/.test(ua)) return "Mobile";
+  return "Desktop";
+}
+
+// Parse a human-readable browser label from the current request user agent.
+function inferBrowser(userAgent) {
+  const ua = String(userAgent || "").toLowerCase();
+  if (ua.includes("edg/")) return "Microsoft Edge";
+  if (ua.includes("chrome/")) return "Chrome";
+  if (ua.includes("firefox/")) return "Firefox";
+  if (ua.includes("safari/") && !ua.includes("chrome/")) return "Safari";
+  return "Web Browser";
+}
+
+// Parse a human-readable operating-system label from the current request user agent.
+function inferOperatingSystem(userAgent) {
+  const ua = String(userAgent || "").toLowerCase();
+  if (ua.includes("windows")) return "Windows";
+  if (ua.includes("mac os")) return "macOS";
+  if (ua.includes("android")) return "Android";
+  if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ios")) return "iOS";
+  if (ua.includes("linux")) return "Linux";
+  return "Unknown OS";
+}
+
 // Configure the view engine and the folder where templates are stored.
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -73,6 +103,31 @@ async function initApp() {
       },
     })
   );
+
+  // Keep the authenticated user available to layouts and store session metadata
+  // used by the profile active-session views.
+  app.use((req, res, next) => {
+    res.locals.user = req.session && req.session.user ? req.session.user : null;
+
+    if (req.session && req.session.authenticated && req.session.user) {
+      const previousMeta = req.session.sessionMeta || {};
+      const userAgent = req.headers["user-agent"] || previousMeta.userAgent || "";
+
+      req.session.userId = req.session.userId || req.session.user.id;
+      req.session.sessionMeta = {
+        userId: req.session.userId,
+        userAgent,
+        device: inferDevice(userAgent),
+        browser: inferBrowser(userAgent),
+        operatingSystem: inferOperatingSystem(userAgent),
+        ipAddress: req.ip,
+        loginAt: previousMeta.loginAt || new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      };
+    }
+
+    next();
+  });
 
   // If running behind a proxy (e.g., in production with a load balancer), enable trust proxy
   if (process.env.NODE_ENV === "production") {

@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS user_memberships CASCADE;
 DROP TABLE IF EXISTS membership_features CASCADE;
 DROP TABLE IF EXISTS membership_limits CASCADE;
 DROP TABLE IF EXISTS membership_tiers CASCADE;
+DROP TABLE IF EXISTS profile_contact_change_requests CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
@@ -22,6 +23,29 @@ CREATE TABLE users (
   phone VARCHAR(30),
   country VARCHAR(100) NOT NULL,
   preferred_language VARCHAR(50),
+  preferred_display_name VARCHAR(200),
+  date_of_birth DATE,
+  gender VARCHAR(50),
+  nationality VARCHAR(100),
+  country_of_residence VARCHAR(100),
+  state_province VARCHAR(100),
+  city VARCHAR(100),
+  time_zone VARCHAR(100),
+  alternative_phone VARCHAR(30),
+  mailing_address TEXT,
+  username VARCHAR(100) UNIQUE,
+  profile_photo_path VARCHAR(255),
+  profile_photo_mime_type VARCHAR(100),
+  communication_preferences JSONB NOT NULL DEFAULT '{
+    "emailNotifications": true,
+    "smsNotifications": true,
+    "pushNotifications": true,
+    "marketingCommunications": false,
+    "newsletterSubscription": false,
+    "eventReminders": true,
+    "procurementNotifications": true,
+    "marketplaceUpdates": true
+  }'::jsonb,
   referral_code VARCHAR(80),
   organization_name VARCHAR(200),
   password_hash VARCHAR(255) NOT NULL,
@@ -38,6 +62,7 @@ CREATE TABLE users (
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   last_login_at TIMESTAMP NULL,
   locked_until TIMESTAMP NULL,
+  mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -53,10 +78,29 @@ CREATE TABLE audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Contact change requests keep the existing verified value active until the
+-- replacement address or mobile number is confirmed.
+CREATE TABLE profile_contact_change_requests (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  contact_type VARCHAR(20) NOT NULL,
+  current_value VARCHAR(255),
+  pending_value VARCHAR(255) NOT NULL,
+  verification_token VARCHAR(120) NOT NULL UNIQUE,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  verified_at TIMESTAMP,
+  details JSONB
+);
+
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_profile_contact_change_requests_user_id ON profile_contact_change_requests(user_id);
+CREATE INDEX idx_profile_contact_change_requests_status ON profile_contact_change_requests(status);
 
 -- Table used by connect-pg-simple for session storage
 CREATE TABLE session (

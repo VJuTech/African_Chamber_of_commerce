@@ -24,44 +24,10 @@
     <main class="container">
       <%- body %>
     </main>
-  <script>
-    // Password visibility toggle functionality
-    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetId = btn.dataset.target;
-        const input = document.getElementById(targetId);
-        const isPassword = input.type === 'password';
-        
-        input.type = isPassword ? 'text' : 'password';
-        btn.title = isPassword ? 'Hide password' : 'Toggle password visibility';
-        btn.classList.toggle('active', !isPassword);
-      });
-    });
-
-    // Password requirements checker for register page
-    const passwordInput = document.getElementById('password');
-    if (passwordInput) {
-      passwordInput.addEventListener('input', () => {
-        const password = passwordInput.value;
-        const requirements = {
-          length: password.length >= 8,
-          uppercase: /[A-Z]/.test(password),
-          lowercase: /[a-z]/.test(password),
-          number: /\d/.test(password),
-          special: /[!@#$%^&*()_+\-=\[\]{};:'",.<>?]/.test(password)
-        };
-
-        document.querySelectorAll('.requirement-list li').forEach(li => {
-          const req = li.dataset.requirement;
-          if (requirements[req]) {
-            li.classList.add('met');
-          } else {
-            li.classList.remove('met');
-          }
-        });
-      });
-    }
-  </script>
+    <!-- Shared JavaScript keeps form enhancements out of the templates. -->
+    <script src="/scripts/app.js" defer></script>
+    <% if (typeof pageScript !== 'undefined' && pageScript) { %>
+      <script src="<%= pageScript %>" defer></script>
+    <% } %>
   </body>
 </html>

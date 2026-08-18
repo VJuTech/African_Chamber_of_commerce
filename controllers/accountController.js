@@ -100,6 +100,7 @@ async function loginUser(req, res, next) {
     }
 
     req.session.authenticated = true;
+    req.session.userId = result.user.id;
     req.session.user = {
       ...result.user,
       id: result.user.id,
@@ -107,6 +108,11 @@ async function loginUser(req, res, next) {
       email: result.user.email,
       role: result.user.role,
       status: result.user.status,
+    };
+    req.session.sessionMeta = {
+      userId: result.user.id,
+      loginAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
     };
 
     req.session.cookie.maxAge = rememberMe ? 1000 * 60 * 60 * 24 * 7 : 1000 * 60 * 30;
