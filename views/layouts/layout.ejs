@@ -6,8 +6,11 @@
   </head>
   <body>
     <!-- Shared navigation bar for the application shell. -->
-    <nav class="navbar">
-      <a class="brand" href="/">African Chamber of Commerce</a>
+    <nav class="navbar" aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="African Chamber of Commerce home">
+        <img src="/images/site/acc-logo (1).png" alt="African Chamber of Commerce logo" class="brand__logo" />
+        <span class="brand__text">African Chamber of Commerce</span>
+      </a>
       <div class="nav-links">
         <% if (typeof user !== 'undefined' && user) { %>
           <a href="/dashboard">Dashboard</a>

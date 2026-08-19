@@ -1,5 +1,23 @@
 // Shared client-side enhancements used across account and profile pages.
 document.addEventListener("DOMContentLoaded", () => {
+  const currentPath = window.location.pathname;
+
+  document.querySelectorAll(".nav-links a[href]").forEach((link) => {
+    const href = link.getAttribute("href");
+    if (!href || href === "#") return;
+
+    const normalizedHref = href.split("?")[0];
+    const isHomeLink = normalizedHref === "/";
+    const isActiveLink = isHomeLink
+      ? currentPath === "/"
+      : currentPath === normalizedHref || currentPath.startsWith(normalizedHref + "/");
+
+    if (isActiveLink) {
+      link.classList.add("active");
+      link.setAttribute("aria-current", "page");
+    }
+  });
+
   document.querySelectorAll(".password-toggle-btn").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();

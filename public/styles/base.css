@@ -50,10 +50,52 @@ img {
   text-decoration: none;
 }
 
+.nav-links a {
+  position: relative;
+  padding: 0.45rem 0.6rem;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.nav-links a:hover,
+.nav-links a:focus-visible,
+.nav-links a.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--acc-white);
+  transform: translateY(-1px);
+}
+
+.nav-links a.active::after {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.2rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--acc-gold);
+}
+
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.brand__logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px;
+}
+
+.brand__text {
+  white-space: nowrap;
 }
 
 .nav-links {

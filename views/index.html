@@ -19,7 +19,10 @@
   <body>
     <!-- Application navigation for the public marketing landing page. -->
     <nav class="navbar" aria-label="Main navigation">
-      <a class="brand" href="/">African Chamber of Commerce</a>
+      <a class="brand" href="/" aria-label="African Chamber of Commerce home">
+        <img src="/images/site/acc-logo (1).png" alt="African Chamber of Commerce logo" class="brand__logo" />
+        <span class="brand__text">African Chamber of Commerce</span>
+      </a>
       <div class="nav-links">
         <a href="/directory">Directory</a>
         <a href="/network">Network</a>
@@ -217,5 +220,8 @@
         </div>
       </section>
     </main>
+
+    <!-- Shared client-side navigation logic keeps the landing page menu states active and consistent. -->
+    <script src="/scripts/app.js" defer></script>
   </body>
 </html>
