@@ -1,0 +1,245 @@
+<div class="directory-shell">
+  <div class="directory-card">
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Business directory</p>
+        <h1>Discover businesses across Africa</h1>
+      </div>
+    </div>
+
+    <form method="get" action="/directory" class="directory-toolbar">
+      <div class="search-row">
+        <input type="text" name="keyword" value="<%= keyword || '' %>" placeholder="Search by business, industry, or keyword" />
+        <select name="verificationStatus">
+          <option value="">All verification levels</option>
+          <option value="verified" <%= filters && filters.verificationStatus === 'verified' ? 'selected' : '' %>>Verified</option>
+          <option value="pending" <%= filters && filters.verificationStatus === 'pending' ? 'selected' : '' %>>Pending</option>
+        </select>
+        <select name="sort">
+          <option value="relevance" <%= sort === 'relevance' ? 'selected' : '' %>>Relevance</option>
+          <option value="alphabetical" <%= sort === 'alphabetical' ? 'selected' : '' %>>Alphabetical</option>
+          <option value="most_recent" <%= sort === 'most_recent' ? 'selected' : '' %>>Most recent</option>
+          <option value="most_viewed" <%= sort === 'most_viewed' ? 'selected' : '' %>>Most viewed</option>
+        </select>
+        <button type="submit" class="button primary">Search</button>
+      </div>
+
+      <div class="filter-row">
+        <input type="text" name="country" value="<%= filters && filters.country ? filters.country : '' %>" placeholder="Country" />
+        <input type="text" name="industry" value="<%= filters && filters.industry ? filters.industry : '' %>" placeholder="Industry" />
+        <input type="text" name="businessType" value="<%= filters && filters.businessType ? filters.businessType : '' %>" placeholder="Business type" />
+      </div>
+    </form>
+
+    <% if (message) { %>
+      <div class="message info"><%= message %></div>
+    <% } %>
+
+    <% if (!listings || listings.length === 0) { %>
+      <div class="empty-state">
+        <h3>No results found</h3>
+        <p>Try a broader keyword, remove some filters, or search for a nearby region or industry.</p>
+      </div>
+    <% } else { %>
+      <div class="directory-grid">
+        <% listings.forEach((business) => { %>
+          <article class="directory-item">
+            <div class="listing-top">
+              <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+              <div>
+                <h3><a href="/directory/<%= business.id %>"><%= business.businessName %></a></h3>
+                <p><%= business.industryCategory %></p>
+              </div>
+              <% if (business.isVerified) { %>
+                <span class="verified-badge">Verified</span>
+              <% } %>
+            </div>
+
+            <p class="description"><%= business.businessDescription || 'No description provided yet.' %></p>
+
+            <ul>
+              <li><strong>Location:</strong> <%= business.countryOfRegistration %> <%= business.stateRegion ? ('· ' + business.stateRegion) : '' %></li>
+              <li><strong>Type:</strong> <%= business.businessType %></li>
+              <li><strong>Membership:</strong> <%= business.membershipLevel %></li>
+            </ul>
+
+            <div class="listing-footer">
+              <span><%= business.viewCount || 0 %> views</span>
+              <a href="/directory/<%= business.id %>" class="button secondary">View profile</a>
+            </div>
+          </article>
+        <% }); %>
+      </div>
+
+      <% if (totalPages > 1) { %>
+        <div class="pagination">
+          <% for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) { %>
+            <a class="page-link <%= pageNumber === page ? 'active' : '' %>" href="/directory?page=<%= pageNumber %>&keyword=<%= encodeURIComponent(keyword || '') %>&country=<%= encodeURIComponent(filters && filters.country ? filters.country : '') %>&industry=<%= encodeURIComponent(filters && filters.industry ? filters.industry : '') %>&businessType=<%= encodeURIComponent(filters && filters.businessType ? filters.businessType : '') %>&verificationStatus=<%= encodeURIComponent(filters && filters.verificationStatus ? filters.verificationStatus : '') %>&sort=<%= encodeURIComponent(sort || 'relevance') %>"><%= pageNumber %></a>
+          <% } %>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+</div>
+
+<style>
+  .directory-shell {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+  .directory-card {
+    width: min(1100px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .page-header h1 {
+    margin: 0;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+  .directory-toolbar {
+    margin: 1.5rem 0;
+    display: grid;
+    gap: 1rem;
+  }
+  .search-row, .filter-row {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(150px, 1fr)) auto;
+  }
+  .filter-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .directory-toolbar input,
+  .directory-toolbar select {
+    border: 1px solid #ccd8ea;
+    border-radius: 10px;
+    padding: 0.75rem 0.8rem;
+    font: inherit;
+    background: #fff;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.1rem;
+    border-radius: 10px;
+    border: none;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .button.primary { background: #214e9c; color: #fff; }
+  .button.secondary { background: #edf3ff; color: #173b73; }
+  .directory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .directory-item {
+    border: 1px solid #dfe7f5;
+    border-radius: 14px;
+    background: #f9fbff;
+    padding: 1rem;
+  }
+  .listing-top {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.75rem;
+  }
+  .logo-placeholder {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #214e9c, #4b7fe7);
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.2rem;
+  }
+  .listing-top h3 {
+    margin: 0;
+  }
+  .listing-top a {
+    color: #123b72;
+    text-decoration: none;
+  }
+  .verified-badge {
+    margin-left: auto;
+    background: #e8f9ee;
+    color: #0f7d46;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.35rem 0.6rem;
+  }
+  .description {
+    color: #4a5d73;
+    line-height: 1.5;
+    margin: 0 0 0.9rem;
+  }
+  .directory-item ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+    display: grid;
+    gap: 0.45rem;
+    color: #314767;
+  }
+  .listing-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #516884;
+  }
+  .pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+  .page-link {
+    text-decoration: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: #edf3ff;
+    color: #173b73;
+    font-weight: 600;
+  }
+  .page-link.active {
+    background: #214e9c;
+    color: #fff;
+  }
+  .message { 
+    margin: 1rem 0;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.info { background: #eef5ff; color: #214e9c; }
+  .empty-state {
+    border: 1px dashed #d4dce8;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    color: #52677a;
+  }
+  @media (max-width: 760px) {
+    .search-row, .filter-row { grid-template-columns: 1fr; }
+    .directory-card { padding: 1rem; }
+  }
+</style>

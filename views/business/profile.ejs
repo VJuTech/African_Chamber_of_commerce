@@ -1,0 +1,237 @@
+<div class="business-profile-shell">
+  <div class="business-profile-card">
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Business profile management</p>
+        <h1><%= profile && profile.businessName ? profile.businessName : 'Business profile' %></h1>
+      </div>
+      <a class="button secondary" href="/business/my-businesses">Back to businesses</a>
+    </div>
+
+    <% if (success) { %>
+      <div class="message success"><%= success %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="message error"><%= error %></div>
+    <% } %>
+
+    <div class="profile-layout">
+      <section class="panel">
+        <h2>Profile overview</h2>
+        <div class="business-meta">
+          <div>
+            <span class="label">Business type</span>
+            <strong><%= profile && profile.businessType ? profile.businessType : 'Not set' %></strong>
+          </div>
+          <div>
+            <span class="label">Industry</span>
+            <strong><%= profile && profile.industryCategory ? profile.industryCategory : 'Not set' %></strong>
+          </div>
+          <div>
+            <span class="label">Visibility</span>
+            <strong><%= profile && profile.visibility ? profile.visibility : 'public' %></strong>
+          </div>
+          <div>
+            <span class="label">Verification</span>
+            <strong><%= profile && profile.verificationStatus ? profile.verificationStatus : 'pending' %></strong>
+          </div>
+        </div>
+
+        <form method="post" action="/business/profile/<%= profile && profile.businessId ? profile.businessId : 1 %>" class="business-form">
+          <div class="field-grid">
+            <div class="field-group">
+              <label for="businessName">Business name</label>
+              <input id="businessName" name="businessName" type="text" value="<%= profile && profile.businessName ? profile.businessName : '' %>" required>
+            </div>
+            <div class="field-group">
+              <label for="businessType">Business type</label>
+              <input id="businessType" name="businessType" type="text" value="<%= profile && profile.businessType ? profile.businessType : '' %>" required>
+            </div>
+            <div class="field-group">
+              <label for="industryCategory">Industry category</label>
+              <input id="industryCategory" name="industryCategory" type="text" value="<%= profile && profile.industryCategory ? profile.industryCategory : '' %>" required>
+            </div>
+            <div class="field-group">
+              <label for="emailAddress">Business email</label>
+              <input id="emailAddress" name="emailAddress" type="email" value="<%= profile && profile.emailAddress ? profile.emailAddress : '' %>">
+            </div>
+            <div class="field-group">
+              <label for="phoneNumber">Business phone</label>
+              <input id="phoneNumber" name="phoneNumber" type="tel" value="<%= profile && profile.phoneNumber ? profile.phoneNumber : '' %>">
+            </div>
+            <div class="field-group">
+              <label for="website">Website</label>
+              <input id="website" name="website" type="url" value="<%= profile && profile.website ? profile.website : '' %>">
+            </div>
+            <div class="field-group field-wide">
+              <label for="physicalAddress">Physical address</label>
+              <textarea id="physicalAddress" name="physicalAddress" rows="3" required><%= profile && profile.physicalAddress ? profile.physicalAddress : '' %></textarea>
+            </div>
+            <div class="field-group">
+              <label for="yearEstablished">Year established</label>
+              <input id="yearEstablished" name="yearEstablished" type="number" min="1900" max="2100" value="<%= profile && profile.yearEstablished ? profile.yearEstablished : '' %>">
+            </div>
+            <div class="field-group">
+              <label for="numberOfEmployees">Employees</label>
+              <input id="numberOfEmployees" name="numberOfEmployees" type="number" min="1" value="<%= profile && profile.numberOfEmployees ? profile.numberOfEmployees : '' %>">
+            </div>
+            <div class="field-group">
+              <label for="operatingHours">Operating hours</label>
+              <input id="operatingHours" name="operatingHours" type="text" value="<%= profile && profile.operatingHours ? profile.operatingHours : '' %>">
+            </div>
+            <div class="field-group field-wide">
+              <label for="businessDescription">Business description</label>
+              <textarea id="businessDescription" name="businessDescription" rows="4"><%= profile && profile.businessDescription ? profile.businessDescription : '' %></textarea>
+            </div>
+          </div>
+
+          <div class="section-actions">
+            <button type="submit" class="button primary">Save changes</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel panel-compact">
+          <h3>Branding</h3>
+          <form method="post" action="/business/profile/<%= profile && profile.businessId ? profile.businessId : 1 %>/logo" enctype="multipart/form-data" class="business-form compact-form">
+            <div class="field-group">
+              <label for="logo">Business logo</label>
+              <input id="logo" name="logo" type="file" accept="image/jpeg,image/png,image/webp">
+            </div>
+            <button type="submit" class="button secondary">Upload logo</button>
+          </form>
+        </section>
+
+        <section class="panel panel-compact">
+          <h3>Visibility</h3>
+          <form method="post" action="/business/profile/<%= profile && profile.businessId ? profile.businessId : 1 %>/visibility" class="business-form compact-form">
+            <div class="field-group">
+              <label for="visibility">Profile visibility</label>
+              <select id="visibility" name="visibility">
+                <option value="public" <%= profile && profile.visibility === 'public' ? 'selected' : '' %>>Public</option>
+                <option value="private" <%= profile && profile.visibility === 'private' ? 'selected' : '' %>>Private</option>
+                <option value="restricted" <%= profile && profile.visibility === 'restricted' ? 'selected' : '' %>>Restricted</option>
+              </select>
+            </div>
+            <button type="submit" class="button primary">Update visibility</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<style>
+  .business-profile-shell {
+    padding: 2rem 0;
+    display: flex;
+    justify-content: center;
+  }
+  .business-profile-card {
+    width: min(1100px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 0.9fr);
+    gap: 1.25rem;
+  }
+  .panel {
+    border: 1px solid #dfe7f5;
+    border-radius: 14px;
+    padding: 1.25rem;
+    background: #f9fbff;
+  }
+  .panel-compact {
+    margin-bottom: 1rem;
+  }
+  .business-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .label {
+    display: block;
+    color: #59708a;
+    font-size: 0.72rem;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .field-wide {
+    grid-column: 1 / -1;
+  }
+  .field-group label {
+    font-weight: 600;
+    color: #2d4059;
+  }
+  .field-group input,
+  .field-group select,
+  .field-group textarea {
+    width: 100%;
+    border: 1px solid #ccd8ea;
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    font: inherit;
+    background: #fff;
+  }
+  .section-actions {
+    margin-top: 1.25rem;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.2rem;
+    border-radius: 10px;
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .button.primary { background: #214e9c; color: #fff; }
+  .button.secondary { background: #edf3ff; color: #173b73; }
+  .message {
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.success { background: #ebfff5; color: #0f6a3a; }
+  .message.error { background: #fff1f0; color: #b43a2d; }
+  @media (max-width: 720px) {
+    .profile-layout, .field-grid { grid-template-columns: 1fr; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .business-profile-card { padding: 1rem; }
+  }
+</style>

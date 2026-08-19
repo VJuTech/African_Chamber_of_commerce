@@ -1,0 +1,133 @@
+<div class="detail-shell">
+  <div class="detail-card">
+    <a class="breadcrumb" href="/directory">← Back to directory</a>
+
+    <div class="detail-header">
+      <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+      <div>
+        <p class="eyebrow">Business profile</p>
+        <h1><%= business.businessName %></h1>
+        <% if (business.isVerified) { %>
+          <span class="verified-badge">Verified business</span>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <section class="panel">
+        <h2>Overview</h2>
+        <p><%= business.businessDescription || 'No overview provided.' %></p>
+
+        <ul class="info-list">
+          <li><strong>Industry:</strong> <%= business.industryCategory %></li>
+          <li><strong>Business type:</strong> <%= business.businessType %></li>
+          <li><strong>Country:</strong> <%= business.countryOfRegistration %></li>
+          <li><strong>State/Region:</strong> <%= business.stateRegion || 'Not specified' %></li>
+          <li><strong>Membership level:</strong> <%= business.membershipLevel || 'Basic' %></li>
+          <li><strong>Verification status:</strong> <%= business.verificationStatus %></li>
+        </ul>
+      </section>
+
+      <aside class="panel side-panel">
+        <h2>Quick facts</h2>
+        <ul class="stat-list">
+          <li><span>Views</span><strong><%= business.viewCount || 0 %></strong></li>
+          <li><span>Updated</span><strong><%= new Date(business.updatedAt).toLocaleDateString() %></strong></li>
+          <li><span>Visibility</span><strong>Public directory</strong></li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<style>
+  .detail-shell {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+  .detail-card {
+    width: min(980px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .breadcrumb {
+    color: #214e9c;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.25rem 0 1.5rem;
+  }
+  .logo-placeholder {
+    width: 74px;
+    height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #214e9c, #4b7fe7);
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .verified-badge {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: #e8f9ee;
+    color: #0f7d46;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(230px, 0.8fr);
+    gap: 1rem;
+  }
+  .panel {
+    border: 1px solid #dfe7f5;
+    border-radius: 14px;
+    background: #f9fbff;
+    padding: 1.25rem;
+  }
+  .info-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .stat-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .stat-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dfe7f5;
+  }
+  @media (max-width: 720px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-card { padding: 1rem; }
+  }
+</style>

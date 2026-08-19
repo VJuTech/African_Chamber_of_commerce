@@ -268,3 +268,218 @@ INSERT INTO membership_limits (tier_id, limit_type, limit_value, limit_descripti
 SELECT id, 'listings_per_month', NULL, 'Unlimited listings'
 FROM membership_tiers WHERE tier_name = 'Enterprise'
 ON CONFLICT DO NOTHING;
+
+-- ========================================
+-- CHAPTER 10: BUSINESS ACCOUNT REGISTRATION
+-- ========================================
+CREATE TABLE business_accounts (
+  id SERIAL PRIMARY KEY,
+  business_name VARCHAR(255) NOT NULL,
+  business_type VARCHAR(120) NOT NULL,
+  country_of_registration VARCHAR(120) NOT NULL,
+  business_address TEXT NOT NULL,
+  contact_email VARCHAR(255) NOT NULL,
+  contact_phone VARCHAR(50) NOT NULL,
+  industry_category VARCHAR(120) NOT NULL,
+  registration_number VARCHAR(120),
+  tax_identification_number VARCHAR(120),
+  website VARCHAR(255),
+  business_description TEXT,
+  logo VARCHAR(255),
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ownership_role VARCHAR(100) NOT NULL DEFAULT 'Business Owner',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  verification_status VARCHAR(50) DEFAULT 'not_started',
+  verification_notes TEXT,
+  verified_at TIMESTAMP,
+  rejected_reason TEXT,
+  suspended_at TIMESTAMP,
+  UNIQUE (business_name, country_of_registration)
+);
+
+CREATE TABLE business_administrators (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(50) NOT NULL DEFAULT 'Administrator',
+  status VARCHAR(50) NOT NULL DEFAULT 'active',
+  invited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  accepted_at TIMESTAMP,
+  UNIQUE (business_id, user_id)
+);
+
+CREATE TABLE business_audit_logs (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- CHAPTER 11: BUSINESS PROFILE MANAGEMENT
+-- ========================================
+CREATE TABLE business_profiles (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER NOT NULL UNIQUE REFERENCES business_accounts(id) ON DELETE CASCADE,
+  business_name VARCHAR(255) NOT NULL,
+  business_type VARCHAR(120) NOT NULL,
+  industry_category VARCHAR(120) NOT NULL,
+  business_description TEXT,
+  email_address VARCHAR(255),
+  phone_number VARCHAR(50),
+  website VARCHAR(255),
+  physical_address TEXT NOT NULL,
+  logo_path VARCHAR(255),
+  cover_banner VARCHAR(255),
+  visibility VARCHAR(30) NOT NULL DEFAULT 'public',
+  verification_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  year_established INTEGER,
+  number_of_employees INTEGER,
+  operating_hours VARCHAR(200),
+  service_areas JSONB DEFAULT '[]'::jsonb,
+  social_links JSONB DEFAULT '{}'::jsonb,
+  is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE business_profile_audit_logs (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_business_accounts_owner_id ON business_accounts(owner_id);
+CREATE INDEX idx_business_accounts_status ON business_accounts(status);
+CREATE INDEX idx_business_accounts_country ON business_accounts(country_of_registration);
+CREATE INDEX idx_business_administrators_business_id ON business_administrators(business_id);
+CREATE INDEX idx_business_administrators_user_id ON business_administrators(user_id);
+CREATE INDEX idx_business_audit_logs_business_id ON business_audit_logs(business_id);
+CREATE INDEX idx_business_audit_logs_event_type ON business_audit_logs(event_type);
+CREATE INDEX idx_business_profiles_business_id ON business_profiles(business_id);
+CREATE INDEX idx_business_profiles_visibility ON business_profiles(visibility);
+CREATE INDEX idx_business_profile_audit_logs_business_id ON business_profile_audit_logs(business_id);
+CREATE INDEX idx_business_profile_audit_logs_event_type ON business_profile_audit_logs(event_type);
+
+ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS search_rank INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS membership_level VARCHAR(60) NOT NULL DEFAULT 'Basic';
+ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS state_region VARCHAR(120);
+
+CREATE TABLE business_directory_search_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  keyword VARCHAR(255),
+  filters JSONB,
+  results_count INTEGER DEFAULT 0,
+  clicked_business_id INTEGER REFERENCES business_accounts(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_business_directory_search_logs_user_id ON business_directory_search_logs(user_id);
+CREATE INDEX idx_business_directory_search_logs_keyword ON business_directory_search_logs(keyword);
+
+CREATE TABLE business_connections (
+  id SERIAL PRIMARY KEY,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type VARCHAR(30) NOT NULL DEFAULT 'user',
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  message TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (sender_id, receiver_id)
+);
+
+CREATE TABLE business_connection_blocks (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_id INTEGER NOT NULL,
+  reason TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, target_id)
+);
+
+CREATE TABLE business_connection_reports (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_id INTEGER NOT NULL,
+  report_type VARCHAR(60) NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_business_connections_sender_id ON business_connections(sender_id);
+CREATE INDEX idx_business_connections_receiver_id ON business_connections(receiver_id);
+CREATE INDEX idx_business_connections_status ON business_connections(status);
+CREATE INDEX idx_business_connection_blocks_user_id ON business_connection_blocks(user_id);
+CREATE INDEX idx_business_connection_reports_user_id ON business_connection_reports(user_id);
+
+INSERT INTO business_accounts (
+  business_name,
+  business_type,
+  country_of_registration,
+  business_address,
+  contact_email,
+  contact_phone,
+  industry_category,
+  registration_number,
+  tax_identification_number,
+  website,
+  business_description,
+  logo,
+  status,
+  owner_id,
+  ownership_role,
+  verification_status,
+  verification_notes,
+  created_at,
+  updated_at
+)
+SELECT
+  'ACC Demo Holding',
+  'Limited Liability Company (LLC)',
+  'Nigeria',
+  'Plot 18, Lekki Phase 1, Lagos, Nigeria',
+  'hello@accdemo.com',
+  '+2348000001000',
+  'Trade Facilitation',
+  'RC-2024-1001',
+  'TIN-ACC-1001',
+  'https://accdemo.com',
+  'A sample ACC business profile used to demonstrate the business registration workflow.',
+  NULL,
+  'verified',
+  u.id,
+  'Business Owner',
+  'approved',
+  'Approved by the ACC verification team.',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+FROM users u
+WHERE u.email = 'admin@acc.com'
+ON CONFLICT (business_name, country_of_registration) DO NOTHING;
+
+INSERT INTO business_audit_logs (
+  business_id,
+  user_id,
+  event_type,
+  outcome,
+  details,
+  created_at
+)
+SELECT ba.id, ba.owner_id, 'registration_started', 'started', '{"source":"seed"}'::jsonb, CURRENT_TIMESTAMP
+FROM business_accounts ba
+WHERE ba.business_name = 'ACC Demo Holding'
+ON CONFLICT DO NOTHING;

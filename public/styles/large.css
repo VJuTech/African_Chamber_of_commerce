@@ -1,0 +1,28 @@
+/* Large-screen styles for desktop layouts */
+
+.hero {
+  grid-template-columns: 1.2fr 0.8fr;
+  padding-top: 2.5rem;
+}
+
+.hero__content h1,
+.section-heading h2,
+.cta h2 {
+  font-size: clamp(3rem, 4vw, 4.3rem);
+}
+
+.features__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trust-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.categories__grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.testimonials__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

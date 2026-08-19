@@ -1,0 +1,191 @@
+<div class="business-shell">
+  <div class="business-card">
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">African Chamber of Commerce</p>
+        <h1>Register Business</h1>
+      </div>
+      <a class="button secondary" href="/business/my-businesses">My businesses</a>
+    </div>
+
+    <% if (error) { %>
+      <div class="message error"><%= error %></div>
+    <% } %>
+    <% if (success) { %>
+      <div class="message success"><%= success %></div>
+    <% } %>
+
+    <form method="post" action="/business/register" class="business-form">
+      <div class="form-section">
+        <h3>Business information</h3>
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="businessName">Business Name</label>
+            <input id="businessName" name="businessName" type="text" value="<%= formData && formData.businessName ? formData.businessName : '' %>" required />
+          </div>
+          <div class="field-group">
+            <label for="businessType">Business Type</label>
+            <select id="businessType" name="businessType" required>
+              <option value="">Select business type</option>
+              <option value="Sole Proprietorship" <%= formData && formData.businessType === 'Sole Proprietorship' ? 'selected' : '' %>>Sole Proprietorship</option>
+              <option value="Partnership" <%= formData && formData.businessType === 'Partnership' ? 'selected' : '' %>>Partnership</option>
+              <option value="Limited Liability Company (LLC)" <%= formData && formData.businessType === 'Limited Liability Company (LLC)' ? 'selected' : '' %>>Limited Liability Company (LLC)</option>
+              <option value="Corporation" <%= formData && formData.businessType === 'Corporation' ? 'selected' : '' %>>Corporation</option>
+              <option value="Non-Governmental Organization (NGO)" <%= formData && formData.businessType === 'Non-Governmental Organization (NGO)' ? 'selected' : '' %>>Non-Governmental Organization (NGO)</option>
+              <option value="Government Agency" <%= formData && formData.businessType === 'Government Agency' ? 'selected' : '' %>>Government Agency</option>
+              <option value="Informal Business" <%= formData && formData.businessType === 'Informal Business' ? 'selected' : '' %>>Informal Business</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="countryOfRegistration">Country of Registration</label>
+            <input id="countryOfRegistration" name="countryOfRegistration" type="text" value="<%= formData && formData.countryOfRegistration ? formData.countryOfRegistration : '' %>" required />
+          </div>
+          <div class="field-group">
+            <label for="industryCategory">Industry Category</label>
+            <input id="industryCategory" name="industryCategory" type="text" value="<%= formData && formData.industryCategory ? formData.industryCategory : '' %>" required />
+          </div>
+          <div class="field-group full-width">
+            <label for="businessAddress">Business Address</label>
+            <textarea id="businessAddress" name="businessAddress" rows="3" required><%= formData && formData.businessAddress ? formData.businessAddress : '' %></textarea>
+          </div>
+          <div class="field-group">
+            <label for="contactEmail">Contact Email</label>
+            <input id="contactEmail" name="contactEmail" type="email" value="<%= formData && formData.contactEmail ? formData.contactEmail : '' %>" required />
+          </div>
+          <div class="field-group">
+            <label for="contactPhone">Contact Phone</label>
+            <input id="contactPhone" name="contactPhone" type="tel" value="<%= formData && formData.contactPhone ? formData.contactPhone : '' %>" required />
+          </div>
+          <div class="field-group">
+            <label for="registrationNumber">Registration Number (optional)</label>
+            <input id="registrationNumber" name="registrationNumber" type="text" value="<%= formData && formData.registrationNumber ? formData.registrationNumber : '' %>" />
+          </div>
+          <div class="field-group">
+            <label for="taxIdentificationNumber">Tax Identification Number (optional)</label>
+            <input id="taxIdentificationNumber" name="taxIdentificationNumber" type="text" value="<%= formData && formData.taxIdentificationNumber ? formData.taxIdentificationNumber : '' %>" />
+          </div>
+          <div class="field-group">
+            <label for="website">Website (optional)</label>
+            <input id="website" name="website" type="url" value="<%= formData && formData.website ? formData.website : '' %>" />
+          </div>
+          <div class="field-group">
+            <label for="logo">Logo URL (optional)</label>
+            <input id="logo" name="logo" type="url" value="<%= formData && formData.logo ? formData.logo : '' %>" />
+          </div>
+          <div class="field-group full-width">
+            <label for="businessDescription">Business Description</label>
+            <textarea id="businessDescription" name="businessDescription" rows="4"><%= formData && formData.businessDescription ? formData.businessDescription : '' %></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="button primary">Create Business Account</button>
+        <button type="button" class="button secondary" id="save-draft-btn">Save Draft</button>
+      </div>
+    </form>
+
+    <form id="draft-form" method="post" action="/business/draft" style="display:none;">
+      <div id="draft-form-fields"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('save-draft-btn')?.addEventListener('click', function () {
+    const form = document.querySelector('.business-form');
+    const draftForm = document.getElementById('draft-form');
+    const fieldsContainer = document.getElementById('draft-form-fields');
+    fieldsContainer.innerHTML = '';
+
+    Array.from(new FormData(form).entries()).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      fieldsContainer.appendChild(input);
+    });
+
+    draftForm.submit();
+  });
+</script>
+
+<style>
+  .business-shell {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+  .business-card {
+    width: min(980px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .message {
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.error { background: #fff1f0; color: #a32b2b; }
+  .message.success { background: #ebfff5; color: #0f6a3a; }
+  .form-section {
+    margin-bottom: 1.5rem;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .field-group.full-width {
+    grid-column: 1 / -1;
+  }
+  .field-group label {
+    font-weight: 600;
+    color: #213b52;
+  }
+  .field-group input,
+  .field-group select,
+  .field-group textarea {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid #d8e0eb;
+    border-radius: 10px;
+    font: inherit;
+    color: #1d2d3d;
+    background: #fff;
+  }
+  .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-start;
+    margin-top: 1rem;
+  }
+  @media (max-width: 640px) {
+    .business-card { padding: 1rem; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .form-actions { flex-direction: column; }
+  }
+</style>

@@ -1,0 +1,137 @@
+<div class="business-shell">
+  <div class="business-card">
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">African Chamber of Commerce</p>
+        <h1>My Businesses</h1>
+      </div>
+      <a class="button primary" href="/business/register">Register new business</a>
+    </div>
+
+    <% if (message) { %>
+      <div class="message success"><%= message %></div>
+    <% } %>
+
+    <% if (!businesses || businesses.length === 0) { %>
+      <div class="empty-state">
+        <h3>No business accounts yet</h3>
+        <p>Create your first business profile to begin managing your organization.</p>
+      </div>
+    <% } else { %>
+      <div class="business-grid">
+        <% businesses.forEach((business) => { %>
+          <article class="business-item">
+            <div class="business-header">
+              <div>
+                <h3><%= business.businessName %></h3>
+                <p><%= business.businessType %></p>
+              </div>
+              <span class="status-badge <%= business.status %>"><%= business.status %></span>
+            </div>
+
+            <ul>
+              <li><strong>Country:</strong> <%= business.countryOfRegistration %></li>
+              <li><strong>Industry:</strong> <%= business.industryCategory %></li>
+              <li><strong>Email:</strong> <%= business.contactEmail %></li>
+              <li><strong>Phone:</strong> <%= business.contactPhone %></li>
+            </ul>
+
+            <% if (business.status !== 'pending' && business.status !== 'verified') { %>
+              <form method="post" action="/business/<%= business.id %>/verify">
+                <button type="submit" class="button secondary">Submit for verification</button>
+              </form>
+            <% } %>
+          </article>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<style>
+  .business-shell {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+  .business-card {
+    width: min(980px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+  }
+  .message {
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.success { background: #ebfff5; color: #0f6a3a; }
+  .business-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .business-item {
+    border: 1px solid #dfe7f5;
+    border-radius: 14px;
+    background: #f9fbff;
+    padding: 1rem;
+  }
+  .business-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 90px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+  .status-badge.draft { background: #eef2f9; color: #2f4a69; }
+  .status-badge.pending { background: #fff0d9; color: #a86a00; }
+  .status-badge.verified { background: #e8f9ee; color: #0f7d46; }
+  .status-badge.rejected { background: #ffe9e7; color: #b43a2d; }
+  .status-badge.suspended { background: #f4e5ff; color: #7447b0; }
+  .empty-state {
+    border: 1px dashed #d4dce8;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    color: #52677a;
+  }
+  .business-item ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+  @media (max-width: 640px) {
+    .business-card { padding: 1rem; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>

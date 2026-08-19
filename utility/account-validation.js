@@ -116,6 +116,46 @@ function validateAccountPayload(payload) {
   return errors;
 }
 
+// Business registration validation keeps ACC chapter-10 rules consistent with the
+// general account validation service used across the app.
+function validateBusinessPayload(payload = {}) {
+  const errors = [];
+  const requiredFields = [
+    "businessName",
+    "businessType",
+    "countryOfRegistration",
+    "businessAddress",
+    "contactEmail",
+    "contactPhone",
+    "industryCategory",
+  ];
+
+  requiredFields.forEach((field) => {
+    const value = payload[field];
+    if (value === undefined || value === null || String(value).trim() === "") {
+      errors.push(`${field.replace(/([A-Z])/g, " $1").trim()} is required.`);
+    }
+  });
+
+  if (payload.contactEmail) {
+    errors.push(...validateEmail(payload.contactEmail));
+  }
+
+  if (payload.contactPhone) {
+    errors.push(...validatePhone(payload.contactPhone));
+  }
+
+  if (payload.registrationNumber && String(payload.registrationNumber).trim().length < 3) {
+    errors.push("Registration number must be at least 3 characters long.");
+  }
+
+  if (payload.website && !/^https?:\/\//i.test(String(payload.website).trim())) {
+    errors.push("Website must begin with http:// or https://");
+  }
+
+  return errors;
+}
+
 module.exports = {
   validateRequiredFields,
   validateEmail,
@@ -123,4 +163,5 @@ module.exports = {
   validatePassword,
   validateConsent,
   validateAccountPayload,
+  validateBusinessPayload,
 };

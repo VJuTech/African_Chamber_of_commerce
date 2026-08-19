@@ -1,0 +1,208 @@
+<div class="network-shell">
+  <div class="network-card">
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Business networking</p>
+        <h1>My network</h1>
+      </div>
+    </div>
+
+    <% if (message) { %>
+      <div class="message success"><%= message %></div>
+    <% } %>
+
+    <div class="network-grid">
+      <section class="panel">
+        <h2>Incoming requests</h2>
+        <% if (!requests || !requests.incoming || requests.incoming.length === 0) { %>
+          <p class="empty-text">No pending incoming requests.</p>
+        <% } else { %>
+          <% requests.incoming.forEach((request) => { %>
+            <div class="request-item">
+              <div>
+                <strong>Request #<%= request.id %></strong>
+                <p><%= request.message || 'New connection request' %></p>
+              </div>
+              <div class="action-row">
+                <form method="post" action="/network/<%= request.id %>/accept">
+                  <button type="submit" class="button primary">Accept</button>
+                </form>
+                <form method="post" action="/network/<%= request.id %>/reject">
+                  <button type="submit" class="button secondary">Reject</button>
+                </form>
+              </div>
+            </div>
+          <% }); %>
+        <% } %>
+      </section>
+
+      <section class="panel">
+        <h2>Connected</h2>
+        <% if (!connections || connections.length === 0) { %>
+          <p class="empty-text">No active connections yet.</p>
+        <% } else { %>
+          <% connections.forEach((connection) => { %>
+            <div class="connection-item">
+              <span>Connection #<%= connection.id %></span>
+              <form method="post" action="/network/<%= connection.id %>/block">
+                <button type="submit" class="button danger">Block</button>
+              </form>
+            </div>
+          <% }); %>
+        <% } %>
+      </section>
+    </div>
+
+    <section class="panel suggestions-panel">
+      <h2>Suggested connections</h2>
+      <% if (!suggestions || suggestions.length === 0) { %>
+        <p class="empty-text">No suggestions available right now.</p>
+      <% } else { %>
+        <div class="suggestions-grid">
+          <% suggestions.forEach((suggestion) => { %>
+            <div class="suggestion-item">
+              <div>
+                <strong><%= suggestion.name %></strong>
+                <p><%= suggestion.reason %></p>
+              </div>
+              <form method="post" action="/network/connect">
+                <input type="hidden" name="targetId" value="<%= suggestion.targetId %>" />
+                <input type="hidden" name="targetType" value="user" />
+                <button type="submit" class="button primary">Connect</button>
+              </form>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="panel report-panel">
+      <h2>Report issue</h2>
+      <form method="post" action="/network/report" class="report-form">
+        <div class="field-group">
+          <label for="reportType">Issue type</label>
+          <select id="reportType" name="reportType">
+            <option value="misconduct">Misconduct</option>
+            <option value="spam">Spam</option>
+            <option value="harassment">Harassment</option>
+            <option value="fraud">Fraud</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="targetId">Target user ID</label>
+          <input id="targetId" name="targetId" type="number" min="1" placeholder="Enter target ID" required>
+        </div>
+        <div class="field-group">
+          <label for="details">Details</label>
+          <textarea id="details" name="details" rows="3" placeholder="Describe the issue"></textarea>
+        </div>
+        <button type="submit" class="button primary">Submit report</button>
+      </form>
+    </section>
+  </div>
+</div>
+
+<style>
+  .network-shell {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+  .network-card {
+    width: min(1100px, 100%);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    padding: 2rem;
+  }
+  .page-header h1 {
+    margin: 0;
+  }
+  .eyebrow {
+    color: #285baf;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+  .network-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .panel {
+    border: 1px solid #dfe7f5;
+    border-radius: 14px;
+    background: #f9fbff;
+    padding: 1.25rem;
+  }
+  .request-item, .connection-item, .suggestion-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #e4ebf7;
+  }
+  .request-item:last-child, .connection-item:last-child, .suggestion-item:last-child {
+    border-bottom: none;
+  }
+  .action-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    border: none;
+    border-radius: 9px;
+    padding: 0.65rem 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .button.primary { background: #214e9c; color: #fff; }
+  .button.secondary { background: #edf3ff; color: #173b73; }
+  .button.danger { background: #ffe9e7; color: #b43a2d; }
+  .suggestions-panel, .report-panel {
+    margin-top: 1.25rem;
+  }
+  .suggestions-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .empty-text {
+    color: #5d7189;
+  }
+  .report-form {
+    display: grid;
+    gap: 1rem;
+  }
+  .field-group {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .field-group input,
+  .field-group select,
+  .field-group textarea {
+    border: 1px solid #ccd8ea;
+    border-radius: 10px;
+    padding: 0.75rem 0.8rem;
+    font: inherit;
+    background: #fff;
+  }
+  .message {
+    margin-top: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.success { background: #ebfff5; color: #0f6a3a; }
+  @media (max-width: 760px) {
+    .network-grid { grid-template-columns: 1fr; }
+    .network-card { padding: 1rem; }
+    .request-item, .connection-item, .suggestion-item { flex-direction: column; align-items: flex-start; }
+  }
+</style>

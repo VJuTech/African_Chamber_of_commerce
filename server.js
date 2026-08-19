@@ -17,6 +17,10 @@ const pageRoutes = require("./routes/pageRoute");
 const dashboardRoutes = require("./routes/dashboardRoute");
 const profileRoutes = require("./routes/profileRoute");
 const membershipRoutes = require("./routes/membershipRoute");
+const businessRoutes = require("./routes/businessRoute");
+const businessProfileRoutes = require("./routes/businessProfileRoute");
+const businessDirectoryRoutes = require("./routes/businessDirectoryRoute");
+const businessNetworkingRoutes = require("./routes/businessNetworkingRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -140,6 +144,10 @@ async function initApp() {
   app.use("/", dashboardRoutes);
   app.use("/", profileRoutes);
   app.use("/", membershipRoutes);
+  app.use("/", businessRoutes);
+  app.use("/", businessProfileRoutes);
+  app.use("/", businessDirectoryRoutes);
+  app.use("/", businessNetworkingRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);
