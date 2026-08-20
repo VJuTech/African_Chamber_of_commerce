@@ -87,12 +87,14 @@ img {
 }
 
 .brand__logo {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 6px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .brand__text {
