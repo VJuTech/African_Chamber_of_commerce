@@ -2,9 +2,21 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title><%= typeof title !== 'undefined' ? title : 'ACC' %></title>
+
+<!-- Open Graph / social sharing metadata -->
+<meta property="og:title" content="<%= typeof title !== 'undefined' ? title : 'African Chamber of Commerce' %>" />
+<meta property="og:description" content="African Chamber of Commerce connects businesses across Africa through trusted networking, directory discovery, and market opportunities." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="<%= process.env.APP_URL || 'https://africanchamberofcommerce.onrender.com/' %>" />
+<meta property="og:image" content="<%= (process.env.APP_URL || 'https://africanchamberofcommerce.onrender.com/') + '/images/site/acc-logo%20(1).png' %>" />
+<meta property="og:image:alt" content="African Chamber of Commerce logo" />
+<meta property="og:site_name" content="African Chamber of Commerce" />
+
 <link rel="stylesheet" href="/styles/base.css" />
 <link rel="stylesheet" href="/styles/account.css" />
 <link rel="stylesheet" href="/styles/profile.css" />
+<link rel="stylesheet" href="/styles/messaging.css" />
+<link rel="stylesheet" href="/styles/assistant.css" />
 <link rel="stylesheet" href="/styles/small.css" media="screen and (max-width: 767px)" />
 <link rel="stylesheet" href="/styles/medium.css" media="screen and (min-width: 768px) and (max-width: 1023px)" />
 <link rel="stylesheet" href="/styles/large.css" media="screen and (min-width: 1024px)" />

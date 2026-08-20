@@ -1,0 +1,107 @@
+<section class="messaging-shell">
+  <div class="messaging-layout">
+    <aside class="sidebar-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Messaging</p>
+          <h1>Inbox</h1>
+        </div>
+        <button type="button" class="button button--primary" data-open-conversation>New message</button>
+      </div>
+
+      <% if (message) { %>
+        <div class="alert success"><%= message %></div>
+      <% } %>
+
+      <div class="compose-box" hidden>
+        <form method="post" action="/messages/start" class="compose-form">
+          <div class="field-group">
+            <label for="targetId">Recipient ID</label>
+            <input id="targetId" name="targetId" type="number" min="1" placeholder="Enter user ID" required>
+          </div>
+          <div class="field-group">
+            <label for="subject">Subject</label>
+            <input id="subject" name="subject" type="text" placeholder="Business discussion" required>
+          </div>
+          <div class="field-group">
+            <label for="type">Conversation type</label>
+            <select id="type" name="type">
+              <option value="user_to_user">User to User</option>
+              <option value="user_to_business">User to Business</option>
+              <option value="business_to_business">Business to Business</option>
+            </select>
+          </div>
+          <button type="submit" class="button button--primary">Start conversation</button>
+        </form>
+      </div>
+
+      <% if (!conversations || conversations.length === 0) { %>
+        <p class="empty-state">No conversations yet. Start a new conversation to begin collaborating.</p>
+      <% } else { %>
+        <div class="conversation-list">
+          <% conversations.forEach((conversation) => { %>
+            <a class="conversation-item" href="/messages/conversation/<%= conversation.id %>">
+              <div class="conversation-item__meta">
+                <strong><%= conversation.subject %></strong>
+                <small><%= conversation.type.replace(/_/g, ' ') %></small>
+              </div>
+              <span class="conversation-item__time"><%= new Date(conversation.updatedAt).toLocaleString() %></span>
+              <% if (conversation.lastMessage && conversation.lastMessage.text) { %>
+                <p><%= conversation.lastMessage.text %></p>
+              <% } %>
+            </a>
+          <% }); %>
+        </div>
+      <% } %>
+    </aside>
+
+    <section class="content-panel">
+      <div class="panel-header muted-header">
+        <div>
+          <p class="eyebrow">Live updates</p>
+          <h2>Communication center</h2>
+        </div>
+      </div>
+
+      <div class="notification-stack">
+        <% if (!notifications || notifications.length === 0) { %>
+          <div class="notification-card empty">No new notifications.</div>
+        <% } else { %>
+          <% notifications.forEach((notification) => { %>
+            <div class="notification-card">
+              <strong><%= notification.type.replace(/_/g, ' ') %></strong>
+              <p><%= notification.payload && notification.payload.text ? notification.payload.text : 'New activity in your messaging feed.' %></p>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
+
+      <div class="status-grid">
+        <div class="stat-card">
+          <span>Unread</span>
+          <strong><%= conversations && conversations.length ? conversations.length : 0 %></strong>
+        </div>
+        <div class="stat-card">
+          <span>Delivered</span>
+          <strong><%= notifications && notifications.length ? notifications.length : 0 %></strong>
+        </div>
+        <div class="stat-card">
+          <span>Protected</span>
+          <strong>Secure</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const trigger = document.querySelector('[data-open-conversation]');
+    const box = document.querySelector('.compose-box');
+    if (trigger && box) {
+      trigger.addEventListener('click', () => {
+        box.hidden = !box.hidden;
+      });
+    }
+  });
+</script>

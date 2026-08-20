@@ -21,6 +21,8 @@ const businessRoutes = require("./routes/businessRoute");
 const businessProfileRoutes = require("./routes/businessProfileRoute");
 const businessDirectoryRoutes = require("./routes/businessDirectoryRoute");
 const businessNetworkingRoutes = require("./routes/businessNetworkingRoute");
+const messagingRoutes = require("./routes/messagingRoute");
+const assistantRoutes = require("./routes/assistantRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -148,6 +150,8 @@ async function initApp() {
   app.use("/", businessProfileRoutes);
   app.use("/", businessDirectoryRoutes);
   app.use("/", businessNetworkingRoutes);
+  app.use("/", messagingRoutes);
+  app.use("/", assistantRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

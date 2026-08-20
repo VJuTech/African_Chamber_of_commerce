@@ -1,14 +1,15 @@
 :root {
   color-scheme: light;
-  --acc-navy: #0b1f3a;
-  --acc-blue: #1f5fbf;
-  --acc-blue-soft: #eaf2ff;
+  --acc-navy: #4a267d;
+  --acc-purple: #6d3db4;
+  --acc-purple-dark: #3a1b61;
+  --acc-purple-soft: #f6f0ff;
   --acc-gold: #f6b41c;
   --acc-text: #1f2937;
   --acc-muted: #5c6b7a;
-  --acc-border: #dfeaf6;
+  --acc-border: #e5d9fb;
   --acc-white: #ffffff;
-  --acc-shadow: 0 20px 45px rgba(15, 31, 58, 0.12);
+  --acc-shadow: 0 20px 45px rgba(77, 45, 128, 0.12);
 }
 
 * {
@@ -22,7 +23,7 @@ html {
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: linear-gradient(180deg, #f4f9ff 0%, #edf4ff 100%);
+  background: linear-gradient(180deg, #f9f5ff 0%, #f2ebff 100%);
   color: var(--acc-text);
 }
 
@@ -37,12 +38,12 @@ img {
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, var(--acc-navy) 0%, #163a6d 100%);
+  background: linear-gradient(135deg, var(--acc-purple) 0%, var(--acc-purple-dark) 100%);
   color: var(--acc-white);
   position: sticky;
   top: 0;
   z-index: 10;
-  box-shadow: 0 8px 18px rgba(11, 31, 58, 0.18);
+  box-shadow: 0 8px 18px rgba(74, 38, 125, 0.24);
 }
 
 .navbar a {
@@ -128,7 +129,7 @@ img {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.74rem;
-  color: var(--acc-blue);
+  color: var(--acc-purple);
   font-weight: 700;
 }
 
@@ -171,15 +172,15 @@ img {
 }
 
 .button--primary {
-  background: linear-gradient(135deg, var(--acc-blue) 0%, #3b86ff 100%);
+  background: linear-gradient(135deg, var(--acc-purple) 0%, var(--acc-purple-dark) 100%);
   color: var(--acc-white);
-  box-shadow: 0 14px 32px rgba(31, 95, 191, 0.24);
+  box-shadow: 0 14px 32px rgba(109, 61, 180, 0.24);
 }
 
 .button--secondary {
   background: var(--acc-white);
-  color: var(--acc-blue);
-  border: 1px solid rgba(31, 95, 191, 0.2);
+  color: var(--acc-purple);
+  border: 1px solid rgba(109, 61, 180, 0.2);
 }
 
 .hero__metrics {
@@ -230,7 +231,7 @@ img {
   padding: 1.5rem;
   position: absolute;
   inset: 0 2rem 2.5rem 0;
-  background: linear-gradient(180deg, #edf5ff 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f7f1ff 0%, #ffffff 100%);
 }
 
 .badge {
@@ -252,9 +253,9 @@ img {
   position: relative;
   height: 210px;
   margin-top: 1.25rem;
-  background: radial-gradient(circle at center, rgba(31, 95, 191, 0.12), rgba(31, 95, 191, 0.02));
+  background: radial-gradient(circle at center, rgba(109, 61, 180, 0.16), rgba(109, 61, 180, 0.04));
   border-radius: 18px;
-  border: 1px solid rgba(31, 95, 191, 0.12);
+  border: 1px solid rgba(109, 61, 180, 0.16);
 }
 
 .node {
@@ -266,11 +267,11 @@ img {
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
   background: var(--acc-white);
-  border: 1px solid rgba(31, 95, 191, 0.15);
+  border: 1px solid rgba(109, 61, 180, 0.18);
   color: var(--acc-navy);
   font-size: 0.75rem;
   font-weight: 700;
-  box-shadow: 0 10px 20px rgba(17, 39, 67, 0.08);
+  box-shadow: 0 10px 20px rgba(74, 38, 125, 0.1);
 }
 
 .node--one { top: 10%; left: 18%; }
@@ -335,8 +336,8 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--acc-blue-soft);
-  color: var(--acc-blue);
+  background: var(--acc-purple-soft);
+  color: var(--acc-purple);
   font-weight: 700;
 }
 
@@ -389,7 +390,7 @@ img {
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: var(--acc-blue-soft);
+  background: var(--acc-purple-soft);
   font-size: 1.6rem;
 }
 
@@ -428,8 +429,8 @@ img {
   min-width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(31, 95, 191, 0.1);
-  color: var(--acc-blue);
+  background: rgba(109, 61, 180, 0.1);
+  color: var(--acc-purple);
   font-weight: 700;
 }
 
@@ -441,8 +442,8 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(31, 95, 191, 0.06);
-  border: 1px solid rgba(31, 95, 191, 0.12);
+  background: rgba(109, 61, 180, 0.06);
+  border: 1px solid rgba(109, 61, 180, 0.12);
   border-radius: 999px;
   padding: 0.9rem 1rem;
   color: var(--acc-navy);
@@ -469,7 +470,7 @@ img {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  background: linear-gradient(135deg, var(--acc-navy) 0%, #173b6c 100%);
+  background: linear-gradient(135deg, var(--acc-purple) 0%, var(--acc-purple-dark) 100%);
   color: var(--acc-white);
   border-radius: 24px;
   padding: 1.8rem 2rem;

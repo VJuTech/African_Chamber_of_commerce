@@ -1,0 +1,86 @@
+<section class="message-thread-shell">
+  <div class="thread-header">
+    <div>
+      <p class="eyebrow">Conversation</p>
+      <h1><%= conversation && conversation.subject ? conversation.subject : 'Conversation' %></h1>
+    </div>
+    <a href="/messages" class="button button--secondary">Back to inbox</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="alert success"><%= message %></div>
+  <% } %>
+
+  <div class="thread-card">
+    <div class="message-stream">
+      <% if (!messages || messages.length === 0) { %>
+        <p class="empty-state">No messages have been exchanged yet. Start the first conversation.</p>
+      <% } else { %>
+        <% messages.forEach((message) => { %>
+          <article class="message-bubble <%= Number(message.senderId) === Number(user && user.id) ? 'outgoing' : 'incoming' %>">
+            <div class="bubble-meta">
+              <span>From user #<%= message.senderId %></span>
+              <span><%= new Date(message.createdAt).toLocaleString() %></span>
+            </div>
+            <p><%= message.text || 'Shared file attachment' %></p>
+            <% if (message.attachments && message.attachments.length > 0) { %>
+              <ul class="attachment-list">
+                <% message.attachments.forEach((attachment) => { %>
+                  <li><%= attachment.name %></li>
+                <% }); %>
+              </ul>
+            <% } %>
+            <div class="bubble-status">
+              <span><%= message.status %></span>
+              <% if (Number(message.senderId) === Number(user && user.id)) { %>
+                <form method="post" action="/messages/conversation/<%= conversation.id %>/delete/<%= message.id %>">
+                  <button type="submit" class="link-button">Delete</button>
+                </form>
+              <% } %>
+            </div>
+          </article>
+        <% }); %>
+      <% } %>
+    </div>
+
+    <form method="post" action="/messages/send" class="composer-form">
+      <input type="hidden" name="conversationId" value="<%= conversation.id %>">
+      <div class="field-group">
+        <label for="messageText">Message</label>
+        <textarea id="messageText" name="text" rows="4" placeholder="Write a message to continue the conversation..." required></textarea>
+      </div>
+      <div class="composer-actions">
+        <button type="submit" class="button button--primary">Send message</button>
+        <button type="button" class="button button--secondary" data-block-user>Block user</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const blockButton = document.querySelector('[data-block-user]');
+    if (blockButton) {
+      blockButton.addEventListener('click', () => {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '/messages/block';
+
+        const hiddenTarget = document.createElement('input');
+        hiddenTarget.type = 'hidden';
+        hiddenTarget.name = 'targetId';
+        hiddenTarget.value = '<%= conversation && conversation.participantA && Number(conversation.participantA) === Number(user && user.id) ? conversation.participantB : conversation.participantA %>';
+
+        const hiddenReason = document.createElement('input');
+        hiddenReason.type = 'hidden';
+        hiddenReason.name = 'reason';
+        hiddenReason.value = 'Blocked by user request';
+
+        form.appendChild(hiddenTarget);
+        form.appendChild(hiddenReason);
+        document.body.appendChild(form);
+        form.submit();
+      });
+    }
+  });
+</script>

@@ -12,6 +12,7 @@
 
     <!-- Responsive styles are split across the project’s small, medium, and large CSS files. -->
     <link rel="stylesheet" href="/styles/base.css" />
+    <link rel="stylesheet" href="/styles/assistant.css" />
     <link rel="stylesheet" href="/styles/small.css" media="screen and (max-width: 767px)" />
     <link rel="stylesheet" href="/styles/medium.css" media="screen and (min-width: 768px) and (max-width: 1023px)" />
     <link rel="stylesheet" href="/styles/large.css" media="screen and (min-width: 1024px)" />
@@ -26,6 +27,7 @@
       <div class="nav-links">
         <a href="/directory">Directory</a>
         <a href="/network">Network</a>
+        <a href="/assistant">ACC Assistant</a>
         <a href="/login">Login</a>
         <a href="/register">Register</a>
       </div>
@@ -221,7 +223,102 @@
       </section>
     </main>
 
+    <div class="global-assistant-widget" id="globalAssistantWidget">
+      <button class="global-assistant-toggle" type="button" aria-expanded="false" aria-controls="globalAssistantPanel">Chat</button>
+      <div class="global-assistant-panel" id="globalAssistantPanel" aria-live="polite">
+        <div class="global-assistant-header">
+          <strong>ACC Assistant</strong>
+          <button type="button" class="global-assistant-close" aria-label="Close assistant">×</button>
+        </div>
+        <div class="assistant-quick-actions">
+          <button type="button" class="assistant-quick-chip" data-question="How do I join ACC?">How do I join ACC?</button>
+          <button type="button" class="assistant-quick-chip" data-question="How do I connect with businesses?">Connect with businesses</button>
+          <button type="button" class="assistant-quick-chip" data-question="How do I register a business?">Register a business</button>
+        </div>
+        <div class="global-assistant-messages">
+          <div class="assistant-message assistant-message--bot">Hello! Ask me about ACC membership, networking, or business growth.</div>
+        </div>
+        <form class="global-assistant-form" id="globalAssistantForm">
+          <textarea name="question" rows="3" placeholder="Ask ACC..." required></textarea>
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+
     <!-- Shared client-side navigation logic keeps the landing page menu states active and consistent. -->
     <script src="/scripts/app.js" defer></script>
+    <script>
+      (function () {
+        const widget = document.getElementById('globalAssistantWidget');
+        const toggle = document.querySelector('.global-assistant-toggle');
+        const panel = document.getElementById('globalAssistantPanel');
+        const closeButton = document.querySelector('.global-assistant-close');
+        const form = document.getElementById('globalAssistantForm');
+        const messages = document.querySelector('.global-assistant-messages');
+
+        if (widget && toggle && panel && form && messages) {
+          toggle.addEventListener('click', function () {
+            const isOpen = panel.classList.toggle('is-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+          });
+
+          if (closeButton) {
+            closeButton.addEventListener('click', function () {
+              panel.classList.remove('is-open');
+              toggle.setAttribute('aria-expanded', 'false');
+            });
+          }
+
+          const sendMessage = async function (value) {
+            const userMessage = document.createElement('div');
+            userMessage.className = 'assistant-message assistant-message--user';
+            userMessage.textContent = value;
+            messages.appendChild(userMessage);
+
+            const typing = document.createElement('div');
+            typing.className = 'assistant-message assistant-message--bot assistant-message--typing';
+            typing.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+            messages.appendChild(typing);
+            messages.scrollTop = messages.scrollHeight;
+
+            const response = await fetch('/assistant', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ question: value })
+            });
+
+            const data = await response.json();
+            typing.remove();
+
+            const botMessage = document.createElement('div');
+            botMessage.className = 'assistant-message assistant-message--bot';
+            botMessage.textContent = data.answer || 'I can help with ACC membership, networking, and business growth.';
+            messages.appendChild(botMessage);
+            messages.scrollTop = messages.scrollHeight;
+          };
+
+          form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const textarea = form.querySelector('textarea');
+            const value = (textarea && textarea.value || '').trim();
+            if (!value) return;
+
+            textarea.value = '';
+            await sendMessage(value);
+          });
+
+          document.querySelectorAll('.assistant-quick-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+              const question = chip.getAttribute('data-question') || chip.textContent;
+              if (!question) return;
+              sendMessage(question);
+            });
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

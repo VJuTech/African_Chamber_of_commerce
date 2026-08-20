@@ -182,13 +182,17 @@ router.get("/dashboard/membership", (req, res) => {
 });
 
 // ============================================
-// 404 Handler for membership routes
+// 404 Handler for membership route prefixes
 // ============================================
 
-router.use((req, res) => {
-  res.status(404).render("error/404", {
-    message: "Membership page not found",
-  });
+router.use((req, res, next) => {
+  if (req.path.startsWith("/membership") || req.path.startsWith("/account/membership") || req.path.startsWith("/dashboard/membership")) {
+    return res.status(404).render("error/404", {
+      message: "Membership page not found",
+    });
+  }
+
+  return next();
 });
 
 module.exports = router;

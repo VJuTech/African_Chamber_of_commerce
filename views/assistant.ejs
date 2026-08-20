@@ -1,0 +1,71 @@
+<section class="assistant-shell">
+  <div class="assistant-card">
+    <div class="assistant-header">
+      <div>
+        <p class="eyebrow">ACC assistant</p>
+        <h1>Ask about the chamber</h1>
+      </div>
+    </div>
+
+    <div class="assistant-chat" aria-live="polite">
+      <div class="message bot-message">
+        <span class="message-label">ACC Bot</span>
+        <p><%= assistantResponse %></p>
+      </div>
+
+      <% if (question) { %>
+        <div class="message user-message">
+          <span class="message-label">You</span>
+          <p><%= question %></p>
+        </div>
+      <% } %>
+    </div>
+
+    <form method="post" action="/assistant" class="assistant-form" id="assistantForm">
+      <label for="assistantQuestion" class="sr-only">Ask a question</label>
+      <textarea id="assistantQuestion" name="question" rows="4" placeholder="Ask me anything about ACC, memberships, networking, or business growth..." required><%= question || '' %></textarea>
+      <div class="assistant-actions">
+        <button type="submit" class="button button--primary">Send</button>
+        <a href="/dashboard" class="button button--secondary">Back to dashboard</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  const assistantForm = document.getElementById('assistantForm');
+  if (assistantForm) {
+    assistantForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const textarea = assistantForm.querySelector('textarea');
+      const value = (textarea && textarea.value || '').trim();
+      if (!value) return;
+
+      const response = await fetch('/assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ question: value })
+      });
+
+      const result = await response.json();
+      const chat = document.querySelector('.assistant-chat');
+      if (chat) {
+        const userMsg = document.createElement('div');
+        userMsg.className = 'message user-message';
+        userMsg.innerHTML = '<span class="message-label">You</span><p>' + (result.question || value) + '</p>';
+
+        const botMsg = document.createElement('div');
+        botMsg.className = 'message bot-message';
+        botMsg.innerHTML = '<span class="message-label">ACC Bot</span><p>' + (result.answer || 'I can help with ACC membership, networking, and business growth.') + '</p>';
+
+        chat.appendChild(userMsg);
+        chat.appendChild(botMsg);
+        textarea.value = '';
+        chat.scrollTop = chat.scrollHeight;
+      }
+    });
+  }
+</script>

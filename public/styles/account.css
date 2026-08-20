@@ -61,7 +61,7 @@
 
 .form-section h3 {
   margin: 0 0 18px;
-  font-size: 1.05rem;;
+  font-size: 1.05rem;
 }
 
 .form-grid {
@@ -70,20 +70,21 @@
   gap: 18px;
 }
 
-.field-group {
+.auth-card .field-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  color: #ffffff;
 }
 
-.field-group label {
+.auth-card .field-group label {
+  color: #ffffff;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #ffff;
 }
 
-.field-group input,
-.field-group select {
+.auth-card .field-group input,
+.auth-card .field-group select {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
@@ -114,23 +115,27 @@
   padding: 8px 2px;
 }
 
-.check-option {
+.auth-card .check-option {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #ffff;
+  color: #ffffff;
   font-size: 0.95rem;
 }
 
-.check-option input {
+.auth-card .check-option input {
   width: 18px;
   height: 18px;
-  accent-color: #ffff;
+  accent-color: #ffffff;
 }
 
-.helper-text {
+.auth-card .check-option span {
+  color: #ffffff;
+}
+
+.auth-card .helper-text {
   margin: 0;
-  color: #ffff;
+  color: #ffffff;
   font-size: 0.83rem;
 }
 
