@@ -1,8 +1,10 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const pool = require("../database/connection");
 const { validatePassword } = require("../utility/account-validation");
+const { sendPasswordResetEmail } = require("../utility/emailService");
 
 const auditEntries = [];
 const MAX_FAILED_ATTEMPTS = 5;
@@ -71,6 +73,10 @@ seedDemoUser();
 
 function normalizePhone(value) {
   return String(value || "").replace(/\s+/g, "").trim();
+}
+
+function buildResetToken() {
+  return crypto.randomBytes(24).toString("hex");
 }
 
 function buildFullName(firstName, lastName, middleName) {
@@ -354,6 +360,159 @@ async function authenticateUser(identifier, password) {
   }
 }
 
+async function requestPasswordReset(email, origin = "") {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!normalizedEmail) {
+    return { success: false, message: "Please enter the email address tied to your account." };
+  }
+
+  if (!pool || !dbAvailable) {
+    const user = users.find((candidate) => candidate.email.toLowerCase() === normalizedEmail);
+    if (!user) {
+      await logEvent("password_reset_requested", { email: normalizedEmail, outcome: "user_not_found" });
+      return { success: false, message: "We could not find an account with that email address." };
+    }
+
+    const resetToken = buildResetToken();
+    const resetExpiresAt = new Date(Date.now() + 1000 * 60 * 30).toISOString();
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpiresAt = resetExpiresAt;
+    const resetUrl = `${origin}/reset-password/${resetToken}`.replace(/\s+/g, "");
+    await sendPasswordResetEmail({ to: normalizedEmail, resetUrl });
+    await logEvent("password_reset_requested", { userId: user.id, email: normalizedEmail, outcome: "token_created" });
+    return { success: true, message: "If the account exists, we have sent instructions to reset your password.", resetUrl };
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    const userRes = await client.query("SELECT id, email FROM users WHERE lower(email)=lower($1) LIMIT 1", [normalizedEmail]);
+    const user = userRes.rows[0];
+    if (!user) {
+      await logEvent("password_reset_requested", { email: normalizedEmail, outcome: "user_not_found" });
+      return { success: false, message: "We could not find an account with that email address." };
+    }
+
+    const resetToken = buildResetToken();
+    const resetExpiresAt = new Date(Date.now() + 1000 * 60 * 30);
+    await client.query(
+      "UPDATE users SET password_reset_token=$1, password_reset_expires_at=$2 WHERE id=$3",
+      [resetToken, resetExpiresAt, user.id]
+    );
+    const resetUrl = `${origin}/reset-password/${resetToken}`.replace(/\s+/g, "");
+    await sendPasswordResetEmail({ to: normalizedEmail, resetUrl });
+    await logEvent("password_reset_requested", { userId: user.id, email: normalizedEmail, outcome: "token_created" });
+    return { success: true, message: "If the account exists, we have sent instructions to reset your password.", resetUrl };
+  } catch (err) {
+    return { success: false, message: "We could not process the password reset request right now." };
+  } finally {
+    if (client) try { client.release(); } catch (e) {}
+  }
+}
+
+async function verifyPasswordResetToken(token) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) {
+    return { success: false, message: "Reset token is missing." };
+  }
+
+  if (!pool || !dbAvailable) {
+    const user = users.find((candidate) => candidate.passwordResetToken === normalizedToken);
+    if (!user) {
+      return { success: false, message: "This reset link is invalid or has already expired." };
+    }
+
+    const expiresAt = new Date(user.passwordResetExpiresAt || 0).getTime();
+    if (!user.passwordResetExpiresAt || expiresAt < Date.now()) {
+      return { success: false, message: "This reset link has expired. Please request a new one." };
+    }
+
+    return { success: true, email: user.email };
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    const userRes = await client.query(
+      "SELECT email, password_reset_token, password_reset_expires_at FROM users WHERE password_reset_token=$1 LIMIT 1",
+      [normalizedToken]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return { success: false, message: "This reset link is invalid or has already expired." };
+    }
+
+    if (!user.password_reset_expires_at || new Date(user.password_reset_expires_at).getTime() < Date.now()) {
+      return { success: false, message: "This reset link has expired. Please request a new one." };
+    }
+
+    return { success: true, email: user.email };
+  } catch (err) {
+    return { success: false, message: "We could not verify the reset link." };
+  } finally {
+    if (client) try { client.release(); } catch (e) {}
+  }
+}
+
+async function completePasswordReset(token, newPassword, confirmPassword) {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) {
+    return { success: false, message: "Reset token is missing." };
+  }
+
+  const passwordErrors = validatePassword(newPassword, confirmPassword);
+  if (passwordErrors.length > 0) {
+    return { success: false, message: passwordErrors.join(" ") };
+  }
+
+  if (!pool || !dbAvailable) {
+    const user = users.find((candidate) => candidate.passwordResetToken === normalizedToken);
+    if (!user) {
+      return { success: false, message: "This reset link is invalid or has already expired." };
+    }
+
+    const expiresAt = new Date(user.passwordResetExpiresAt || 0).getTime();
+    if (!user.passwordResetExpiresAt || expiresAt < Date.now()) {
+      return { success: false, message: "This reset link has expired. Please request a new one." };
+    }
+
+    user.passwordHash = bcrypt.hashSync(newPassword, 10);
+    user.passwordResetToken = null;
+    user.passwordResetExpiresAt = null;
+    await logEvent("password_reset_completed", { userId: user.id, outcome: "success" });
+    return { success: true, message: "Your password has been updated successfully. You can now sign in." };
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    const userRes = await client.query(
+      "SELECT id, password_reset_token, password_reset_expires_at FROM users WHERE password_reset_token=$1 LIMIT 1",
+      [normalizedToken]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      return { success: false, message: "This reset link is invalid or has already expired." };
+    }
+
+    if (!user.password_reset_expires_at || new Date(user.password_reset_expires_at).getTime() < Date.now()) {
+      return { success: false, message: "This reset link has expired. Please request a new one." };
+    }
+
+    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    await client.query(
+      "UPDATE users SET password_hash=$1, password_reset_token=NULL, password_reset_expires_at=NULL WHERE id=$2",
+      [passwordHash, user.id]
+    );
+    await logEvent("password_reset_completed", { userId: user.id, outcome: "success" });
+    return { success: true, message: "Your password has been updated successfully. You can now sign in." };
+  } catch (err) {
+    return { success: false, message: "We could not update your password right now." };
+  } finally {
+    if (client) try { client.release(); } catch (e) {}
+  }
+}
+
 function getAuditEntries() {
   return auditEntries;
 }
@@ -361,6 +520,9 @@ function getAuditEntries() {
 module.exports = {
   createUser,
   authenticateUser,
+  requestPasswordReset,
+  verifyPasswordResetToken,
+  completePasswordReset,
   logEvent,
   getAuditEntries,
   MAX_FAILED_ATTEMPTS,

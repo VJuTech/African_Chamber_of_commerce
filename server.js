@@ -28,6 +28,7 @@ const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandl
 // Create the Express application instance.
 const app = express();
 const PORT = process.env.PORT || 5500;
+const HOST = process.env.HOST || "127.0.0.1";
 
 // Derive a lightweight device label for active-session displays without adding
 // another runtime dependency.
@@ -167,9 +168,12 @@ async function initApp() {
   // Handle unexpected errors in the application.
   app.use(globalErrorHandler);
 
+  console.log("Mounted account routes:", accountRoutes.stack.map((layer) => layer.route && layer.route.path).filter(Boolean));
+  console.log("Mounted page routes:", pageRoutes.stack.map((layer) => layer.route && layer.route.path).filter(Boolean));
+
   // Start the server and listen for incoming requests.
-  app.listen(PORT, () => {
-    console.log(`ACC server running on http://localhost:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`ACC server running on http://${HOST}:${PORT}`);
   });
 }
 

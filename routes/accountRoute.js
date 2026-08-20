@@ -4,6 +4,10 @@ const {
   loginUser,
   logoutUser,
   ensureAuthenticated,
+  renderForgotPassword,
+  submitForgotPassword,
+  renderResetPassword,
+  submitResetPassword,
 } = require("../controllers/accountController");
 
 const router = express.Router();
@@ -17,6 +21,10 @@ router.get("/", (req, res) => {
 
 router.post("/login", loginUser);
 router.post("/register", registerUser);
+router.get("/forgot-password", renderForgotPassword);
+router.post("/forgot-password", submitForgotPassword);
+router.get("/reset-password/:token", renderResetPassword);
+router.post("/reset-password", submitResetPassword);
 router.get("/logout", logoutUser);
 
 module.exports = router;

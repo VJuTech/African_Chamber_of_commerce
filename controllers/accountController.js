@@ -1,6 +1,104 @@
 const authModel = require("../models/authModel");
 const { validateAccountPayload } = require("../utility/account-validation");
 
+async function renderForgotPassword(req, res, next) {
+  try {
+    return res.render("accounts/forgot-password", {
+      title: "Reset password",
+      message: "",
+      error: "",
+      resetUrl: "",
+      showResetLink: false,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function submitForgotPassword(req, res, next) {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+
+    if (!email) {
+      return res.render("accounts/forgot-password", {
+        title: "Reset password",
+        message: "",
+        error: "Please enter the email address tied to your account.",
+        resetUrl: "",
+        showResetLink: false,
+      });
+    }
+
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const result = await authModel.requestPasswordReset(email, origin);
+
+    return res.render("accounts/forgot-password", {
+      title: "Reset password",
+      message: result.message,
+      error: result.success ? "" : result.message,
+      resetUrl: result.resetUrl || "",
+      showResetLink: Boolean(result.resetUrl),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function renderResetPassword(req, res, next) {
+  try {
+    const { token } = req.params;
+    const result = await authModel.verifyPasswordResetToken(token);
+
+    if (!result.success) {
+      return res.render("accounts/reset-password", {
+        title: "Create new password",
+        message: "",
+        error: result.message,
+        token: token || "",
+        completed: false,
+      });
+    }
+
+    return res.render("accounts/reset-password", {
+      title: "Create new password",
+      message: "",
+      error: "",
+      token: token || "",
+      completed: false,
+      email: result.email,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function submitResetPassword(req, res, next) {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+    const result = await authModel.completePasswordReset(token, newPassword, confirmPassword);
+
+    if (!result.success) {
+      return res.render("accounts/reset-password", {
+        title: "Create new password",
+        message: "",
+        error: result.message,
+        token: token || "",
+        completed: false,
+      });
+    }
+
+    return res.render("accounts/reset-password", {
+      title: "Password updated",
+      message: result.message,
+      error: "",
+      token: token || "",
+      completed: true,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 // Handle account registration and route validation errors.
 async function registerUser(req, res, next) {
   try {
@@ -157,4 +255,8 @@ module.exports = {
   loginUser,
   logoutUser,
   ensureAuthenticated,
+  renderForgotPassword,
+  submitForgotPassword,
+  renderResetPassword,
+  submitResetPassword,
 };

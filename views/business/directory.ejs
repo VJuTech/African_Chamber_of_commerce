@@ -91,15 +91,17 @@
   .directory-card {
     width: min(1100px, 100%);
     background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 8px 30px rgba(17, 39, 67, 0.08);
+    border: 1px solid #e8dcff;
+    border-radius: 22px;
+    box-shadow: 0 18px 45px rgba(74, 38, 125, 0.12);
     padding: 2rem;
   }
   .page-header h1 {
     margin: 0;
+    color: #4a267d;
   }
   .eyebrow {
-    color: #285baf;
+    color: #6d3db4;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 0.75rem;
@@ -121,8 +123,8 @@
   }
   .directory-toolbar input,
   .directory-toolbar select {
-    border: 1px solid #ccd8ea;
-    border-radius: 10px;
+    border: 1px solid #e8dcff;
+    border-radius: 12px;
     padding: 0.75rem 0.8rem;
     font: inherit;
     background: #fff;
@@ -138,17 +140,17 @@
     text-decoration: none;
     cursor: pointer;
   }
-  .button.primary { background: #214e9c; color: #fff; }
-  .button.secondary { background: #edf3ff; color: #173b73; }
+  .button.primary { background: linear-gradient(135deg, #6d3db4 0%, #4a267d 100%); color: #fff; }
+  .button.secondary { background: #f6f0ff; color: #4a267d; }
   .directory-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1rem;
   }
   .directory-item {
-    border: 1px solid #dfe7f5;
-    border-radius: 14px;
-    background: #f9fbff;
+    border: 1px solid #e8dcff;
+    border-radius: 16px;
+    background: #fcfaff;
     padding: 1rem;
   }
   .listing-top {
@@ -164,7 +166,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #214e9c, #4b7fe7);
+    background: linear-gradient(135deg, #6d3db4, #4a267d);
     color: #fff;
     font-weight: 700;
     font-size: 1.2rem;
@@ -173,7 +175,7 @@
     margin: 0;
   }
   .listing-top a {
-    color: #123b72;
+    color: #4a267d;
     text-decoration: none;
   }
   .verified-badge {
@@ -216,12 +218,12 @@
     text-decoration: none;
     padding: 0.5rem 0.75rem;
     border-radius: 8px;
-    background: #edf3ff;
-    color: #173b73;
+    background: #f6f0ff;
+    color: #4a267d;
     font-weight: 600;
   }
   .page-link.active {
-    background: #214e9c;
+    background: #6d3db4;
     color: #fff;
   }
   .message { 
@@ -230,7 +232,7 @@
     border-radius: 10px;
     font-weight: 600;
   }
-  .message.info { background: #eef5ff; color: #214e9c; }
+  .message.info { background: #f6f0ff; color: #6d3db4; }
   .empty-state {
     border: 1px dashed #d4dce8;
     border-radius: 12px;
