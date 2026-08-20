@@ -71,6 +71,14 @@ app.use(express.json());
 
 // Serve static files from the public directory.
 app.use(express.static(path.join(__dirname, "public")));
+
+// Ensure the favicon asset is always reachable from the app root.
+app.get("/favicon.svg", (req, res) => {
+  console.log("Favicon route hit");
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.sendFile(path.join(__dirname, "public", "favicon.svg"));
+});
+
 // We'll initialize the session store after testing DB connectivity to avoid
 // connect-pg-simple pruning attempts against an unstable DB which can cause ECONNRESET.
 async function createSessionStore() {
