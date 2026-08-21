@@ -27,8 +27,8 @@ const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandl
 
 // Create the Express application instance.
 const app = express();
-const PORT = process.env.PORT || 5500;
-const HOST = process.env.HOST || "127.0.0.1";
+const PORT = Number(process.env.PORT) || 5500;
+const HOST = process.env.HOST || "0.0.0.0";
 
 // Derive a lightweight device label for active-session displays without adding
 // another runtime dependency.
