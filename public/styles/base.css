@@ -157,9 +157,9 @@ img {
 
 .site-footer {
   margin-top: 2rem;
-  background: linear-gradient(135deg, #26113e 0%, #3b1a63 100%);
+  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
   color: var(--acc-white);
-  box-shadow: 0 -12px 28px rgba(58, 27, 97, 0.12);
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .site-footer__inner {
@@ -197,8 +197,12 @@ img {
 .site-footer__brand p,
 .site-footer__contact p,
 .site-footer__links a {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.72);
   text-decoration: none;
+}
+
+.site-footer__contact a {
+  color: var(--acc-gold);
 }
 
 .site-footer__brand p {
@@ -244,7 +248,7 @@ img {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.14);
   justify-content: center;
   color: var(--acc-white);
