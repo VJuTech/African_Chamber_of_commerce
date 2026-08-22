@@ -155,6 +155,117 @@ img {
   padding: 0 1rem 3rem;
 }
 
+.site-footer {
+  margin-top: 2rem;
+  background: linear-gradient(135deg, #26113e 0%, #3b1a63 100%);
+  color: var(--acc-white);
+  box-shadow: 0 -12px 28px rgba(58, 27, 97, 0.12);
+}
+
+.site-footer__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 1.25rem;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.site-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.site-footer__logo {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.55rem;
+}
+
+.site-footer__brand h3,
+.site-footer__links h4,
+.site-footer__contact h4 {
+  margin: 0 0 0.75rem;
+  color: var(--acc-white);
+}
+
+.site-footer__brand p,
+.site-footer__contact p,
+.site-footer__links a {
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+}
+
+.site-footer__brand p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.site-footer__links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.site-footer__links a,
+.site-footer__social a {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.55rem;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.site-footer__links a:hover,
+.site-footer__links a:focus-visible,
+.site-footer__social a:hover,
+.site-footer__social a:focus-visible {
+  color: var(--acc-gold);
+  transform: translateX(2px);
+}
+
+.site-footer__company {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.site-footer__social {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.site-footer__social a {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  justify-content: center;
+  color: var(--acc-white);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: lowercase;
+}
+
+.site-footer__bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.site-footer__bottom p {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1rem 1.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+}
+
 .landing-page {
   padding-top: 1.5rem;
 }

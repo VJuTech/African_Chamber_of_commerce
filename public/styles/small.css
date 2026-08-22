@@ -32,6 +32,19 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.site-footer__inner {
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.site-footer__links {
+  grid-template-columns: 1fr 1fr;
+}
+
+.site-footer__brand {
+  align-items: flex-start;
+}
+
 .brand {
   font-size: 0.95rem;
 }
