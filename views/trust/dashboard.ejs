@@ -1,0 +1,76 @@
+<!-- ACC Chapter 16: Trust dashboard for monitoring business reputation, moderation, and review insight. -->
+<section class="trust-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Trust system</p>
+      <h1>Business trust dashboard</h1>
+    </div>
+    <a href="/trust/business/3" class="button button--primary">Open sample business</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="trust-summary-grid">
+    <div class="metric-card">
+      <span>Average rating</span>
+      <strong><%= summary && summary.averageRating ? summary.averageRating.toFixed(1) : '0.0' %>/5</strong>
+    </div>
+    <div class="metric-card">
+      <span>Reviews</span>
+      <strong><%= summary && summary.totalReviews ? summary.totalReviews : 0 %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Trust score</span>
+      <strong><%= summary && summary.trustScore ? summary.trustScore.toFixed(1) : '0.0' %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Verified</span>
+      <strong><%= summary && summary.verifiedBadge ? 'Yes' : 'No' %></strong>
+    </div>
+  </div>
+
+  <div class="trust-panel">
+    <div class="section-heading">
+      <h2>Recent reviews</h2>
+    </div>
+
+    <% if (!reviews || reviews.length === 0) { %>
+      <p class="empty-text">No reviews have been submitted yet.</p>
+    <% } else { %>
+      <% reviews.forEach((review) => { %>
+        <article class="review-card">
+          <div class="review-card__header">
+            <div>
+              <strong>Business #<%= review.businessId %></strong>
+              <span class="review-stars"><%= '★'.repeat(review.rating) %><%= '☆'.repeat(5 - review.rating) %></span>
+            </div>
+            <span class="review-status"><%= review.status %></span>
+          </div>
+          <h3><%= review.title || 'Customer feedback' %></h3>
+          <p><%= review.comments || 'No review text provided.' %></p>
+          <% if (review.response) { %>
+            <div class="business-response">
+              <strong>Business response:</strong>
+              <p><%= review.response %></p>
+            </div>
+          <% } %>
+
+          <div class="review-actions">
+            <form method="post" action="/trust/review/report">
+              <input type="hidden" name="businessId" value="<%= review.businessId %>" />
+              <input type="hidden" name="reviewId" value="<%= review.id %>" />
+              <button type="submit" class="button button--secondary">Report abuse</button>
+            </form>
+            <form method="post" action="/trust/review/moderate">
+              <input type="hidden" name="reviewId" value="<%= review.id %>" />
+              <input type="hidden" name="action" value="flag" />
+              <button type="submit" class="button button--danger">Flag</button>
+            </form>
+          </div>
+        </article>
+      <% }); %>
+    <% } %>
+  </div>
+</section>

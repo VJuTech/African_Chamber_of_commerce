@@ -1,0 +1,183 @@
+/* ACC Chapter 16 - Reviews, Ratings & Trust System styling. */
+
+.trust-shell {
+  padding-top: 2rem;
+}
+
+.trust-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(139, 155, 195, 0.24);
+  border-radius: 18px;
+  padding: 1.2rem 1rem;
+  box-shadow: 0 14px 32px rgba(28, 43, 88, 0.04);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.metric-card--highlight {
+  background: linear-gradient(135deg, #f5f0ff 0%, #f2f7ff 100%);
+}
+
+.metric-card span {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5f6f91;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.metric-card strong {
+  color: #172d57;
+  font-size: clamp(1.25rem, 2vw, 2rem);
+}
+
+.trust-columns {
+  display: grid;
+  grid-template-columns: 1.4fr 0.6fr;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.trust-panel,
+.review-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 20px;
+  border: 1px solid rgba(146, 159, 203, 0.24);
+  padding: 1.35rem;
+  box-shadow: 0 14px 32px rgba(28, 43, 88, 0.04);
+}
+
+.section-heading h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #1d2861;
+}
+
+.review-form,
+.quick-rating-form,
+.response-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.review-card {
+  margin-top: 1rem;
+}
+
+.review-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.review-stars {
+  display: inline-block;
+  color: #f6b41c;
+  letter-spacing: 0.1em;
+  margin-left: 0.5rem;
+}
+
+.review-status {
+  background: #eef5ff;
+  color: #254f97;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  text-transform: capitalize;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.review-card h3 {
+  color: #1d2861;
+  margin: 0 0 0.6rem;
+}
+
+.review-card p,
+.empty-text,
+.business-response p {
+  color: #526584;
+  line-height: 1.7;
+}
+
+.business-response {
+  background: #f7f8ff;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  margin-top: 1rem;
+}
+
+.review-actions,
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.status-banner {
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.status-banner.success {
+  background: #eafcf1;
+  color: #15673d;
+  border: 1px solid rgba(21, 103, 61, 0.18);
+}
+
+.button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button--primary {
+  background: linear-gradient(135deg, #4a267d 0%, #183f7a 100%);
+  color: #fff;
+}
+
+.button--secondary {
+  background: #eef4ff;
+  color: #1d3b70;
+}
+
+.button--danger {
+  background: #ffe9e8;
+  color: #9d2f2f;
+}
+
+@media (max-width: 900px) {
+  .trust-summary-grid,
+  .trust-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .trust-summary-grid,
+  .trust-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .review-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

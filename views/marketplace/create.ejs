@@ -1,0 +1,118 @@
+<!-- ACC Chapter 17: form for creating a product or service listing. -->
+<section class="marketplace-form-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Create listing</p>
+      <h1>List a product or service</h1>
+    </div>
+    <a href="/marketplace" class="button button--secondary">Back to marketplace</a>
+  </div>
+
+  <% if (error) { %>
+    <div class="status-banner error"><%= error %></div>
+  <% } %>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <form method="post" action="/marketplace/create" class="marketplace-form">
+    <div class="form-grid">
+      <div class="field-group span-2">
+        <label for="title">Listing title</label>
+        <input id="title" name="title" type="text" value="<%= formData.title || '' %>" required />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="5" required><%= formData.description || '' %></textarea>
+      </div>
+
+      <div class="field-group">
+        <label for="category">Category</label>
+        <input id="category" name="category" type="text" value="<%= formData.category || '' %>" placeholder="e.g. Agriculture" required />
+      </div>
+
+      <div class="field-group">
+        <label for="type">Type</label>
+        <select id="type" name="type" required>
+          <option value="product" <%= formData.type === 'product' ? 'selected' : '' %>>Product</option>
+          <option value="service" <%= formData.type === 'service' ? 'selected' : '' %>>Service</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="pricingModel">Pricing model</label>
+        <select id="pricingModel" name="pricingModel" required>
+          <option value="fixed" <%= formData.pricingModel === 'fixed' ? 'selected' : '' %>>Fixed price</option>
+          <option value="negotiable" <%= formData.pricingModel === 'negotiable' ? 'selected' : '' %>>Negotiable</option>
+          <option value="range" <%= formData.pricingModel === 'range' ? 'selected' : '' %>>Price range</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="currency">Currency</label>
+        <input id="currency" name="currency" type="text" value="<%= formData.currency || 'USD' %>" required />
+      </div>
+
+      <div class="field-group">
+        <label for="price">Price</label>
+        <input id="price" name="price" type="number" min="0" step="0.01" value="<%= formData.price || 0 %>" />
+      </div>
+
+      <div class="field-group">
+        <label for="minPrice">Minimum price</label>
+        <input id="minPrice" name="minPrice" type="number" min="0" step="0.01" value="<%= formData.minPrice || 0 %>" />
+      </div>
+
+      <div class="field-group">
+        <label for="maxPrice">Maximum price</label>
+        <input id="maxPrice" name="maxPrice" type="number" min="0" step="0.01" value="<%= formData.maxPrice || 0 %>" />
+      </div>
+
+      <div class="field-group">
+        <label for="inventory">Stock quantity</label>
+        <input id="inventory" name="inventory" type="number" min="0" value="<%= formData.inventory || 0 %>" />
+      </div>
+
+      <div class="field-group">
+        <label for="visibility">Visibility</label>
+        <select id="visibility" name="visibility" required>
+          <option value="public" <%= formData.visibility === 'public' ? 'selected' : '' %>>Public</option>
+          <option value="private" <%= formData.visibility === 'private' ? 'selected' : '' %>>Private</option>
+          <option value="draft" <%= formData.visibility === 'draft' ? 'selected' : '' %>>Draft</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="availability">Availability</label>
+        <select id="availability" name="availability">
+          <option value="in_stock" <%= formData.availability === 'in_stock' ? 'selected' : '' %>>In stock</option>
+          <option value="limited" <%= formData.availability === 'limited' ? 'selected' : '' %>>Limited</option>
+          <option value="available" <%= formData.availability === 'available' ? 'selected' : '' %>>Available</option>
+          <option value="unavailable" <%= formData.availability === 'unavailable' ? 'selected' : '' %>>Unavailable</option>
+        </select>
+      </div>
+
+      <div class="field-group span-2">
+        <label for="location">Business location</label>
+        <input id="location" name="location" type="text" value="<%= formData.location || '' %>" placeholder="e.g. Nairobi, Kenya" required />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="tags">Tags</label>
+        <input id="tags" name="tags" type="text" value="<%= formData.tags || '' %>" placeholder="coffee, organic, wholesale" />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="media">Listing image</label>
+        <input id="media" name="media" type="text" value="<%= formData.media || '' %>" placeholder="image-name.jpg" />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="button button--primary">Create listing</button>
+      <a href="/marketplace" class="button button--secondary">Cancel</a>
+    </div>
+  </form>
+</section>

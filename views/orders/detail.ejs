@@ -1,0 +1,89 @@
+<!-- ACC Chapter 18: detail page for a single order showing status, payment, and fulfillment details. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Order details</p>
+      <h1>Order #<%= order.id %></h1>
+    </div>
+    <a href="/orders/history" class="button button--secondary">Back to history</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="order-detail-layout">
+    <article class="order-detail-panel">
+      <div class="detail-row">
+        <span>Customer</span>
+        <strong>Buyer #<%= order.buyerId %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Seller</span>
+        <strong>Seller #<%= order.sellerId %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Item</span>
+        <strong><%= order.listingTitle %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Quantity</span>
+        <strong><%= order.quantity %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Unit price</span>
+        <strong><%= order.currency %> <%= order.unitPrice %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Total</span>
+        <strong><%= order.currency %> <%= order.totalPrice %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Payment status</span>
+        <strong><%= order.paymentStatus %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Current status</span>
+        <strong><%= order.status %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Shipping address</span>
+        <strong><%= order.shippingAddress %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Tracking</span>
+        <strong><%= order.trackingDetails %></strong>
+      </div>
+    </article>
+
+    <aside class="order-actions-panel">
+      <h2>Manage order</h2>
+      <form method="post" action="/orders/<%= order.id %>/status" class="stacked-form">
+        <label for="status">Update status</label>
+        <select id="status" name="status">
+          <option value="pending" <%= order.status === 'pending' ? 'selected' : '' %>>Pending</option>
+          <option value="confirmed" <%= order.status === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
+          <option value="processing" <%= order.status === 'processing' ? 'selected' : '' %>>Processing</option>
+          <option value="shipped" <%= order.status === 'shipped' ? 'selected' : '' %>>Shipped</option>
+          <option value="delivered" <%= order.status === 'delivered' ? 'selected' : '' %>>Delivered</option>
+          <option value="completed" <%= order.status === 'completed' ? 'selected' : '' %>>Completed</option>
+          <option value="cancelled" <%= order.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+        </select>
+        <input type="text" name="trackingDetails" value="<%= order.trackingDetails %>" placeholder="Tracking update" />
+        <button type="submit" class="button button--primary">Update status</button>
+      </form>
+
+      <form method="post" action="/orders/<%= order.id %>/cancel" class="stacked-form">
+        <label for="cancelReason">Cancellation reason</label>
+        <input id="cancelReason" name="reason" type="text" placeholder="Optional reason" />
+        <button type="submit" class="button button--secondary">Cancel order</button>
+      </form>
+
+      <form method="post" action="/orders/<%= order.id %>/dispute" class="stacked-form">
+        <label for="disputeReason">Raise dispute</label>
+        <input id="disputeReason" name="reason" type="text" placeholder="Issue description" required />
+        <button type="submit" class="button button--secondary">Submit dispute</button>
+      </form>
+    </aside>
+  </div>
+</section>

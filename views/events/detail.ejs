@@ -1,0 +1,110 @@
+<!-- Chapter 15: event detail page showing registration, visibility, and feedback information. -->
+<section class="event-detail-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Event overview</p>
+      <h1><%= event.title %></h1>
+    </div>
+    <a href="/events" class="button button--secondary">Browse all events</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="event-detail-layout">
+    <article class="event-info-card">
+      <div class="event-badges">
+        <span class="tag"><%= event.eventType %></span>
+        <span class="tag tag--light"><%= event.visibility %></span>
+      </div>
+      <p class="event-summary"><%= event.description %></p>
+
+      <div class="detail-list">
+        <div><span>Organizer</span><strong><%= event.organizer %></strong></div>
+        <div><span>Format</span><strong><%= event.eventFormat %></strong></div>
+        <div><span>Start</span><strong><%= new Date(event.startDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) %></strong></div>
+        <div><span>End</span><strong><%= new Date(event.endDate).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) %></strong></div>
+        <div><span>Location</span><strong><%= event.location %></strong></div>
+        <div><span>Ticket</span><strong><%= event.ticketType === 'paid' ? `$${event.price}` : 'Free' %></strong></div>
+        <div><span>Capacity</span><strong><%= event.capacity ? `${event.registrationCount}/${event.capacity}` : event.registrationCount %></strong></div>
+      </div>
+
+      <% if (user && user.id === event.createdBy) { %>
+        <div class="organizer-actions">
+          <a href="/events/manage/<%= event.id %>" class="button button--primary">Manage attendees</a>
+        </div>
+      <% } %>
+    </article>
+
+    <aside class="event-side-panel">
+      <% if (user) { %>
+        <% if (!isRegistered) { %>
+          <form method="post" action="/events/<%= event.id %>/register" class="register-form">
+            <h2>Register for this event</h2>
+            <div class="field-group">
+              <label for="ticketType">Ticket</label>
+              <select id="ticketType" name="ticketType">
+                <option value="standard">Standard</option>
+                <option value="vip">VIP</option>
+              </select>
+            </div>
+            <button type="submit" class="button button--primary">Register now</button>
+          </form>
+        <% } else { %>
+          <div class="registered-pill">You are registered</div>
+        <% } %>
+      <% } else { %>
+        <div class="login-prompt">
+          <h2>Join this event</h2>
+          <p>Sign in to register, save your spot, and manage event participation.</p>
+          <a href="/login?next=/events/<%= event.id %>" class="button button--primary">Log in</a>
+        </div>
+      <% } %>
+    </aside>
+  </div>
+
+  <section class="feedback-panel">
+    <div class="section-heading">
+      <h2>Feedback & ratings</h2>
+    </div>
+
+    <% if (user) { %>
+      <form method="post" action="/events/<%= event.id %>/feedback" class="feedback-form">
+        <div class="field-group">
+          <label for="rating">Rating</label>
+          <select id="rating" name="rating">
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Very good</option>
+            <option value="3">3 - Good</option>
+            <option value="2">2 - Fair</option>
+            <option value="1">1 - Poor</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="comments">Comments</label>
+          <textarea id="comments" name="comments" rows="4" placeholder="Share your experience with other members"></textarea>
+        </div>
+        <button type="submit" class="button button--secondary">Submit feedback</button>
+      </form>
+    <% } else { %>
+      <p class="empty-text">Sign in to leave feedback after attending the event.</p>
+    <% } %>
+
+    <div class="feedback-list">
+      <% if (!feedback || feedback.length === 0) { %>
+        <p class="empty-text">No event feedback available yet.</p>
+      <% } else { %>
+        <% feedback.forEach((item) => { %>
+          <div class="feedback-item">
+            <div class="feedback-item__header">
+              <strong>User #<%= item.userId %></strong>
+              <span><%= item.rating %>/5</span>
+            </div>
+            <p><%= item.comments || 'No additional comments were provided.' %></p>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+  </section>
+</section>

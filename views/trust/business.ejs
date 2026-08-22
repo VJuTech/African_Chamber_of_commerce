@@ -1,0 +1,142 @@
+<!-- ACC Chapter 16: business trust profile showing ratings, reviews, moderation, and reputation signals. -->
+<section class="trust-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Business trust profile</p>
+      <h1><%= summary && summary.businessName ? summary.businessName : 'Business profile' %></h1>
+    </div>
+    <a href="/trust" class="button button--secondary">Back to dashboard</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="trust-summary-grid">
+    <div class="metric-card metric-card--highlight">
+      <span>Average rating</span>
+      <strong><%= summary && summary.averageRating ? summary.averageRating.toFixed(1) : '0.0' %>/5</strong>
+    </div>
+    <div class="metric-card">
+      <span>Total reviews</span>
+      <strong><%= summary && summary.totalReviews ? summary.totalReviews : 0 %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Trust score</span>
+      <strong><%= summary && summary.trustScore ? summary.trustScore.toFixed(1) : '0.0' %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Verified badge</span>
+      <strong><%= summary && summary.verifiedBadge ? 'Verified' : 'Unverified' %></strong>
+    </div>
+  </div>
+
+  <div class="trust-columns">
+    <article class="trust-panel">
+      <div class="section-heading">
+        <h2>Submit review</h2>
+      </div>
+
+      <form method="post" action="/trust/review" class="review-form">
+        <input type="hidden" name="businessId" value="<%= businessId %>" />
+        <div class="field-group">
+          <label for="rating">Rating</label>
+          <select id="rating" name="rating" required>
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Very good</option>
+            <option value="3">3 - Good</option>
+            <option value="2">2 - Fair</option>
+            <option value="1">1 - Poor</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="title">Review title</label>
+          <input id="title" name="title" type="text" placeholder="Quick summary" />
+        </div>
+        <div class="field-group">
+          <label for="comments">Review</label>
+          <textarea id="comments" name="comments" rows="5" placeholder="Describe your experience with this business" required></textarea>
+        </div>
+        <div class="field-group">
+          <label for="quality">Quality rating</label>
+          <input id="quality" name="quality" type="number" min="1" max="5" value="5" />
+        </div>
+        <div class="field-group">
+          <label for="delivery">Delivery rating</label>
+          <input id="delivery" name="delivery" type="number" min="1" max="5" value="5" />
+        </div>
+        <div class="field-group">
+          <label for="communication">Communication rating</label>
+          <input id="communication" name="communication" type="number" min="1" max="5" value="5" />
+        </div>
+        <button type="submit" class="button button--primary">Submit review</button>
+      </form>
+    </article>
+
+    <aside class="trust-panel">
+      <div class="section-heading">
+        <h2>Quick rating</h2>
+      </div>
+      <form method="post" action="/trust/rate" class="quick-rating-form">
+        <input type="hidden" name="businessId" value="<%= businessId %>" />
+        <div class="field-group">
+          <label for="starRating">Rate this business</label>
+          <select id="starRating" name="rating">
+            <option value="5">★★★★★</option>
+            <option value="4">★★★★☆</option>
+            <option value="3">★★★☆☆</option>
+            <option value="2">★★☆☆☆</option>
+            <option value="1">★☆☆☆☆</option>
+          </select>
+        </div>
+        <button type="submit" class="button button--secondary">Save rating</button>
+      </form>
+    </aside>
+  </div>
+
+  <div class="trust-panel reviews-panel">
+    <div class="section-heading">
+      <h2>Reviews & ratings</h2>
+    </div>
+
+    <% if (!reviews || reviews.length === 0) { %>
+      <p class="empty-text">No reviews have been posted yet.</p>
+    <% } else { %>
+      <% reviews.forEach((review) => { %>
+        <article class="review-card">
+          <div class="review-card__header">
+            <div>
+              <strong>User #<%= review.userId %></strong>
+              <span class="review-stars"><%= '★'.repeat(review.rating) %><%= '☆'.repeat(5 - review.rating) %></span>
+            </div>
+            <span class="review-status"><%= review.status %></span>
+          </div>
+          <h3><%= review.title || 'Customer feedback' %></h3>
+          <p><%= review.comments %></p>
+
+          <% if (review.response) { %>
+            <div class="business-response">
+              <strong>Business response:</strong>
+              <p><%= review.response %></p>
+            </div>
+          <% } %>
+
+          <form method="post" action="/trust/review/<%= review.id %>/respond" class="response-form">
+            <input type="hidden" name="businessId" value="<%= businessId %>" />
+            <div class="field-group">
+              <label for="response-<%= review.id %>">Respond to review</label>
+              <textarea id="response-<%= review.id %>" name="response" rows="3" placeholder="Write your response"></textarea>
+            </div>
+            <button type="submit" class="button button--secondary">Submit response</button>
+          </form>
+
+          <form method="post" action="/trust/review/report" class="inline-form">
+            <input type="hidden" name="businessId" value="<%= businessId %>" />
+            <input type="hidden" name="reviewId" value="<%= review.id %>" />
+            <button type="submit" class="button button--danger">Report abuse</button>
+          </form>
+        </article>
+      <% }); %>
+    <% } %>
+  </div>
+</section>

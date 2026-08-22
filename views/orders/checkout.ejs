@@ -1,0 +1,82 @@
+<!-- ACC Chapter 18: checkout page for placing an order for a marketplace listing. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Checkout</p>
+      <h1>Complete your order</h1>
+    </div>
+    <a href="/marketplace/<%= listing.id %>" class="button button--secondary">Back to listing</a>
+  </div>
+
+  <% if (error) { %>
+    <div class="status-banner error"><%= error %></div>
+  <% } %>
+
+  <div class="checkout-layout">
+    <div class="checkout-card">
+      <form method="post" action="/orders/create" class="order-form">
+        <input type="hidden" name="listingId" value="<%= listing.id %>" />
+        <input type="hidden" name="sellerId" value="<%= listing.businessId || 2 %>" />
+        <input type="hidden" name="listingTitle" value="<%= listing.title %>" />
+        <input type="hidden" name="unitPrice" value="<%= listing.pricingModel === 'range' ? listing.minPrice : listing.price %>" />
+        <input type="hidden" name="currency" value="<%= listing.currency || 'USD' %>" />
+
+        <div class="form-grid">
+          <div class="field-group span-2">
+            <label for="shippingAddress">Shipping address</label>
+            <textarea id="shippingAddress" name="shippingAddress" rows="4" required><%= formData.shippingAddress || '' %></textarea>
+          </div>
+
+          <div class="field-group">
+            <label for="quantity">Quantity</label>
+            <input id="quantity" name="quantity" type="number" min="1" value="<%= formData.quantity || 1 %>" required />
+          </div>
+
+          <div class="field-group">
+            <label for="paymentMethod">Payment method</label>
+            <select id="paymentMethod" name="paymentMethod" required>
+              <option value="card" <%= formData.paymentMethod === 'card' ? 'selected' : '' %>>Card</option>
+              <option value="bank_transfer" <%= formData.paymentMethod === 'bank_transfer' ? 'selected' : '' %>>Bank transfer</option>
+              <option value="mobile_money" <%= formData.paymentMethod === 'mobile_money' ? 'selected' : '' %>>Mobile money</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="deliveryMethod">Delivery method</label>
+            <select id="deliveryMethod" name="deliveryMethod">
+              <option value="Courier" <%= formData.deliveryMethod === 'Courier' ? 'selected' : '' %>>Courier</option>
+              <option value="Express" <%= formData.deliveryMethod === 'Express' ? 'selected' : '' %>>Express</option>
+              <option value="Pickup" <%= formData.deliveryMethod === 'Pickup' ? 'selected' : '' %>>Pickup</option>
+            </select>
+          </div>
+
+          <div class="field-group span-2">
+            <label for="notes">Order notes</label>
+            <textarea id="notes" name="notes" rows="3"><%= formData.notes || '' %></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="button button--primary">Place order</button>
+          <a href="/marketplace/<%= listing.id %>" class="button button--secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    <aside class="checkout-summary">
+      <h2>Order summary</h2>
+      <div class="summary-line">
+        <span>Item</span>
+        <strong><%= listing.title %></strong>
+      </div>
+      <div class="summary-line">
+        <span>Unit price</span>
+        <strong><%= listing.currency || 'USD' %> <%= listing.pricingModel === 'range' ? listing.minPrice : listing.price %></strong>
+      </div>
+      <div class="summary-line">
+        <span>Estimated total</span>
+        <strong><%= listing.currency || 'USD' %> <%= ((listing.pricingModel === 'range' ? listing.minPrice : listing.price) || 0) %></strong>
+      </div>
+    </aside>
+  </div>
+</section>

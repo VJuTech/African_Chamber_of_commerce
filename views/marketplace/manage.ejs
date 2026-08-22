@@ -1,0 +1,45 @@
+<!-- ACC Chapter 17: listing management dashboard for own products and services. -->
+<section class="marketplace-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">My listings</p>
+      <h1>Manage your marketplace inventory</h1>
+    </div>
+    <a href="/marketplace/create" class="button button--primary">Create listing</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <% if (!listings || listings.length === 0) { %>
+    <div class="empty-state">
+      <h3>No listings yet</h3>
+      <p>Create your first product or service listing to start selling on the ACC marketplace.</p>
+    </div>
+  <% } else { %>
+    <div class="marketplace-list-table">
+      <% listings.forEach((listing) => { %>
+        <article class="listing-row">
+          <div>
+            <h3><%= listing.title %></h3>
+            <p><%= listing.category %> · <%= listing.type %></p>
+          </div>
+          <div>
+            <span class="listing-status"><%= listing.visibility %></span>
+          </div>
+          <div>
+            <strong><%= listing.currency %> <%= listing.pricingModel === 'range' ? listing.minPrice + ' - ' + listing.maxPrice : listing.price %></strong>
+          </div>
+          <div class="listing-row__actions">
+            <a href="/marketplace/<%= listing.id %>" class="button button--secondary">View</a>
+            <a href="/marketplace/<%= listing.id %>/edit" class="button button--secondary">Edit</a>
+            <form method="post" action="/marketplace/<%= listing.id %>/delete" class="inline-form">
+              <button type="submit" class="button button--danger">Delete</button>
+            </form>
+          </div>
+        </article>
+      <% }); %>
+    </div>
+  <% } %>
+</section>

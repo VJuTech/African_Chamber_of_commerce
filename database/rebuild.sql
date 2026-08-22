@@ -483,3 +483,268 @@ SELECT ba.id, ba.owner_id, 'registration_started', 'started', '{"source":"seed"}
 FROM business_accounts ba
 WHERE ba.business_name = 'ACC Demo Holding'
 ON CONFLICT DO NOTHING;
+
+-- ========================================
+-- CHAPTER 15: EVENTS & BUSINESS ENGAGEMENTS
+-- ========================================
+CREATE TABLE IF NOT EXISTS event_records (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  organizer VARCHAR(255) NOT NULL,
+  event_type VARCHAR(50) NOT NULL DEFAULT 'physical',
+  event_format VARCHAR(50) NOT NULL DEFAULT 'physical',
+  start_date TIMESTAMP NOT NULL,
+  end_date TIMESTAMP,
+  location TEXT,
+  visibility VARCHAR(30) NOT NULL DEFAULT 'public',
+  status VARCHAR(30) NOT NULL DEFAULT 'draft',
+  capacity INTEGER,
+  ticket_type VARCHAR(50) NOT NULL DEFAULT 'free',
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  published_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS event_registrations (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES event_records(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  registration_name VARCHAR(200),
+  email VARCHAR(255),
+  ticket_type VARCHAR(50) DEFAULT 'standard',
+  payment_status VARCHAR(50) DEFAULT 'pending',
+  registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (event_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS event_feedback (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES event_records(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+  comments TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (event_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS event_audit_logs (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER REFERENCES event_records(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_records_status ON event_records(status);
+CREATE INDEX IF NOT EXISTS idx_event_records_event_type ON event_records(event_type);
+CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
+CREATE INDEX IF NOT EXISTS idx_event_feedback_event_id ON event_feedback(event_id);
+
+-- ========================================
+-- CHAPTER 16: TRUST, RATINGS & REVIEW SYSTEM
+-- ========================================
+CREATE TABLE IF NOT EXISTS business_reviews (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  title VARCHAR(255),
+  comments TEXT,
+  categories JSONB DEFAULT '{}'::jsonb,
+  status VARCHAR(30) NOT NULL DEFAULT 'approved',
+  response TEXT,
+  response_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  response_at TIMESTAMP,
+  flagged BOOLEAN NOT NULL DEFAULT FALSE,
+  flag_reason TEXT,
+  moderation_note TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (business_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS review_reports (
+  id SERIAL PRIMARY KEY,
+  review_id INTEGER NOT NULL REFERENCES business_reviews(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  report_type VARCHAR(80) NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS trust_audit_logs (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_business_reviews_business_id ON business_reviews(business_id);
+CREATE INDEX IF NOT EXISTS idx_business_reviews_user_id ON business_reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_review_reports_review_id ON review_reports(review_id);
+
+-- ========================================
+-- CHAPTER 17: MARKETPLACE LISTINGS
+-- ========================================
+CREATE TABLE IF NOT EXISTS marketplace_listings (
+  id SERIAL PRIMARY KEY,
+  business_id INTEGER NOT NULL REFERENCES business_accounts(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  category VARCHAR(120) NOT NULL,
+  listing_type VARCHAR(40) NOT NULL DEFAULT 'product',
+  pricing_model VARCHAR(40) NOT NULL DEFAULT 'fixed',
+  price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  min_price DECIMAL(10,2) DEFAULT 0,
+  max_price DECIMAL(10,2) DEFAULT 0,
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  inventory INTEGER DEFAULT 0,
+  availability VARCHAR(50) DEFAULT 'in_stock',
+  visibility VARCHAR(30) NOT NULL DEFAULT 'public',
+  location VARCHAR(255),
+  media JSONB DEFAULT '[]'::jsonb,
+  tags JSONB DEFAULT '[]'::jsonb,
+  status VARCHAR(30) NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_audit_logs (
+  id SERIAL PRIMARY KEY,
+  listing_id INTEGER REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  business_id INTEGER REFERENCES business_accounts(id) ON DELETE CASCADE,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_business_id ON marketplace_listings(business_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status);
+
+-- ========================================
+-- CHAPTER 18: ORDER MANAGEMENT
+-- ========================================
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_id INTEGER REFERENCES marketplace_listings(id) ON DELETE SET NULL,
+  listing_title VARCHAR(255) NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  payment_method VARCHAR(50) DEFAULT 'card',
+  payment_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  delivery_method VARCHAR(80) DEFAULT 'standard',
+  shipping_address TEXT,
+  tracking_details TEXT,
+  notes TEXT,
+  cancelled_at TIMESTAMP,
+  refunded_at TIMESTAMP,
+  dispute_id INTEGER,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS order_disputes (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'open',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS order_audit_logs (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_buyer_id ON orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_seller_id ON orders(seller_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_order_disputes_order_id ON order_disputes(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_audit_logs_order_id ON order_audit_logs(order_id);
+
+-- ========================================
+-- CHAPTER 19: PAYMENT PROCESSING SYSTEM
+-- ========================================
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  transaction_id VARCHAR(120) NOT NULL UNIQUE,
+  payment_reference VARCHAR(120) NOT NULL UNIQUE,
+  amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  payment_method VARCHAR(50) DEFAULT 'card',
+  provider VARCHAR(50) NOT NULL DEFAULT 'paystack',
+  status VARCHAR(50) NOT NULL DEFAULT 'initiated',
+  refund_status VARCHAR(50) NOT NULL DEFAULT 'not_requested',
+  gateway_response VARCHAR(50) DEFAULT 'pending',
+  gateway_reference VARCHAR(120),
+  initiated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  processed_at TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  failure_reason TEXT,
+  notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS payment_audit_logs (
+  id SERIAL PRIMARY KEY,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payment_gateway_events (
+  id SERIAL PRIMARY KEY,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE CASCADE,
+  provider VARCHAR(50) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  reference VARCHAR(120),
+  payload JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payment_refunds (
+  id SERIAL PRIMARY KEY,
+  payment_id INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
+  reason TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  processed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_buyer_id ON payments(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_seller_id ON payments(seller_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payment_audit_logs_payment_id ON payment_audit_logs(payment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_gateway_events_payment_id ON payment_gateway_events(payment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_refunds_payment_id ON payment_refunds(payment_id);

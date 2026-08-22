@@ -119,6 +119,10 @@ img {
   padding-top: 1.5rem;
 }
 
+.landing-page > section {
+  position: relative;
+}
+
 .hero {
   display: grid;
   align-items: center;
@@ -183,6 +187,16 @@ img {
   background: var(--acc-white);
   color: var(--acc-purple);
   border: 1px solid rgba(109, 61, 180, 0.2);
+}
+
+.button--secondary:hover,
+.button--secondary:focus-visible {
+  border-color: rgba(109, 61, 180, 0.4);
+  box-shadow: 0 10px 22px rgba(109, 61, 180, 0.08);
+}
+
+.hero__content {
+  max-width: 620px;
 }
 
 .hero__metrics {
@@ -383,6 +397,14 @@ img {
   border-radius: 20px;
   padding: 1.5rem;
   box-shadow: 0 10px 22px rgba(17, 39, 67, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover,
+.quote-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(109, 61, 180, 0.25);
+  box-shadow: 0 16px 30px rgba(74, 38, 125, 0.12);
 }
 
 .feature-icon {
@@ -477,6 +499,7 @@ img {
   border-radius: 24px;
   padding: 1.8rem 2rem;
   margin-top: 4rem;
+  box-shadow: 0 18px 36px rgba(74, 38, 125, 0.22);
 }
 
 .cta .eyebrow,

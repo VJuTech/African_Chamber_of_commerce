@@ -1,0 +1,53 @@
+<!-- ACC Chapter 19: payment dashboard summary. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Payments</p>
+      <h1>Payment dashboard</h1>
+    </div>
+    <a href="/payments/history" class="button button--primary">View payment history</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="order-summary-grid">
+    <div class="metric-card">
+      <span>Total payments</span>
+      <strong><%= payments.length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Successful</span>
+      <strong><%= payments.filter((payment) => payment.status === 'successful').length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Pending</span>
+      <strong><%= payments.filter((payment) => payment.status === 'pending').length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Refunded</span>
+      <strong><%= payments.filter((payment) => payment.status === 'refunded').length %></strong>
+    </div>
+  </div>
+
+  <div class="order-panel">
+    <div class="section-heading">
+      <h2>Recent transactions</h2>
+    </div>
+
+    <% if (!payments || payments.length === 0) { %>
+      <p class="empty-text">No payments yet.</p>
+    <% } else { %>
+      <% payments.slice(0, 8).forEach((payment) => { %>
+        <div class="order-item">
+          <div>
+            <strong>#<%= payment.id %> · <%= payment.currency %> <%= payment.amount %></strong>
+            <p><%= payment.status %> via <%= payment.provider %></p>
+          </div>
+          <a href="/payments/<%= payment.id %>" class="button button--secondary">Details</a>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</section>

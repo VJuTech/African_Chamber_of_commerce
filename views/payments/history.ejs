@@ -1,0 +1,41 @@
+<!-- ACC Chapter 19: payment history and transaction timeline. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Payment history</p>
+      <h1>Transactions</h1>
+    </div>
+    <a href="/payments" class="button button--secondary">Back to dashboard</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <% if (!payments || payments.length === 0) { %>
+    <div class="empty-state">
+      <h3>No payment activity</h3>
+      <p>Your transaction history will appear here once a payment is initiated.</p>
+    </div>
+  <% } else { %>
+    <div class="order-history-table">
+      <% payments.forEach((payment) => { %>
+        <article class="order-row">
+          <div>
+            <h3><%= payment.currency %> <%= payment.amount %></h3>
+            <p>Transaction #<%= payment.id %> · <%= new Date(payment.initiatedAt).toLocaleDateString() %></p>
+          </div>
+          <div>
+            <strong><%= payment.provider %></strong>
+          </div>
+          <div>
+            <span class="status-badge status-badge--<%= payment.status %>"><%= payment.status %></span>
+          </div>
+          <div class="order-row__actions">
+            <a href="/payments/<%= payment.id %>" class="button button--secondary">View</a>
+          </div>
+        </article>
+      <% }); %>
+    </div>
+  <% } %>
+</section>

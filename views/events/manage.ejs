@@ -1,0 +1,63 @@
+<!-- Chapter 15: organizer dashboard for attendee management and CSV export. -->
+<section class="manage-events-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Attendee management</p>
+      <h1><%= event.title %></h1>
+    </div>
+    <div class="header-actions">
+      <a href="/events/<%= event.id %>" class="button button--secondary">View event</a>
+      <a href="/events/<%= event.id %>/export" class="button button--primary">Export CSV</a>
+    </div>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="management-summary">
+    <div class="summary-card">
+      <span>Total attendees</span>
+      <strong><%= attendees.length %></strong>
+    </div>
+    <div class="summary-card">
+      <span>Capacity</span>
+      <strong><%= event.capacity || 'Unlimited' %></strong>
+    </div>
+    <div class="summary-card">
+      <span>Visibility</span>
+      <strong><%= event.visibility %></strong>
+    </div>
+  </div>
+
+  <div class="attendee-table-wrap">
+    <table class="attendee-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Ticket</th>
+          <th>Payment</th>
+          <th>Registered</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!attendees || attendees.length === 0) { %>
+          <tr>
+            <td colspan="5" class="empty-cell">No attendees have registered yet.</td>
+          </tr>
+        <% } else { %>
+          <% attendees.forEach((attendee) => { %>
+            <tr>
+              <td><%= attendee.name %></td>
+              <td><%= attendee.email %></td>
+              <td><%= attendee.ticketType %></td>
+              <td><span class="badge <%= attendee.paymentStatus === 'paid' || attendee.paymentStatus === 'payment_required' ? 'badge--warning' : 'badge--success' %>"><%= attendee.paymentStatus %></span></td>
+              <td><%= new Date(attendee.registeredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) %></td>
+            </tr>
+          <% }); %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>

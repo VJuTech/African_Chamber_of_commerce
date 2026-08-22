@@ -1,0 +1,82 @@
+<!-- ACC Chapter 17: marketplace browse page for products and services. -->
+<section class="marketplace-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Marketplace</p>
+      <h1>Discover products and services</h1>
+    </div>
+    <% if (user) { %>
+      <a href="/marketplace/create" class="button button--primary">Create listing</a>
+    <% } %>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <form method="get" action="/marketplace" class="marketplace-toolbar">
+    <div class="marketplace-toolbar__row">
+      <input type="text" name="keyword" value="<%= keyword || '' %>" placeholder="Search products, services, or categories" />
+      <select name="type">
+        <option value="all" <%= type === 'all' ? 'selected' : '' %>>All types</option>
+        <option value="product" <%= type === 'product' ? 'selected' : '' %>>Products</option>
+        <option value="service" <%= type === 'service' ? 'selected' : '' %>>Services</option>
+      </select>
+      <input type="text" name="category" value="<%= category || '' %>" placeholder="Category" />
+      <button type="submit" class="button button--primary">Search</button>
+    </div>
+  </form>
+
+  <% if (!listings || listings.length === 0) { %>
+    <div class="empty-state">
+      <h3>No listings found</h3>
+      <p>There are no visible products or services matching your filters yet.</p>
+    </div>
+  <% } else { %>
+    <div class="marketplace-grid">
+      <% listings.forEach((listing) => { %>
+        <article class="listing-card">
+          <div class="listing-card__media">
+            <span><%= listing.type === 'product' ? 'Product' : 'Service' %></span>
+          </div>
+          <div class="listing-card__body">
+            <div class="listing-card__topline">
+              <span class="listing-tag"><%= listing.category %></span>
+              <% if (listing.visibility === 'public') { %>
+                <span class="listing-status listing-status--public">Public</span>
+              <% } else { %>
+                <span class="listing-status"><%= listing.visibility %></span>
+              <% } %>
+            </div>
+            <h2><a href="/marketplace/<%= listing.id %>"><%= listing.title %></a></h2>
+            <p class="listing-description"><%= listing.description %></p>
+            <div class="listing-meta">
+              <span><strong>Location:</strong> <%= listing.location || 'Worldwide' %></span>
+              <span><strong>Currency:</strong> <%= listing.currency %></span>
+            </div>
+            <div class="listing-card__footer">
+              <div class="listing-price">
+                <% if (listing.pricingModel === 'range') { %>
+                  <strong><%= listing.currency %> <%= listing.minPrice %> - <%= listing.maxPrice %></strong>
+                <% else if (listing.pricingModel === 'negotiable') { %>
+                  <strong>Negotiable</strong>
+                <% else { %>
+                  <strong><%= listing.currency %> <%= listing.price %></strong>
+                <% } %>
+              </div>
+              <a href="/marketplace/<%= listing.id %>" class="button button--secondary">View details</a>
+            </div>
+          </div>
+        </article>
+      <% }); %>
+    </div>
+
+    <% if (totalPages > 1) { %>
+      <div class="pagination">
+        <% for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) { %>
+          <a class="page-link <%= pageNumber === page ? 'active' : '' %>" href="/marketplace?page=<%= pageNumber %>&keyword=<%= encodeURIComponent(keyword || '') %>&type=<%= encodeURIComponent(type || 'all') %>&category=<%= encodeURIComponent(category || '') %>"><%= pageNumber %></a>
+        <% } %>
+      </div>
+    <% } %>
+  <% } %>
+</section>

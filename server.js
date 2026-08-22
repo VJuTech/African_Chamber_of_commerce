@@ -22,6 +22,11 @@ const businessProfileRoutes = require("./routes/businessProfileRoute");
 const businessDirectoryRoutes = require("./routes/businessDirectoryRoute");
 const businessNetworkingRoutes = require("./routes/businessNetworkingRoute");
 const messagingRoutes = require("./routes/messagingRoute");
+const eventsRoutes = require("./routes/eventsRoute");
+const trustRoutes = require("./routes/trustRoute");
+const marketplaceRoutes = require("./routes/marketplaceRoute");
+const orderRoutes = require("./routes/orderRoute");
+const paymentRoutes = require("./routes/paymentRoute");
 const assistantRoutes = require("./routes/assistantRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
@@ -160,6 +165,11 @@ async function initApp() {
   app.use("/", businessDirectoryRoutes);
   app.use("/", businessNetworkingRoutes);
   app.use("/", messagingRoutes);
+  app.use("/", eventsRoutes);
+  app.use("/", trustRoutes);
+  app.use("/", marketplaceRoutes);
+  app.use("/", orderRoutes);
+  app.use("/", paymentRoutes);
   app.use("/", assistantRoutes);
 
   // Handle unmatched routes gracefully.

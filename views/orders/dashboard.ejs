@@ -1,0 +1,73 @@
+<!-- ACC Chapter 18: order management dashboard summary for buyers and sellers. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Order management</p>
+      <h1>Orders dashboard</h1>
+    </div>
+    <a href="/orders/history" class="button button--primary">View order history</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="order-summary-grid">
+    <div class="metric-card">
+      <span>Buyer orders</span>
+      <strong><%= buyerOrders.length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Seller orders</span>
+      <strong><%= sellerOrders.length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Pending</span>
+      <strong><%= buyerOrders.filter((order) => order.status === 'pending').length + sellerOrders.filter((order) => order.status === 'pending').length %></strong>
+    </div>
+    <div class="metric-card">
+      <span>Cancelled</span>
+      <strong><%= buyerOrders.filter((order) => order.status === 'cancelled').length + sellerOrders.filter((order) => order.status === 'cancelled').length %></strong>
+    </div>
+  </div>
+
+  <div class="order-columns">
+    <article class="order-panel">
+      <div class="section-heading">
+        <h2>Buyer orders</h2>
+      </div>
+      <% if (!buyerOrders || buyerOrders.length === 0) { %>
+        <p class="empty-text">No buyer orders yet.</p>
+      <% } else { %>
+        <% buyerOrders.slice(0, 5).forEach((order) => { %>
+          <div class="order-item">
+            <div>
+              <strong>#<%= order.id %> · <%= order.listingTitle %></strong>
+              <p><%= order.status %> · <%= order.currency %> <%= order.totalPrice %></p>
+            </div>
+            <a href="/orders/<%= order.id %>" class="button button--secondary">Open</a>
+          </div>
+        <% }); %>
+      <% } %>
+    </article>
+
+    <article class="order-panel">
+      <div class="section-heading">
+        <h2>Seller orders</h2>
+      </div>
+      <% if (!sellerOrders || sellerOrders.length === 0) { %>
+        <p class="empty-text">No incoming orders yet.</p>
+      <% } else { %>
+        <% sellerOrders.slice(0, 5).forEach((order) => { %>
+          <div class="order-item">
+            <div>
+              <strong>#<%= order.id %> · <%= order.listingTitle %></strong>
+              <p><%= order.status %> · <%= order.currency %> <%= order.totalPrice %></p>
+            </div>
+            <a href="/orders/<%= order.id %>" class="button button--secondary">Open</a>
+          </div>
+        <% }); %>
+      <% } %>
+    </article>
+  </div>
+</section>

@@ -1,0 +1,42 @@
+<!-- ACC Chapter 18: user order history and transaction record view. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Order history</p>
+      <h1>Past and current orders</h1>
+    </div>
+    <a href="/orders" class="button button--secondary">Back to dashboard</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <% if (!orders || orders.length === 0) { %>
+    <div class="empty-state">
+      <h3>No orders yet</h3>
+      <p>Your order history will appear here once you place a purchase.</p>
+    </div>
+  <% } else { %>
+    <div class="order-history-table">
+      <% orders.forEach((order) => { %>
+        <article class="order-row">
+          <div>
+            <h3><%= order.listingTitle %></h3>
+            <p>Order #<%= order.id %> · <%= new Date(order.createdAt).toLocaleDateString() %></p>
+          </div>
+          <div>
+            <strong><%= order.currency %> <%= order.totalPrice %></strong>
+          </div>
+          <div>
+            <span class="status-badge status-badge--<%= order.status %>"><%= order.status %></span>
+          </div>
+          <div class="order-row__actions">
+            <a href="/orders/<%= order.id %>" class="button button--secondary">Details</a>
+            <a href="/orders/<%= order.id %>/track" class="button button--secondary">Track</a>
+          </div>
+        </article>
+      <% }); %>
+    </div>
+  <% } %>
+</section>

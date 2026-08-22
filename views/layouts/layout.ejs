@@ -13,12 +13,21 @@
       </a>
       <div class="nav-links">
         <% if (typeof user !== 'undefined' && user) { %>
+          <a href="/">Home</a>
           <a href="/dashboard">Dashboard</a>
+          <a href="/marketplace">Marketplace</a>
+          <a href="/directory">Discover</a>
+          <a href="/trust">Trust</a>
+          <a href="/network">Networking</a>
+          <a href="/assistant">ACC Assistance</a>
           <a href="/profile">My Profile</a>
           <a href="/messages">Messages</a>
-          <a href="/assistant">ACC Assistant</a>
           <a href="/logout">Logout</a>
         <% } else { %>
+          <a href="/">Home</a>
+          <a href="/directory">Discover</a>
+          <a href="/assistant">ACC Assistance</a>
+          <a href="/network">Networking</a>
           <a href="/login">Login</a>
           <a href="/register">Register</a>
         <% } %>

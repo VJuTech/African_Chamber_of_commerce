@@ -1,0 +1,65 @@
+<!-- ACC Chapter 17: product or service detail page with pricing, availability, and business information. -->
+<section class="marketplace-detail-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Listing detail</p>
+      <h1><%= listing.title %></h1>
+    </div>
+    <a href="/marketplace" class="button button--secondary">Back to marketplace</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="marketplace-detail">
+    <div class="marketplace-detail__media">
+      <div class="listing-hero">
+        <span><%= listing.type === 'product' ? 'Product listing' : 'Service listing' %></span>
+      </div>
+    </div>
+
+    <div class="marketplace-detail__content">
+      <div class="detail-topline">
+        <span class="listing-tag"><%= listing.category %></span>
+        <span class="listing-status listing-status--public"><%= listing.visibility %></span>
+      </div>
+
+      <p class="detail-description"><%= listing.description %></p>
+
+      <div class="detail-summary">
+        <div>
+          <span>Pricing</span>
+          <% if (listing.pricingModel === 'range') { %>
+            <strong><%= listing.currency %> <%= listing.minPrice %> - <%= listing.maxPrice %></strong>
+          <% else if (listing.pricingModel === 'negotiable') { %>
+            <strong>Negotiable</strong>
+          <% else { %>
+            <strong><%= listing.currency %> <%= listing.price %></strong>
+          <% } %>
+        </div>
+        <div>
+          <span>Availability</span>
+          <strong><%= listing.availability || 'available' %></strong>
+        </div>
+        <div>
+          <span>Location</span>
+          <strong><%= listing.location || 'Worldwide' %></strong>
+        </div>
+      </div>
+
+      <% if (listing.tags && listing.tags.length) { %>
+        <div class="detail-tags">
+          <% listing.tags.forEach((tag) => { %>
+            <span><%= tag %></span>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <div class="detail-actions">
+        <button type="button" class="button button--primary">Contact seller</button>
+        <button type="button" class="button button--secondary">Request quote</button>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,89 @@
+<!-- Chapter 15: public listing view for ACC events and business engagement opportunities. -->
+<section class="events-shell">
+  <div class="events-hero">
+    <div>
+      <p class="eyebrow">Events & business engagement</p>
+      <h1>Discover growth opportunities across Africa</h1>
+      <p class="lead-text">
+        Explore trade fairs, learning sessions, networking forums, and high-value business engagement events.
+      </p>
+    </div>
+    <% if (user) { %>
+      <a href="/events/create" class="button button--primary">Create event</a>
+    <% } else { %>
+      <a href="/login?next=/events" class="button button--primary">Sign in to host an event</a>
+    <% } %>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="events-filter-panel">
+    <form method="get" action="/events" class="events-filters">
+      <div class="field-group">
+        <label for="keyword">Search</label>
+        <input id="keyword" name="keyword" type="text" value="<%= keyword || '' %>" placeholder="Search title, organizer, location" />
+      </div>
+      <div class="field-group">
+        <label for="eventType">Event type</label>
+        <select id="eventType" name="eventType">
+          <option value="all" <%= eventType === 'all' ? 'selected' : '' %>>All</option>
+          <option value="physical" <%= eventType === 'physical' ? 'selected' : '' %>>Physical</option>
+          <option value="virtual" <%= eventType === 'virtual' ? 'selected' : '' %>>Virtual</option>
+          <option value="hybrid" <%= eventType === 'hybrid' ? 'selected' : '' %>>Hybrid</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label for="visibility">Visibility</label>
+        <select id="visibility" name="visibility">
+          <option value="all" <%= visibility === 'all' ? 'selected' : '' %>>All</option>
+          <option value="public" <%= visibility === 'public' ? 'selected' : '' %>>Public</option>
+          <option value="private" <%= visibility === 'private' ? 'selected' : '' %>>Private</option>
+          <option value="invite-only" <%= visibility === 'invite-only' ? 'selected' : '' %>>Invite-only</option>
+        </select>
+      </div>
+      <button type="submit" class="button button--secondary">Apply filters</button>
+    </form>
+  </div>
+
+  <div class="events-grid">
+    <% if (!events || events.length === 0) { %>
+      <div class="empty-state">
+        <h2>No events found</h2>
+        <p>There are no published events matching your filters right now.</p>
+      </div>
+    <% } else { %>
+      <% events.forEach((event) => { %>
+        <article class="event-card">
+          <div class="event-card__topline">
+            <span class="tag"><%= event.eventType %></span>
+            <span class="visibility"><%= event.visibility %></span>
+          </div>
+          <h2><a href="/events/<%= event.id %>"><%= event.title %></a></h2>
+          <p class="event-card__meta"><%= new Date(event.startDate).toLocaleString([], { dateStyle: 'medium', timeStyle:'short' }) %></p>
+          <p class="event-card__description"><%= event.description %></p>
+          <ul class="event-card__details">
+            <li><strong>Organizer:</strong> <%= event.organizer %></li>
+            <li><strong>Location:</strong> <%= event.location %></li>
+            <li><strong>Seats:</strong> <%= event.capacity ? `${event.registrationCount}/${event.capacity}` : event.registrationCount %></li>
+          </ul>
+          <div class="event-card__footer">
+            <span class="price"><%= event.ticketType === 'paid' ? `$${event.price}` : 'Free' %></span>
+            <a href="/events/<%= event.id %>" class="button button--secondary">View details</a>
+          </div>
+        </article>
+      <% }); %>
+    <% } %>
+  </div>
+
+  <% if (totalPages > 1) { %>
+    <nav class="pagination" aria-label="Event pagination">
+      <% for (let pageNumber = 1; pageNumber <= totalPages; pageNumber++) { %>
+        <a class="page-link <%= pageNumber === page ? 'active' : '' %>" href="/events?page=<%= pageNumber %>&keyword=<%= encodeURIComponent(keyword || '') %>&eventType=<%= encodeURIComponent(eventType || 'all') %>&visibility=<%= encodeURIComponent(visibility || 'all') %>">
+          <%= pageNumber %>
+        </a>
+      <% } %>
+    </nav>
+  <% } %>
+</section>

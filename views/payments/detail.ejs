@@ -1,0 +1,77 @@
+<!-- ACC Chapter 19: payment detail page. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Payment details</p>
+      <h1>Transaction #<%= payment.id %></h1>
+    </div>
+    <a href="/payments/history" class="button button--secondary">Back to history</a>
+  </div>
+
+  <% if (message) { %>
+    <div class="status-banner success"><%= message %></div>
+  <% } %>
+
+  <div class="order-detail-layout">
+    <article class="order-detail-panel">
+      <div class="detail-row">
+        <span>Order ID</span>
+        <strong><%= payment.orderId %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Buyer</span>
+        <strong>#<%= payment.buyerId %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Seller</span>
+        <strong>#<%= payment.sellerId || 'N/A' %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Amount</span>
+        <strong><%= payment.currency %> <%= payment.amount %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Method</span>
+        <strong><%= payment.paymentMethod %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Provider</span>
+        <strong><%= payment.provider %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Status</span>
+        <strong><%= payment.status %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Gateway reference</span>
+        <strong><%= payment.gatewayReference || 'Not available' %></strong>
+      </div>
+      <div class="detail-row">
+        <span>Notes</span>
+        <strong><%= payment.notes || 'No notes' %></strong>
+      </div>
+    </article>
+
+    <aside class="order-actions-panel">
+      <h2>Actions</h2>
+      <form method="post" action="/payments/<%= payment.id %>/status" class="stacked-form">
+        <label for="status">Update status</label>
+        <select id="status" name="status">
+          <option value="initiated" <%= payment.status === 'initiated' ? 'selected' : '' %>>Initiated</option>
+          <option value="pending" <%= payment.status === 'pending' ? 'selected' : '' %>>Pending</option>
+          <option value="successful" <%= payment.status === 'successful' ? 'selected' : '' %>>Successful</option>
+          <option value="failed" <%= payment.status === 'failed' ? 'selected' : '' %>>Failed</option>
+          <option value="refunded" <%= payment.status === 'refunded' ? 'selected' : '' %>>Refunded</option>
+        </select>
+        <input type="text" name="reason" placeholder="Optional reason" />
+        <button type="submit" class="button button--primary">Update payment</button>
+      </form>
+
+      <form method="post" action="/payments/<%= payment.id %>/refund" class="stacked-form">
+        <label for="refundReason">Refund reason</label>
+        <input id="refundReason" name="reason" type="text" placeholder="Refund reason" />
+        <button type="submit" class="button button--secondary">Process refund</button>
+      </form>
+    </aside>
+  </div>
+</section>

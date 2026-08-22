@@ -1,0 +1,33 @@
+<!-- ACC Chapter 18: order tracking details page. -->
+<section class="order-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Tracking</p>
+      <h1>Order #<%= order.id %> tracking</h1>
+    </div>
+    <a href="/orders/<%= order.id %>" class="button button--secondary">Back to order</a>
+  </div>
+
+  <div class="tracking-card">
+    <div class="detail-row">
+      <span>Status</span>
+      <strong><%= order.status %></strong>
+    </div>
+    <div class="detail-row">
+      <span>Payment</span>
+      <strong><%= order.paymentStatus %></strong>
+    </div>
+    <div class="detail-row">
+      <span>Current location</span>
+      <strong><%= order.trackingDetails %></strong>
+    </div>
+    <div class="detail-row">
+      <span>Delivery method</span>
+      <strong><%= order.deliveryMethod %></strong>
+    </div>
+    <div class="detail-row">
+      <span>Shipping address</span>
+      <strong><%= order.shippingAddress %></strong>
+    </div>
+  </div>
+</section>
