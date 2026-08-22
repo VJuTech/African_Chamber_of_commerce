@@ -303,6 +303,11 @@ img {
   color: var(--acc-muted);
   line-height: 1.7;
   max-width: 620px;
+  animation: fadeUp 0.7s ease-out both;
+}
+
+.hero__content h1 {
+  animation: slideInRight 0.9s ease-out both;
 }
 
 .hero__actions,
@@ -350,6 +355,41 @@ img {
   max-width: 620px;
 }
 
+.hero__ticker {
+  position: relative;
+  margin-top: 1.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 61, 180, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 18px rgba(109, 61, 180, 0.06);
+}
+
+.hero__ticker-track {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: max-content;
+  min-width: 100%;
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+  animation: tickerSlide 18s linear infinite;
+}
+
+.hero__ticker-track span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(109, 61, 180, 0.08);
+  color: var(--acc-navy);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .hero__metrics {
   display: flex;
   flex-wrap: wrap;
@@ -364,6 +404,15 @@ img {
   background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(19, 41, 72, 0.08);
   backdrop-filter: blur(10px);
+  animation: fadeUp 0.8s ease-out both;
+}
+
+.metric:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.metric:nth-child(3) {
+  animation-delay: 0.24s;
 }
 
 .metric strong,
@@ -551,6 +600,34 @@ img {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.feature-card--media {
+  overflow: hidden;
+  padding: 0;
+}
+
+.feature-card--media .feature-card__body {
+  padding: 1.25rem 1.25rem 1.4rem;
+}
+
+.feature-card__media {
+  height: 180px;
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid rgba(109, 61, 180, 0.12);
+}
+
+.feature-card__media--growth {
+  background-image: linear-gradient(180deg, rgba(28, 27, 44, 0.14), rgba(28, 27, 44, 0.28)), url('/images/site/business-growth.jpg');
+}
+
+.feature-card__media--trust {
+  background-image: linear-gradient(180deg, rgba(28, 27, 44, 0.12), rgba(28, 27, 44, 0.22)), url('/images/site/communication-trust1.jpg');
+}
+
+.feature-card__media--growth-alt {
+  background-image: linear-gradient(180deg, rgba(18, 24, 38, 0.10), rgba(18, 24, 38, 0.26)), url('/images/site/business-growth1.jpg');
+}
+
 .feature-card:hover,
 .quote-card:hover {
   transform: translateY(-3px);
@@ -656,6 +733,37 @@ img {
 .cta .eyebrow,
 .cta h2 {
   color: var(--acc-white);
+}
+
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tickerSlide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @media (max-width: 767px) {
