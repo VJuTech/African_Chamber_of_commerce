@@ -18,6 +18,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  const navToggle = document.querySelector(".nav-toggle");
+  const navLinks = document.querySelector(".nav-links");
+
+  if (navToggle && navLinks) {
+    const syncNavState = () => {
+      if (window.innerWidth > 767) {
+        navToggle.setAttribute("aria-expanded", "false");
+        navLinks.classList.remove("nav-links--open");
+      }
+    };
+
+    navToggle.addEventListener("click", () => {
+      const isExpanded = navToggle.getAttribute("aria-expanded") === "true";
+      navToggle.setAttribute("aria-expanded", String(!isExpanded));
+      navLinks.classList.toggle("nav-links--open", !isExpanded);
+    });
+
+    navLinks.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (window.innerWidth <= 980) {
+          navToggle.setAttribute("aria-expanded", "false");
+          navLinks.classList.remove("nav-links--open");
+        }
+      });
+    });
+
+    window.addEventListener("resize", syncNavState);
+    syncNavState();
+  }
+
   document.querySelectorAll(".password-toggle-btn").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();

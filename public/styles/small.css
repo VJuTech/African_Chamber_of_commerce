@@ -1,5 +1,51 @@
 /* Small-screen styles for mobile devices and narrow tablets */
 
+.navbar {
+  padding: 0.8rem 1rem;
+  flex-wrap: wrap;
+}
+
+.nav-toggle {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nav-links {
+  display: none;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  padding-top: 0.65rem;
+}
+
+.nav-links.nav-links--open {
+  display: flex;
+}
+
+.nav-links a {
+  width: 100%;
+  text-align: center;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.brand {
+  font-size: 0.95rem;
+}
+
+.brand__logo {
+  width: 40px;
+  height: 40px;
+}
+
+.brand__text {
+  white-space: normal;
+  line-height: 1.2;
+}
+
 .landing-page {
   padding-top: 0.5rem;
 }

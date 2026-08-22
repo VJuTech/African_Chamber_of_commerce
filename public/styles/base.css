@@ -109,6 +109,46 @@ img {
   font-size: 0.95rem;
 }
 
+.nav-toggle {
+  display: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  color: var(--acc-white);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.nav-toggle::before {
+  content: "\2630";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.nav-toggle:hover,
+.nav-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.nav-toggle[aria-expanded="true"]::before {
+  content: "\2715";
+}
+
+.nav-toggle__line {
+  display: none;
+}
+
 .container {
   max-width: 1200px;
   margin: 0 auto;
