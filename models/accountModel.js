@@ -3,6 +3,11 @@ const fs = require("fs");
 const path = require("path");
 const pool = require("../database/connection");
 const { validatePassword } = require("../utility/account-validation");
+const {
+  sendAccountVerificationEmail,
+  sendAccountVerificationSms,
+  generateVerificationCode,
+} = require("../utility/emailService");
 
 const auditEntries = [];
 const MAX_FAILED_ATTEMPTS = 5;
@@ -153,11 +158,29 @@ async function createUser(userData) {
       lastLoginAt: null,
       lockedUntil: null,
     };
-    users.push(newUser);
+    const verificationCode = generateVerificationCode();
+    const verificationDelivery = await Promise.all([
+      sendAccountVerificationEmail({
+        to: email,
+        firstName,
+        verificationCode,
+        phone,
+      }),
+      sendAccountVerificationSms({
+        to: phone,
+        firstName,
+        verificationCode,
+      }),
+    ]);
+    users.push({ ...newUser, verificationCode, verificationDelivery });
     await logEvent("registration_started", { userId: newUser.id, outcome: "submitted" });
     await logEvent("registration_completed", { userId: newUser.id, outcome: "pending_verification" });
     await logEvent("consent_recorded", { userId: newUser.id, outcome: "success" });
-    return { success: true, user: { ...newUser, passwordHash: undefined } };
+    return {
+      success: true,
+      user: { ...newUser, passwordHash: undefined },
+      verification: verificationDelivery,
+    };
   }
 
   let client;
@@ -229,10 +252,39 @@ async function createUser(userData) {
     ];
     const insertRes = await client.query(insertText, vals);
     const created = insertRes.rows[0];
+    const verificationCode = generateVerificationCode();
+    const verificationDelivery = await Promise.all([
+      sendAccountVerificationEmail({
+        to: created.email,
+        firstName: created.first_name || firstName,
+        verificationCode,
+        phone: created.phone || phone,
+      }),
+      sendAccountVerificationSms({
+        to: created.phone || phone,
+        firstName: created.first_name || firstName,
+        verificationCode,
+      }),
+    ]);
     await logEvent("registration_started", { userId: created.id, outcome: "submitted" });
     await logEvent("registration_completed", { userId: created.id, outcome: "pending_verification" });
     await logEvent("consent_recorded", { userId: created.id, outcome: "success" });
-    return { success: true, user: created };
+    await logEvent("verification_email_sent", {
+      userId: created.id,
+      outcome: verificationDelivery[0].success ? "email_sent" : "email_failed",
+      details: {
+        email: created.email,
+        phone: created.phone || phone,
+        verificationCode,
+        emailDelivery: verificationDelivery[0],
+        smsDelivery: verificationDelivery[1],
+      },
+    });
+    return {
+      success: true,
+      user: created,
+      verification: verificationDelivery,
+    };
   } catch (err) {
     return { success: false, message: "Failed to create user." };
   } finally {
