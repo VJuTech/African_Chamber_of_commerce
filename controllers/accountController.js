@@ -168,7 +168,89 @@ async function registerUser(req, res, next) {
       });
     }
 
-    return res.redirect("/login?message=Registration submitted successfully. Please verify your email or mobile number to activate your account.");
+    req.session.authenticated = true;
+    req.session.userId = result.user.id;
+    req.session.user = {
+      id: result.user.id,
+      name: result.user.name || `${result.user.first_name || ""} ${result.user.last_name || ""}`.trim(),
+      email: result.user.email,
+      phone: result.user.phone,
+      role: result.user.role,
+      status: result.user.status,
+    };
+
+    return req.session.save(() => {
+      res.redirect("/verify-account");
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Render the account verification form for pending users.
+async function renderVerifyAccount(req, res, next) {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.render("accounts/verify-account", {
+        title: "Verify Account",
+        error: "Please sign up first before verifying your account.",
+        message: "",
+        userId: null,
+      });
+    }
+
+    return res.render("accounts/verify-account", {
+      title: "Verify Account",
+      message: "Enter the verification code sent to your email address.",
+      error: "",
+      userId: req.session.userId,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Submit the account verification code.
+async function submitVerifyAccount(req, res, next) {
+  try {
+    const { code } = req.body;
+    const userId = req.session && req.session.userId;
+
+    if (!userId) {
+      return res.render("accounts/verify-account", {
+        title: "Verify Account",
+        message: "",
+        error: "Session expired. Please sign up again.",
+        userId: null,
+      });
+    }
+
+    if (!code || String(code).trim().length === 0) {
+      return res.render("accounts/verify-account", {
+        title: "Verify Account",
+        message: "Enter the verification code sent to your email address.",
+        error: "Verification code is required.",
+        userId,
+      });
+    }
+
+    const result = await authModel.verifyAccountCode(userId, code);
+
+    if (!result.success) {
+      return res.render("accounts/verify-account", {
+        title: "Verify Account",
+        message: "Enter the verification code sent to your email address.",
+        error: result.message,
+        userId,
+      });
+    }
+
+    req.session.destroy((err) => {
+      if (err) {
+        console.error(err);
+      }
+      res.redirect("/login?message=Account verified successfully. Please sign in.");
+    });
   } catch (error) {
     return next(error);
   }
@@ -255,6 +337,8 @@ module.exports = {
   loginUser,
   logoutUser,
   ensureAuthenticated,
+  renderVerifyAccount,
+  submitVerifyAccount,
   renderForgotPassword,
   submitForgotPassword,
   renderResetPassword,

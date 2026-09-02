@@ -178,7 +178,7 @@ async function createUser(userData) {
     await logEvent("consent_recorded", { userId: newUser.id, outcome: "success" });
     return {
       success: true,
-      user: { ...newUser, passwordHash: undefined },
+      user: { ...newUser, passwordHash: undefined, verificationCode },
       verification: verificationDelivery,
     };
   }
@@ -249,6 +249,13 @@ async function createUser(userData) {
     const insertRes = await client.query(insertText, vals);
     const created = insertRes.rows[0];
     const verificationCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+
+    await client.query(
+      `INSERT INTO account_verification_codes(user_id, code, expires_at) VALUES($1, $2, $3)`,
+      [created.id, verificationCode, expiresAt]
+    );
+
     const verificationDelivery = await Promise.all([
       sendAccountVerificationEmail({
         to: created.email,
@@ -565,6 +572,81 @@ async function completePasswordReset(token, newPassword, confirmPassword) {
   }
 }
 
+async function verifyAccountCode(userId, code) {
+  const normalizedCode = String(code || "").trim().toUpperCase();
+  if (!normalizedCode) {
+    return { success: false, message: "Verification code is required." };
+  }
+
+  if (!pool || !dbAvailable) {
+    const user = users.find((candidate) => Number(candidate.id) === Number(userId));
+    if (!user) {
+      await logEvent("account_verification_attempt", { userId, outcome: "user_not_found" });
+      return { success: false, message: "User not found." };
+    }
+
+    if (user.verificationCode && user.verificationCode === normalizedCode) {
+      user.status = "active";
+      user.emailVerified = true;
+      user.registrationState = "active";
+      await logEvent("account_verified", { userId, outcome: "success" });
+      return { success: true, message: "Account verified successfully. You can now sign in." };
+    }
+
+    await logEvent("account_verification_attempt", { userId, outcome: "invalid_code" });
+    return { success: false, message: "Verification code is invalid or expired." };
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    const codeRes = await client.query(
+      `SELECT * FROM account_verification_codes
+       WHERE user_id = $1 AND status = 'pending'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    if (codeRes.rows.length === 0) {
+      await logEvent("account_verification_attempt", { userId, outcome: "code_not_found" });
+      return { success: false, message: "No pending verification code found." };
+    }
+
+    const codeRecord = codeRes.rows[0];
+    if (new Date(codeRecord.expires_at).getTime() < Date.now()) {
+      await client.query(
+        `UPDATE account_verification_codes SET status = 'expired' WHERE id = $1`,
+        [codeRecord.id]
+      );
+      await logEvent("account_verification_attempt", { userId, outcome: "code_expired" });
+      return { success: false, message: "Verification code has expired. Please request a new one." };
+    }
+
+    if (codeRecord.code !== normalizedCode) {
+      await logEvent("account_verification_attempt", { userId, outcome: "invalid_code" });
+      return { success: false, message: "Verification code is incorrect." };
+    }
+
+    await client.query(
+      `UPDATE account_verification_codes SET status = 'verified', verified_at = NOW() WHERE id = $1`,
+      [codeRecord.id]
+    );
+
+    await client.query(
+      `UPDATE users SET status = 'active', email_verified = TRUE, registration_state = 'active', updated_at = NOW() WHERE id = $1`,
+      [userId]
+    );
+
+    await logEvent("account_verified", { userId, outcome: "success" });
+    return { success: true, message: "Account verified successfully. You can now sign in." };
+  } catch (err) {
+    console.error("Account verification error:", err && err.message ? err.message : err);
+    return { success: false, message: "Failed to verify account." };
+  } finally {
+    if (client) try { client.release(); } catch (e) {}
+  }
+}
+
 function getAuditEntries() {
   return auditEntries;
 }
@@ -575,6 +657,7 @@ module.exports = {
   requestPasswordReset,
   verifyPasswordResetToken,
   completePasswordReset,
+  verifyAccountCode,
   logEvent,
   getAuditEntries,
   MAX_FAILED_ATTEMPTS,

@@ -78,6 +78,18 @@ CREATE TABLE audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Account verification codes for initial signup verification.
+CREATE TABLE account_verification_codes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code VARCHAR(10) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  verified_at TIMESTAMP,
+  details JSONB
+);
+
 -- Contact change requests keep the existing verified value active until the
 -- replacement address or mobile number is confirmed.
 CREATE TABLE profile_contact_change_requests (
@@ -99,6 +111,9 @@ CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_account_verification_codes_user_id ON account_verification_codes(user_id);
+CREATE INDEX idx_account_verification_codes_status ON account_verification_codes(status);
+CREATE INDEX idx_account_verification_codes_expires_at ON account_verification_codes(expires_at);
 CREATE INDEX idx_profile_contact_change_requests_user_id ON profile_contact_change_requests(user_id);
 CREATE INDEX idx_profile_contact_change_requests_status ON profile_contact_change_requests(status);
 

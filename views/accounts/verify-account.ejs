@@ -1,0 +1,41 @@
+<!-- Verify account form template for users with pending verification. -->
+<div class="auth-shell">
+  <div class="auth-card auth-card--narrow">
+    <div class="auth-header">
+      <span class="eyebrow">African Chamber of Commerce</span>
+      <h2>Verify your account</h2>
+      <p><%= message || "Enter the 6-digit code sent to your email address." %></p>
+    </div>
+
+    <% if (error) { %>
+      <div class="message error"><%= error %></div>
+    <% } %>
+
+    <form method="post" action="/verify-account" class="auth-form">
+      <div class="form-section">
+        <div class="field-group">
+          <label for="code">Verification code</label>
+          <input 
+            id="code" 
+            name="code" 
+            type="text" 
+            required 
+            placeholder="Enter 6-digit code" 
+            maxlength="6"
+            pattern="[0-9]{6}"
+            title="Please enter a 6-digit code"
+          />
+          <small style="display: block; margin-top: 8px; color: #666;">Check your email for the verification code sent when you registered.</small>
+        </div>
+      </div>
+
+      <button type="submit" class="primary-btn">Verify Account</button>
+    </form>
+
+    <div class="auth-actions">
+      <p style="text-align: center; margin-top: 16px; color: #666;">
+        Didn't receive the code? <a href="/register" class="inline-link">Register again</a>.
+      </p>
+    </div>
+  </div>
+</div>

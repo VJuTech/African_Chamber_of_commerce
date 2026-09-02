@@ -4,6 +4,8 @@ const {
   loginUser,
   logoutUser,
   ensureAuthenticated,
+  renderVerifyAccount,
+  submitVerifyAccount,
   renderForgotPassword,
   submitForgotPassword,
   renderResetPassword,
@@ -21,6 +23,8 @@ router.get("/", (req, res) => {
 
 router.post("/login", loginUser);
 router.post("/register", registerUser);
+router.get("/verify-account", renderVerifyAccount);
+router.post("/verify-account", submitVerifyAccount);
 router.get("/forgot-password", renderForgotPassword);
 router.post("/forgot-password", submitForgotPassword);
 router.get("/reset-password/:token", renderResetPassword);
