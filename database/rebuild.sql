@@ -1,7 +1,34 @@
 -- Rebuild the database schema for the account/authentication flow.
 -- Run this script from a PostgreSQL-compatible SQL client.
 
--- Drop dependent tables first so the script can be rerun safely.
+-- Drop all dependent tables first so the script can be rerun safely.
+-- Order matters: drop tables with foreign keys first, then referenced tables.
+DROP TABLE IF EXISTS payment_refunds CASCADE;
+DROP TABLE IF EXISTS payment_gateway_events CASCADE;
+DROP TABLE IF EXISTS payment_audit_logs CASCADE;
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS order_audit_logs CASCADE;
+DROP TABLE IF EXISTS order_disputes CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS marketplace_audit_logs CASCADE;
+DROP TABLE IF EXISTS marketplace_listings CASCADE;
+DROP TABLE IF EXISTS trust_audit_logs CASCADE;
+DROP TABLE IF EXISTS review_reports CASCADE;
+DROP TABLE IF EXISTS business_reviews CASCADE;
+DROP TABLE IF EXISTS event_audit_logs CASCADE;
+DROP TABLE IF EXISTS event_feedback CASCADE;
+DROP TABLE IF EXISTS event_registrations CASCADE;
+DROP TABLE IF EXISTS event_records CASCADE;
+DROP TABLE IF EXISTS business_directory_search_logs CASCADE;
+DROP TABLE IF EXISTS business_connection_reports CASCADE;
+DROP TABLE IF EXISTS business_connection_blocks CASCADE;
+DROP TABLE IF EXISTS business_connections CASCADE;
+DROP TABLE IF EXISTS business_profile_audit_logs CASCADE;
+DROP TABLE IF EXISTS business_profiles CASCADE;
+DROP TABLE IF EXISTS business_audit_logs CASCADE;
+DROP TABLE IF EXISTS business_administrators CASCADE;
+DROP TABLE IF EXISTS business_accounts CASCADE;
+DROP TABLE IF EXISTS account_verification_codes CASCADE;
 DROP TABLE IF EXISTS membership_audit_logs CASCADE;
 DROP TABLE IF EXISTS membership_history CASCADE;
 DROP TABLE IF EXISTS user_memberships CASCADE;

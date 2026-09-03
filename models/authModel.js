@@ -18,8 +18,6 @@ const auditLogPath = path.join(__dirname, "..", "logs", "auth-audit.log");
 
 fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
 
-let dbAvailable = Boolean(process.env.DATABASE_URL || process.env.PGHOST);
-
 function fileLogEvent(eventType, details = {}) {
   const entry = {
     id: `${Date.now()}-${auditEntries.length + 1}`,
@@ -33,48 +31,24 @@ function fileLogEvent(eventType, details = {}) {
   return entry;
 }
 
-async function dbLogEvent(eventType, details = {}) {
-  if (!pool || !dbAvailable) return fileLogEvent(eventType, details);
+async function logEvent(eventType, details = {}) {
+  if (!pool) {
+    console.error("Database not available for logging event:", eventType);
+    return fileLogEvent(eventType, details);
+  }
+
   const { userId, outcome } = details || {};
   const text = `INSERT INTO audit_logs(event_type, user_id, outcome, details) VALUES($1,$2,$3,$4) RETURNING *`;
   const vals = [eventType, userId || null, outcome || null, details];
+
   try {
     const res = await pool.query(text, vals);
     return res.rows[0];
   } catch (err) {
+    console.error("Failed to log audit event:", err && err.message ? err.message : err);
     return fileLogEvent(eventType, details);
   }
 }
-
-async function logEvent(eventType, details = {}) {
-  return pool && dbAvailable ? dbLogEvent(eventType, details) : fileLogEvent(eventType, details);
-}
-
-const users = [];
-function seedDemoUser() {
-  if (users.some((user) => user.email === "admin@acc.com")) return;
-  const adminPasswordHash = bcrypt.hashSync("Admin123!", 10);
-  users.push({
-    id: 1,
-    firstName: "System",
-    lastName: "Admin",
-    name: "System Admin",
-    email: "admin@acc.com",
-    phone: "2348000000000",
-    country: "Nigeria",
-    passwordHash: adminPasswordHash,
-    role: "admin",
-    status: "active",
-    failedAttempts: 0,
-    lastLoginAt: null,
-    lockedUntil: null,
-    emailVerified: true,
-    phoneVerified: true,
-    registrationState: "active",
-  });
-}
-
-seedDemoUser();
 
 function normalizePhone(value) {
   return String(value || "").replace(/\s+/g, "").trim();
@@ -121,75 +95,16 @@ async function createUser(userData) {
     return { success: false, message: "You must accept the Privacy Policy." };
   }
 
-  if (!pool || !dbAvailable) {
-    const existingUser = users.find(
-      (user) => user.email.toLowerCase() === email || (phone && user.phone === phone)
-    );
-    if (existingUser) {
-      await logEvent("duplicate_registration_attempt", { email, phone, outcome: "duplicate_identity" });
-      return { success: false, message: "A user with that email or mobile number already exists." };
-    }
-
-    const passwordHash = bcrypt.hashSync(password, 10);
-    const name = buildFullName(firstName, lastName, middleName);
-    const newUser = {
-      id: users.length + 1,
-      firstName,
-      lastName,
-      middleName: middleName || null,
-      name,
-      email,
-      phone,
-      country,
-      preferredLanguage: preferredLanguage || null,
-      referralCode: referralCode || null,
-      organizationName: organizationName || null,
-      passwordHash,
-      role: userData.role || "member",
-      status: "pending_verification",
-      registrationState: "pending_verification",
-      emailVerified: false,
-      phoneVerified: false,
-      consentTerms: true,
-      consentPrivacy: true,
-      termsVersion: userData.termsVersion || "v1",
-      privacyVersion: userData.privacyVersion || "v1",
-      failedAttempts: 0,
-      lastLoginAt: null,
-      lockedUntil: null,
-    };
-    const verificationCode = generateVerificationCode();
-    const verificationDelivery = await Promise.all([
-      sendAccountVerificationEmail({
-        to: email,
-        firstName,
-        verificationCode,
-        phone,
-      }),
-      sendAccountVerificationSms({
-        to: phone,
-        firstName,
-        verificationCode,
-      }),
-    ]);
-    users.push({ ...newUser, verificationCode, verificationDelivery });
-    await logEvent("registration_started", { userId: newUser.id, outcome: "submitted" });
-    await logEvent("registration_completed", { userId: newUser.id, outcome: "pending_verification" });
-    await logEvent("consent_recorded", { userId: newUser.id, outcome: "success" });
-    return {
-      success: true,
-      user: { ...newUser, passwordHash: undefined, verificationCode },
-      verification: verificationDelivery,
-    };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
   try {
     client = await pool.connect();
   } catch (connErr) {
-    console.error("Postgres connection failed, falling back to in-memory users:", connErr && connErr.message ? connErr.message : connErr);
-    dbAvailable = false;
-    return createUser(userData);
+    console.error("Database connection failed:", connErr && connErr.message ? connErr.message : connErr);
+    return { success: false, message: "Database connection failed. Please try again later." };
   }
 
   try {
@@ -297,63 +212,16 @@ async function createUser(userData) {
 
 async function authenticateUser(identifier, password) {
   const normalizedIdentifier = String(identifier).trim().toLowerCase();
-  if (!pool || !dbAvailable) {
-    const user = users.find(
-      (candidate) => candidate.email.toLowerCase() === normalizedIdentifier || candidate.phone === normalizedIdentifier
-    );
-    if (!user) {
-      await logEvent("login_failure", { identifier: normalizedIdentifier, outcome: "invalid_user" });
-      return { success: false, message: "Invalid credentials." };
-    }
-
-    if (user.status === "locked" && user.lockedUntil && Date.now() < user.lockedUntil) {
-      await logEvent("login_failure", { userId: user.id, outcome: "account_locked" });
-      return { success: false, message: "Account temporarily locked due to repeated failed attempts." };
-    }
-
-    if (user.status === "locked" && user.lockedUntil && Date.now() >= user.lockedUntil) {
-      user.status = "active";
-      user.lockedUntil = null;
-      user.failedAttempts = 0;
-    }
-
-    if (user.status === "pending_verification") {
-      await logEvent("login_failure", { userId: user.id, outcome: "pending_verification" });
-      return { success: false, message: "Account is pending verification. Please verify your email or mobile number to activate it." };
-    }
-
-    if (user.status !== "active") {
-      await logEvent("login_failure", { userId: user.id, outcome: user.status });
-      return { success: false, message: `Account is currently ${user.status}.` };
-    }
-
-    const isValidPassword = bcrypt.compareSync(password, user.passwordHash);
-    if (!isValidPassword) {
-      user.failedAttempts = (user.failedAttempts || 0) + 1;
-      if (user.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-        user.status = "locked";
-        user.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
-        await logEvent("account_lockout", { userId: user.id, outcome: "locked" });
-        return { success: false, message: "Account temporarily locked after repeated failed attempts." };
-      }
-      await logEvent("login_failure", { userId: user.id, outcome: "invalid_password", failedAttempts: user.failedAttempts });
-      return { success: false, message: "Invalid credentials." };
-    }
-
-    user.failedAttempts = 0;
-    user.lastLoginAt = new Date().toISOString();
-    user.lockedUntil = null;
-    await logEvent("login_success", { userId: user.id, outcome: "success" });
-    return { success: true, user };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
   try {
     client = await pool.connect();
   } catch (connErr) {
-    console.error("Postgres connection failed during auth, falling back to in-memory:", connErr && connErr.message ? connErr.message : connErr);
-    dbAvailable = false;
-    return authenticateUser(identifier, password);
+    console.error("Database connection failed:", connErr && connErr.message ? connErr.message : connErr);
+    return { success: false, message: "Database connection failed. Please try again later." };
   }
   try {
     const text = `SELECT * FROM users WHERE lower(email)=lower($1) OR phone=$2 LIMIT 1`;
@@ -425,21 +293,8 @@ async function requestPasswordReset(email, origin = "") {
     return { success: false, message: "Please enter the email address tied to your account." };
   }
 
-  if (!pool || !dbAvailable) {
-    const user = users.find((candidate) => candidate.email.toLowerCase() === normalizedEmail);
-    if (!user) {
-      await logEvent("password_reset_requested", { email: normalizedEmail, outcome: "user_not_found" });
-      return { success: false, message: "We could not find an account with that email address." };
-    }
-
-    const resetToken = buildResetToken();
-    const resetExpiresAt = new Date(Date.now() + 1000 * 60 * 30).toISOString();
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpiresAt = resetExpiresAt;
-    const resetUrl = `${origin}/reset-password/${resetToken}`.replace(/\s+/g, "");
-    await sendPasswordResetEmail({ to: normalizedEmail, resetUrl });
-    await logEvent("password_reset_requested", { userId: user.id, email: normalizedEmail, outcome: "token_created" });
-    return { success: true, message: "If the account exists, we have sent instructions to reset your password.", resetUrl };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
@@ -475,18 +330,8 @@ async function verifyPasswordResetToken(token) {
     return { success: false, message: "Reset token is missing." };
   }
 
-  if (!pool || !dbAvailable) {
-    const user = users.find((candidate) => candidate.passwordResetToken === normalizedToken);
-    if (!user) {
-      return { success: false, message: "This reset link is invalid or has already expired." };
-    }
-
-    const expiresAt = new Date(user.passwordResetExpiresAt || 0).getTime();
-    if (!user.passwordResetExpiresAt || expiresAt < Date.now()) {
-      return { success: false, message: "This reset link has expired. Please request a new one." };
-    }
-
-    return { success: true, email: user.email };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
@@ -524,22 +369,8 @@ async function completePasswordReset(token, newPassword, confirmPassword) {
     return { success: false, message: passwordErrors.join(" ") };
   }
 
-  if (!pool || !dbAvailable) {
-    const user = users.find((candidate) => candidate.passwordResetToken === normalizedToken);
-    if (!user) {
-      return { success: false, message: "This reset link is invalid or has already expired." };
-    }
-
-    const expiresAt = new Date(user.passwordResetExpiresAt || 0).getTime();
-    if (!user.passwordResetExpiresAt || expiresAt < Date.now()) {
-      return { success: false, message: "This reset link has expired. Please request a new one." };
-    }
-
-    user.passwordHash = bcrypt.hashSync(newPassword, 10);
-    user.passwordResetToken = null;
-    user.passwordResetExpiresAt = null;
-    await logEvent("password_reset_completed", { userId: user.id, outcome: "success" });
-    return { success: true, message: "Your password has been updated successfully. You can now sign in." };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
@@ -577,51 +408,8 @@ async function resendVerificationCode(userId) {
     return { success: false, message: "User ID is required." };
   }
 
-  if (!pool || !dbAvailable) {
-    const user = users.find((candidate) => Number(candidate.id) === Number(userId));
-    if (!user) {
-      await logEvent("verification_resend_attempt", { userId, outcome: "user_not_found" });
-      return { success: false, message: "User not found." };
-    }
-
-    if (user.status !== "pending_verification") {
-      return { success: false, message: "Account is already verified or not eligible for verification." };
-    }
-
-    // Rate limiting: Check if user has resent too many times
-    const resendCount = (user.resendCount || 0);
-    if (resendCount >= 5) {
-      return { success: false, message: "Too many resend attempts. Please try again later." };
-    }
-
-    // Generate new code
-    const newCode = generateVerificationCode();
-    user.verificationCode = newCode;
-    user.resendCount = resendCount + 1;
-    user.lastCodeSentAt = new Date().toISOString();
-
-    // Send emails
-    const verificationDelivery = await Promise.all([
-      sendAccountVerificationEmail({
-        to: user.email,
-        firstName: user.first_name || "Member",
-        verificationCode: newCode,
-        phone: user.phone,
-      }),
-      sendAccountVerificationSms({
-        to: user.phone,
-        firstName: user.first_name || "Member",
-        verificationCode: newCode,
-      }),
-    ]);
-
-    await logEvent("verification_code_resent", { userId, outcome: "success", resendCount: user.resendCount });
-    return {
-      success: true,
-      message: "Verification code has been resent to your email.",
-      verificationCode: newCode,
-      delivery: verificationDelivery,
-    };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
@@ -705,23 +493,8 @@ async function verifyAccountCode(userId, code) {
     return { success: false, message: "Verification code is required." };
   }
 
-  if (!pool || !dbAvailable) {
-    const user = users.find((candidate) => Number(candidate.id) === Number(userId));
-    if (!user) {
-      await logEvent("account_verification_attempt", { userId, outcome: "user_not_found" });
-      return { success: false, message: "User not found." };
-    }
-
-    if (user.verificationCode && user.verificationCode === normalizedCode) {
-      user.status = "active";
-      user.emailVerified = true;
-      user.registrationState = "active";
-      await logEvent("account_verified", { userId, outcome: "success" });
-      return { success: true, message: "Account verified successfully. You can now sign in." };
-    }
-
-    await logEvent("account_verification_attempt", { userId, outcome: "invalid_code" });
-    return { success: false, message: "Verification code is invalid or expired." };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
