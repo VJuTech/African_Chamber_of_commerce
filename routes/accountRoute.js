@@ -6,6 +6,7 @@ const {
   ensureAuthenticated,
   renderVerifyAccount,
   submitVerifyAccount,
+  resendVerificationCode,
   renderForgotPassword,
   submitForgotPassword,
   renderResetPassword,
@@ -25,6 +26,7 @@ router.post("/login", loginUser);
 router.post("/register", registerUser);
 router.get("/verify-account", renderVerifyAccount);
 router.post("/verify-account", submitVerifyAccount);
+router.post("/verify-account/resend", resendVerificationCode);
 router.get("/forgot-password", renderForgotPassword);
 router.post("/forgot-password", submitForgotPassword);
 router.get("/reset-password/:token", renderResetPassword);

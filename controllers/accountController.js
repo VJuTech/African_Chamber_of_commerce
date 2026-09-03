@@ -256,6 +256,51 @@ async function submitVerifyAccount(req, res, next) {
   }
 }
 
+// Resend the verification code.
+async function resendVerificationCode(req, res, next) {
+  try {
+    const userId = req.session && req.session.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please sign up again.",
+      });
+    }
+
+    const result = await authModel.resendVerificationCode(userId);
+
+    if (!result.success) {
+      console.warn(`Verification code resend failed for user ${userId}: ${result.message}`);
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    // Log delivery status for debugging
+    if (result.delivery && Array.isArray(result.delivery)) {
+      const [emailResult, smsResult] = result.delivery;
+      console.log(`Verification code resent for user ${userId} - Email: ${emailResult.success ? 'sent' : 'failed'}, SMS: ${smsResult.success ? 'sent' : 'failed'}`);
+    }
+
+    return res.json({
+      success: true,
+      message: result.message,
+      delivery: result.delivery && Array.isArray(result.delivery) ? {
+        email: result.delivery[0],
+        sms: result.delivery[1],
+      } : null,
+    });
+  } catch (error) {
+    console.error("Resend verification code error:", error && error.message ? error.message : error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to resend verification code. Please try again later.",
+    });
+  }
+}
+
 // Authenticate a user and handle login-flow errors.
 async function loginUser(req, res, next) {
   try {
@@ -339,6 +384,7 @@ module.exports = {
   ensureAuthenticated,
   renderVerifyAccount,
   submitVerifyAccount,
+  resendVerificationCode,
   renderForgotPassword,
   submitForgotPassword,
   renderResetPassword,

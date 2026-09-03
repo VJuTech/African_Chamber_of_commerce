@@ -572,6 +572,133 @@ async function completePasswordReset(token, newPassword, confirmPassword) {
   }
 }
 
+async function resendVerificationCode(userId) {
+  if (!userId) {
+    return { success: false, message: "User ID is required." };
+  }
+
+  if (!pool || !dbAvailable) {
+    const user = users.find((candidate) => Number(candidate.id) === Number(userId));
+    if (!user) {
+      await logEvent("verification_resend_attempt", { userId, outcome: "user_not_found" });
+      return { success: false, message: "User not found." };
+    }
+
+    if (user.status !== "pending_verification") {
+      return { success: false, message: "Account is already verified or not eligible for verification." };
+    }
+
+    // Rate limiting: Check if user has resent too many times
+    const resendCount = (user.resendCount || 0);
+    if (resendCount >= 5) {
+      return { success: false, message: "Too many resend attempts. Please try again later." };
+    }
+
+    // Generate new code
+    const newCode = generateVerificationCode();
+    user.verificationCode = newCode;
+    user.resendCount = resendCount + 1;
+    user.lastCodeSentAt = new Date().toISOString();
+
+    // Send emails
+    const verificationDelivery = await Promise.all([
+      sendAccountVerificationEmail({
+        to: user.email,
+        firstName: user.first_name || "Member",
+        verificationCode: newCode,
+        phone: user.phone,
+      }),
+      sendAccountVerificationSms({
+        to: user.phone,
+        firstName: user.first_name || "Member",
+        verificationCode: newCode,
+      }),
+    ]);
+
+    await logEvent("verification_code_resent", { userId, outcome: "success", resendCount: user.resendCount });
+    return {
+      success: true,
+      message: "Verification code has been resent to your email.",
+      verificationCode: newCode,
+      delivery: verificationDelivery,
+    };
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+
+    // Get user and check status
+    const userRes = await client.query("SELECT * FROM users WHERE id = $1", [userId]);
+    if (userRes.rows.length === 0) {
+      await logEvent("verification_resend_attempt", { userId, outcome: "user_not_found" });
+      return { success: false, message: "User not found." };
+    }
+
+    const user = userRes.rows[0];
+    if (user.status !== "pending_verification") {
+      return { success: false, message: "Account is already verified or not eligible for verification." };
+    }
+
+    // Rate limiting: Check resend count in last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentResends = await client.query(
+      `SELECT COUNT(*) FROM account_verification_codes
+       WHERE user_id = $1 AND status IN ('pending', 'superseded') AND created_at > $2`,
+      [userId, oneHourAgo]
+    );
+
+    if (Number(recentResends.rows[0].count) >= 5) {
+      await logEvent("verification_resend_attempt", { userId, outcome: "rate_limited" });
+      return { success: false, message: "Too many resend attempts. Please try again in 1 hour." };
+    }
+
+    // Mark old codes as superseded
+    await client.query(
+      `UPDATE account_verification_codes SET status = 'superseded' WHERE user_id = $1 AND status = 'pending'`,
+      [userId]
+    );
+
+    // Generate and store new code
+    const newCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    await client.query(
+      `INSERT INTO account_verification_codes (user_id, code, status, expires_at, created_at)
+       VALUES ($1, $2, 'pending', $3, NOW())`,
+      [userId, newCode, expiresAt]
+    );
+
+    // Send emails
+    const verificationDelivery = await Promise.all([
+      sendAccountVerificationEmail({
+        to: user.email,
+        firstName: user.first_name || "Member",
+        verificationCode: newCode,
+        phone: user.phone,
+      }),
+      sendAccountVerificationSms({
+        to: user.phone,
+        firstName: user.first_name || "Member",
+        verificationCode: newCode,
+      }),
+    ]);
+
+    await logEvent("verification_code_resent", { userId, outcome: "success" });
+    return {
+      success: true,
+      message: "Verification code has been resent to your email.",
+      verificationCode: newCode,
+      delivery: verificationDelivery,
+    };
+  } catch (err) {
+    console.error("Verification code resend error:", err && err.message ? err.message : err);
+    return { success: false, message: "Failed to resend verification code." };
+  } finally {
+    if (client) try { client.release(); } catch (e) {}
+  }
+}
+
 async function verifyAccountCode(userId, code) {
   const normalizedCode = String(code || "").trim().toUpperCase();
   if (!normalizedCode) {
@@ -658,6 +785,7 @@ module.exports = {
   verifyPasswordResetToken,
   completePasswordReset,
   verifyAccountCode,
+  resendVerificationCode,
   logEvent,
   getAuditEntries,
   MAX_FAILED_ATTEMPTS,

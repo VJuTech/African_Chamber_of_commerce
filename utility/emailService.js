@@ -154,13 +154,14 @@ async function sendAccountVerificationEmail({
 
   try {
     const info = await transport.sendMail(mailOptions);
+    console.log(`✓ Account verification email sent to ${to} (messageId: ${info.messageId})`);
     return {
       success: true,
       configured: true,
       messageId: info.messageId,
     };
   } catch (error) {
-    console.error("Account verification email delivery failed:", error && error.message ? error.message : error);
+    console.error(`✗ Account verification email delivery failed to ${to}:`, error && error.message ? error.message : error);
     return {
       success: false,
       configured: true,
@@ -205,7 +206,7 @@ async function sendAccountVerificationSms({
 
     const resultText = await response.text();
     if (!response.ok) {
-      console.error("Twilio SMS delivery failed:", resultText);
+      console.error(`✗ Twilio SMS delivery failed to ${to}:`, resultText);
       return {
         success: false,
         configured: true,
@@ -213,6 +214,7 @@ async function sendAccountVerificationSms({
       };
     }
 
+    console.log(`✓ Account verification SMS sent to ${to}`);
     return {
       success: true,
       configured: true,

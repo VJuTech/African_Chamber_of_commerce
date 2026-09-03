@@ -8,10 +8,13 @@
     </div>
 
     <% if (error) { %>
-      <div class="message error"><%= error %></div>
+      <div class="message error" id="formError"><%= error %></div>
     <% } %>
+    
+    <div id="resendMessage" style="display: none;" class="message success"></div>
+    <div id="resendError" style="display: none;" class="message error"></div>
 
-    <form method="post" action="/verify-account" class="auth-form">
+    <form method="post" action="/verify-account" class="auth-form" id="verifyForm">
       <div class="form-section">
         <div class="field-group">
           <label for="code">Verification code</label>
@@ -24,18 +27,153 @@
             maxlength="6"
             pattern="[0-9]{6}"
             title="Please enter a 6-digit code"
+            autocomplete="off"
           />
           <small style="display: block; margin-top: 8px; color: #666;">Check your email for the verification code sent when you registered.</small>
         </div>
       </div>
 
-      <button type="submit" class="primary-btn">Verify Account</button>
+      <button type="submit" class="primary-btn" id="verifyBtn">Verify Account</button>
     </form>
 
     <div class="auth-actions">
-      <p style="text-align: center; margin-top: 16px; color: #666;">
-        Didn't receive the code? <a href="/register" class="inline-link">Register again</a>.
+      <p style="text-align: center; margin-top: 24px; color: #666;">
+        Didn't receive the code?
+        <button 
+          type="button" 
+          id="resendBtn" 
+          class="inline-link" 
+          style="background: none; border: none; color: #1d4ed8; cursor: pointer; padding: 0; font-size: inherit; text-decoration: underline;"
+          onclick="resendCode(event)"
+        >
+          Resend verification code
+        </button>
       </p>
+      <p style="text-align: center; margin-top: 12px; color: #666; font-size: 0.9em;">
+        or <a href="/register" class="inline-link">create a new account</a>
+      </p>
+    </div>
+
+    <div id="deliveryStatus" style="display: none; margin-top: 20px; padding: 12px; background: #f0f9ff; border-radius: 6px; font-size: 0.9em; color: #1e40af;">
+      <strong>Delivery Status:</strong><br>
+      Email: <span id="emailStatus">pending</span><br>
+      SMS: <span id="smsStatus">pending</span>
     </div>
   </div>
 </div>
+
+<script>
+let resendAttempts = 0;
+const MAX_RESENDS = 5;
+let resendCooldown = 0;
+
+function updateResendButton() {
+  const btn = document.getElementById('resendBtn');
+  if (resendAttempts >= MAX_RESENDS) {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  } else if (resendCooldown > 0) {
+    btn.disabled = true;
+    btn.textContent = `Resend in ${resendCooldown}s`;
+    btn.style.opacity = '0.6';
+    btn.style.cursor = 'not-allowed';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Resend verification code';
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  }
+}
+
+function startResendCooldown() {
+  resendCooldown = 60; // 60 second cooldown
+  const interval = setInterval(() => {
+    resendCooldown--;
+    updateResendButton();
+    if (resendCooldown <= 0) {
+      clearInterval(interval);
+      updateResendButton();
+    }
+  }, 1000);
+}
+
+async function resendCode(e) {
+  e.preventDefault();
+  
+  const btn = document.getElementById('resendBtn');
+  const resendMsg = document.getElementById('resendMessage');
+  const resendErr = document.getElementById('resendError');
+  const formErr = document.getElementById('formError');
+  const deliveryStatus = document.getElementById('deliveryStatus');
+  
+  // Clear previous messages
+  resendMsg.style.display = 'none';
+  resendErr.style.display = 'none';
+  formErr.style.display = 'none';
+  deliveryStatus.style.display = 'none';
+  
+  // Check limits
+  if (resendAttempts >= MAX_RESENDS) {
+    resendErr.textContent = 'Maximum resend attempts reached. Please try again later or contact support.';
+    resendErr.style.display = 'block';
+    return;
+  }
+  
+  if (resendCooldown > 0) {
+    resendErr.textContent = `Please wait ${resendCooldown} seconds before requesting another code.`;
+    resendErr.style.display = 'block';
+    return;
+  }
+  
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Sending...';
+  
+  try {
+    const response = await fetch('/verify-account/resend', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      resendAttempts++;
+      resendMsg.textContent = data.message + ' You have ' + (MAX_RESENDS - resendAttempts) + ' remaining attempts.';
+      resendMsg.style.display = 'block';
+      startResendCooldown();
+      
+      // Show delivery status if available
+      if (data.delivery) {
+        const emailStatus = data.delivery.email;
+        const smsStatus = data.delivery.sms;
+        
+        document.getElementById('emailStatus').textContent = emailStatus.success ? '✓ Sent' : '✗ Failed';
+        document.getElementById('emailStatus').style.color = emailStatus.success ? '#16a34a' : '#dc2626';
+        
+        document.getElementById('smsStatus').textContent = smsStatus.success ? '✓ Sent' : '✗ Failed';
+        document.getElementById('smsStatus').style.color = smsStatus.success ? '#16a34a' : '#dc2626';
+        
+        deliveryStatus.style.display = 'block';
+      }
+    } else {
+      resendErr.textContent = data.message || 'Failed to resend verification code.';
+      resendErr.style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Resend error:', error);
+    resendErr.textContent = 'An error occurred. Please try again.';
+    resendErr.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    updateResendButton();
+  }
+}
+
+// Initialize button state on page load
+window.addEventListener('DOMContentLoaded', updateResendButton);
+</script>
