@@ -196,7 +196,6 @@ async function createUser(userData) {
       details: {
         email: created.email,
         phone: created.phone || phone,
-        verificationCode,
         emailDelivery: verificationDelivery[0],
         smsDelivery: verificationDelivery[1],
       },

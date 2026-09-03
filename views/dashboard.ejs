@@ -2,6 +2,14 @@
   <h2>Dashboard</h2>
   <p>Welcome back, <strong><%= user && user.name ? user.name : 'Member' %></strong>.</p>
 
+  <% if (user && (user.status === 'pending_verification' || user.email_verified === false)) { %>
+    <div class="message error" role="status">
+      <strong>Your email is not verified.</strong>
+      <span>Verify your account to activate all account features.</span>
+      <a href="/verify-account">Verify your account</a>
+    </div>
+  <% } %>
+
   <div class="dashboard-grid">
     <div class="panel">
       <h3>Quick access</h3>
