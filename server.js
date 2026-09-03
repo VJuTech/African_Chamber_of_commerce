@@ -88,7 +88,9 @@ app.get("/favicon.svg", (req, res) => {
 // We'll initialize the session store after testing DB connectivity to avoid
 // connect-pg-simple pruning attempts against an unstable DB which can cause ECONNRESET.
 async function createSessionStore() {
-  if (!process.env.DATABASE_URL) return undefined;
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not configured");
+  }
 
   // Reuse the shared pool configured in database/connection.js.
   try {
@@ -100,8 +102,7 @@ async function createSessionStore() {
     }
     return new PgSession({ pool, tableName: "session", pruneSessionInterval: 0 });
   } catch (err) {
-    console.error("Postgres unreachable for session store, falling back to memory store:", err && err.message ? err.message : err);
-    return undefined;
+    throw new Error(`PostgreSQL is required for session storage: ${err && err.message ? err.message : err}`);
   }
 }
 

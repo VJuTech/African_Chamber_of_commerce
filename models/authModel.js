@@ -1,7 +1,5 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 const pool = require("../database/connection");
 const { validatePassword } = require("../utility/account-validation");
 const {
@@ -11,30 +9,35 @@ const {
   generateVerificationCode,
 } = require("../utility/emailService");
 
-const auditEntries = [];
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 10 * 60 * 1000;
-const auditLogPath = path.join(__dirname, "..", "logs", "auth-audit.log");
+const DATABASE_CONNECTION_ATTEMPTS = 3;
 
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
-function fileLogEvent(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${auditEntries.length + 1}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
+async function acquireDatabaseClient() {
+  let lastError;
 
-  auditEntries.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+  for (let attempt = 1; attempt <= DATABASE_CONNECTION_ATTEMPTS; attempt += 1) {
+    try {
+      return await pool.connect();
+    } catch (error) {
+      lastError = error;
+      if (attempt < DATABASE_CONNECTION_ATTEMPTS) {
+        await wait(attempt * 250);
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function logEvent(eventType, details = {}) {
   if (!pool) {
     console.error("Database not available for logging event:", eventType);
-    return fileLogEvent(eventType, details);
+    return null;
   }
 
   const { userId, outcome } = details || {};
@@ -46,7 +49,7 @@ async function logEvent(eventType, details = {}) {
     return res.rows[0];
   } catch (err) {
     console.error("Failed to log audit event:", err && err.message ? err.message : err);
-    return fileLogEvent(eventType, details);
+    return null;
   }
 }
 
@@ -101,7 +104,7 @@ async function createUser(userData) {
 
   let client;
   try {
-    client = await pool.connect();
+    client = await acquireDatabaseClient();
   } catch (connErr) {
     console.error("Database connection failed:", connErr && connErr.message ? connErr.message : connErr);
     return { success: false, message: "Database connection failed. Please try again later." };
@@ -218,7 +221,7 @@ async function authenticateUser(identifier, password) {
 
   let client;
   try {
-    client = await pool.connect();
+    client = await acquireDatabaseClient();
   } catch (connErr) {
     console.error("Database connection failed:", connErr && connErr.message ? connErr.message : connErr);
     return { success: false, message: "Database connection failed. Please try again later." };
@@ -547,10 +550,6 @@ async function verifyAccountCode(userId, code) {
   }
 }
 
-function getAuditEntries() {
-  return auditEntries;
-}
-
 module.exports = {
   createUser,
   authenticateUser,
@@ -560,7 +559,6 @@ module.exports = {
   verifyAccountCode,
   resendVerificationCode,
   logEvent,
-  getAuditEntries,
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_DURATION_MS,
 };
