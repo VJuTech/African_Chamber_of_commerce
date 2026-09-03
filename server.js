@@ -34,6 +34,8 @@ const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandl
 const app = express();
 const PORT = Number(process.env.PORT) || 5500;
 const HOST = process.env.HOST || "0.0.0.0";
+const DATABASE_STARTUP_ATTEMPTS = 12;
+const DATABASE_STARTUP_RETRY_MS = 5000;
 
 // Derive a lightweight device label for active-session displays without adding
 // another runtime dependency.
@@ -92,18 +94,29 @@ async function createSessionStore() {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  // Reuse the shared pool configured in database/connection.js.
-  try {
-    const client = await pool.connect();
+  // Render databases can briefly reset connections while waking or restarting.
+  // Retry startup, but never replace PostgreSQL with an in-memory session store.
+  let lastError;
+  for (let attempt = 1; attempt <= DATABASE_STARTUP_ATTEMPTS; attempt += 1) {
+    let client;
     try {
+      client = await pool.connect();
       await client.query("SELECT 1");
+      console.log(`PostgreSQL connection established on startup (attempt ${attempt}/${DATABASE_STARTUP_ATTEMPTS})`);
+      return new PgSession({ pool, tableName: "session", pruneSessionInterval: 0 });
+    } catch (err) {
+      lastError = err;
+      console.error(`PostgreSQL startup attempt ${attempt}/${DATABASE_STARTUP_ATTEMPTS} failed:`, err && err.message ? err.message : err);
     } finally {
-      client.release();
+      if (client) client.release();
     }
-    return new PgSession({ pool, tableName: "session", pruneSessionInterval: 0 });
-  } catch (err) {
-    throw new Error(`PostgreSQL is required for session storage: ${err && err.message ? err.message : err}`);
+
+    if (attempt < DATABASE_STARTUP_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, DATABASE_STARTUP_RETRY_MS));
+    }
   }
+
+  throw new Error(`PostgreSQL is required for session storage after ${DATABASE_STARTUP_ATTEMPTS} attempts: ${lastError && lastError.message ? lastError.message : lastError}`);
 }
 
 async function initApp() {
