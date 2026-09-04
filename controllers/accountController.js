@@ -377,11 +377,31 @@ function ensureAuthenticated(req, res, next) {
   return res.redirect("/login?message=Please sign in to continue.");
 }
 
+function ensureVerifiedAccount(req, res, next) {
+  if (!req.session || !req.session.authenticated || !req.session.user) {
+    return res.redirect("/login?message=Please sign in to continue.");
+  }
+
+  if (req.session.user.status === "pending_verification") {
+    if (req.method === "GET") {
+      return res.redirect("/verify-account?message=Please verify your account before using this feature.");
+    }
+    return res.status(403).json({
+      success: false,
+      message: "Please verify your account before using this feature.",
+      verificationRequired: true,
+    });
+  }
+
+  return next();
+}
+
 module.exports = {
   registerUser,
   loginUser,
   logoutUser,
   ensureAuthenticated,
+  ensureVerifiedAccount,
   renderVerifyAccount,
   submitVerifyAccount,
   resendVerificationCode,

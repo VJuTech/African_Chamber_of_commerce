@@ -247,12 +247,7 @@ async function authenticateUser(identifier, password) {
       user.locked_until = null;
     }
 
-    if (user.status === "pending_verification") {
-      await logEvent("login_failure", { userId: user.id, outcome: "pending_verification" });
-      return { success: false, message: "Account is pending verification. Please verify your email or mobile number to activate it." };
-    }
-
-    if (user.status !== "active") {
+    if (user.status !== "active" && user.status !== "pending_verification") {
       await logEvent("login_failure", { userId: user.id, outcome: user.status });
       return { success: false, message: `Account is currently ${user.status}.` };
     }
@@ -272,7 +267,8 @@ async function authenticateUser(identifier, password) {
     }
 
     await client.query(`UPDATE users SET failed_attempts=0, last_login_at=NOW(), locked_until=NULL WHERE id=$1`, [user.id]);
-    await logEvent("login_success", { userId: user.id, outcome: "success" });
+    const loginOutcome = user.status === "pending_verification" ? "success_pending_verification" : "success";
+    await logEvent("login_success", { userId: user.id, outcome: loginOutcome });
     const normalizedUser = {
       id: user.id,
       name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim(),

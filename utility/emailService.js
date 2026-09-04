@@ -31,6 +31,17 @@ function getTwilioConfig() {
   };
 }
 
+function getResendConfig() {
+  const apiKey = process.env.RESEND_API_KEY || "";
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || "";
+
+  return {
+    apiKey,
+    from,
+    configured: Boolean(apiKey && from),
+  };
+}
+
 function generateVerificationCode(length = 6) {
   const digits = "0123456789";
   let code = "";
@@ -63,11 +74,31 @@ function getTransporter() {
   return transporter;
 }
 
+async function sendWithResend({ to, from, subject, html, text, apiKey }) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const providerMessage = result && result.message ? result.message : "Email provider request failed.";
+    throw new Error(providerMessage);
+  }
+
+  return result;
+}
+
 async function sendPasswordResetEmail({ to, resetUrl, appName = "African Chamber of Commerce" }) {
   const config = getMailerConfig();
-  const transport = getTransporter();
+  const resend = getResendConfig();
+  const transport = resend.configured ? null : getTransporter();
 
-  if (!transport || !config.configured) {
+  if (!resend.configured && (!transport || !config.configured)) {
     console.warn("SMTP delivery is not configured. Password reset link was not emailed.");
     return {
       success: false,
@@ -98,11 +129,13 @@ async function sendPasswordResetEmail({ to, resetUrl, appName = "African Chamber
   };
 
   try {
-    const info = await transport.sendMail(mailOptions);
+    const info = resend.configured
+      ? await sendWithResend({ ...mailOptions, from: resend.from, apiKey: resend.apiKey })
+      : await transport.sendMail(mailOptions);
     return {
       success: true,
       configured: true,
-      messageId: info.messageId,
+      messageId: info.messageId || info.id,
     };
   } catch (error) {
     console.error("Password reset email delivery failed:", error && error.message ? error.message : error);
@@ -122,9 +155,10 @@ async function sendAccountVerificationEmail({
   appName = "African Chamber of Commerce",
 }) {
   const config = getMailerConfig();
-  const transport = getTransporter();
+  const resend = getResendConfig();
+  const transport = resend.configured ? null : getTransporter();
 
-  if (!transport || !config.configured) {
+  if (!resend.configured && (!transport || !config.configured)) {
     console.warn("SMTP delivery is not configured. Account verification email was not sent.");
     return {
       success: false,
@@ -153,12 +187,14 @@ async function sendAccountVerificationEmail({
   };
 
   try {
-    const info = await transport.sendMail(mailOptions);
-    console.log(`✓ Account verification email sent to ${to} (messageId: ${info.messageId})`);
+    const info = resend.configured
+      ? await sendWithResend({ ...mailOptions, from: resend.from, apiKey: resend.apiKey })
+      : await transport.sendMail(mailOptions);
+    console.log(`✓ Account verification email sent to ${to} (messageId: ${info.messageId || info.id})`);
     return {
       success: true,
       configured: true,
-      messageId: info.messageId,
+      messageId: info.messageId || info.id,
     };
   } catch (error) {
     console.error(`✗ Account verification email delivery failed to ${to}:`, error && error.message ? error.message : error);
@@ -233,6 +269,7 @@ async function sendAccountVerificationSms({
 
 module.exports = {
   getMailerConfig,
+  getResendConfig,
   getTwilioConfig,
   generateVerificationCode,
   sendPasswordResetEmail,
