@@ -1,0 +1,25 @@
+<!-- Chapter 22 request creation form for verified buyers and procurement managers. -->
+<div class="procurement-shell">
+  <section class="procurement-hero">
+    <div><p class="procurement-kicker">Chapter 22 / New sourcing event</p><h1>Create a procurement request</h1><p>Describe the goods or services your business needs and invite qualified suppliers to respond.</p></div>
+    <a class="procurement-button procurement-button--secondary" href="/procurement">Back to procurement</a>
+  </section>
+  <section class="procurement-panel">
+    <form class="procurement-form" method="post" action="/procurement/create">
+      <div class="procurement-form__grid">
+        <div class="procurement-field procurement-field--full"><label for="title">Request title</label><input id="title" name="title" type="text" maxlength="255" required placeholder="e.g. Bulk cashew packaging supply" /></div>
+        <div class="procurement-field procurement-field--full"><label for="description">Description and scope</label><textarea id="description" name="description" required placeholder="Include specifications, quality requirements, and expected deliverables."></textarea></div>
+        <div class="procurement-field"><label for="category">Category</label><input id="category" name="category" type="text" required placeholder="Agriculture, logistics, technology" /></div>
+        <div class="procurement-field"><label for="quantityRequired">Quantity required</label><input id="quantityRequired" name="quantityRequired" type="number" min="1" required /></div>
+        <div class="procurement-field"><label for="unitOfMeasurement">Unit of measurement</label><input id="unitOfMeasurement" name="unitOfMeasurement" type="text" value="units" /></div>
+        <div class="procurement-field"><label for="deadline">Bid deadline</label><input id="deadline" name="deadline" type="date" required /></div>
+        <div class="procurement-field"><label for="budgetAmount">Budget (optional)</label><input id="budgetAmount" name="budgetAmount" type="number" min="0" step="0.01" placeholder="Optional" /></div>
+        <div class="procurement-field"><label for="budgetCurrency">Currency</label><input id="budgetCurrency" name="budgetCurrency" type="text" value="USD" maxlength="10" /></div>
+        <div class="procurement-field"><label for="visibility">Procurement type</label><select id="visibility" name="visibility"><% visibilityOptions.forEach(function(option) { %><option value="<%= option %>"><%= option === 'open' ? 'Open - visible to eligible suppliers' : 'Restricted - invite-only suppliers' %></option><% }) %></select></div>
+        <div class="procurement-field"><label for="deliveryLocation">Delivery location</label><input id="deliveryLocation" name="deliveryLocation" type="text" placeholder="City, country, or delivery site" /></div>
+        <div class="procurement-field procurement-field--full"><label for="supplierIds">Invited supplier IDs (restricted requests only)</label><input id="supplierIds" name="supplierIds" type="text" placeholder="Example: 2, 7, 14" /><small>Use comma-separated ACC member IDs. Open requests ignore this field.</small></div>
+      </div>
+      <div class="procurement-actions"><button class="procurement-button" type="submit">Create request</button><a class="procurement-button procurement-button--quiet" href="/procurement">Cancel</a></div>
+    </form>
+  </section>
+</div>

@@ -30,6 +30,8 @@ const logisticsRoutes = require("./routes/logisticsRoute");
 const paymentRoutes = require("./routes/paymentRoute");
 const subscriptionRoutes = require("./routes/subscriptionRoute");
 const assistantRoutes = require("./routes/assistantRoute");
+// Load the Chapter 22 procurement route collection for authenticated buyers and suppliers.
+const procurementRoutes = require("./routes/procurementRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -189,6 +191,8 @@ async function initApp() {
   app.use("/", paymentRoutes);
   app.use("/", subscriptionRoutes);
   app.use("/", assistantRoutes);
+  // Mount procurement after the existing commerce routes without changing their behavior.
+  app.use("/", procurementRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

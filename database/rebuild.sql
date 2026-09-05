@@ -938,6 +938,86 @@ CREATE INDEX IF NOT EXISTS idx_subscription_invoices_subscription_id ON subscrip
 CREATE INDEX IF NOT EXISTS idx_subscription_invoices_status ON subscription_invoices(status);
 CREATE INDEX IF NOT EXISTS idx_subscription_payments_user_id ON subscription_payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_notifications_user_id ON subscription_notifications(user_id);
+
+-- ========================================
+-- CHAPTER 22: PROCUREMENT & B2B SOURCING
+-- ========================================
+
+-- Procurement requests remain separate from marketplace listings because they represent buyer-led sourcing events.
+CREATE TABLE IF NOT EXISTS procurement_rfqs (
+  id SERIAL PRIMARY KEY,
+  rfq_reference VARCHAR(120) NOT NULL UNIQUE,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  category VARCHAR(120) NOT NULL,
+  quantity_required INTEGER NOT NULL CHECK (quantity_required > 0),
+  unit_of_measurement VARCHAR(50) NOT NULL DEFAULT 'units',
+  budget_amount DECIMAL(12, 2) CHECK (budget_amount IS NULL OR budget_amount >= 0),
+  budget_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  delivery_location TEXT,
+  delivery_date_required DATE,
+  visibility VARCHAR(30) NOT NULL DEFAULT 'open',
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Quotations link supplier offers to a single RFQ and preserve the evaluation decision.
+CREATE TABLE IF NOT EXISTS procurement_quotations (
+  id SERIAL PRIMARY KEY,
+  rfq_id INTEGER NOT NULL REFERENCES procurement_rfqs(id) ON DELETE CASCADE,
+  supplier_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quote_reference VARCHAR(120) NOT NULL UNIQUE,
+  quoted_price DECIMAL(12, 2) NOT NULL CHECK (quoted_price > 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  delivery_timeframe VARCHAR(100),
+  terms_conditions TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (rfq_id, supplier_id)
+);
+
+-- Awarded procurement orders provide explicit hand-off points to payment and logistics services.
+CREATE TABLE IF NOT EXISTS procurement_orders (
+  id SERIAL PRIMARY KEY,
+  procurement_reference VARCHAR(120) NOT NULL UNIQUE,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  supplier_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quotation_id INTEGER REFERENCES procurement_quotations(id) ON DELETE SET NULL,
+  order_amount DECIMAL(12, 2) NOT NULL CHECK (order_amount > 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  payment_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  delivery_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  delivery_location TEXT,
+  expected_delivery_date DATE,
+  status VARCHAR(50) NOT NULL DEFAULT 'confirmed',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Audit records support transparency across request, bid, award, and closure events.
+CREATE TABLE IF NOT EXISTS procurement_audit_logs (
+  id SERIAL PRIMARY KEY,
+  rfq_id INTEGER REFERENCES procurement_rfqs(id) ON DELETE CASCADE,
+  quotation_id INTEGER REFERENCES procurement_quotations(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES procurement_orders(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for the buyer, supplier, status, and audit review paths.
+CREATE INDEX IF NOT EXISTS idx_procurement_rfqs_buyer_id ON procurement_rfqs(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_procurement_rfqs_status ON procurement_rfqs(status);
+CREATE INDEX IF NOT EXISTS idx_procurement_quotations_rfq_id ON procurement_quotations(rfq_id);
+CREATE INDEX IF NOT EXISTS idx_procurement_quotations_supplier_id ON procurement_quotations(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_procurement_orders_buyer_id ON procurement_orders(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_procurement_orders_supplier_id ON procurement_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_procurement_audit_logs_user_id ON procurement_audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.
