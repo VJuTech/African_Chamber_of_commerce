@@ -48,6 +48,51 @@ document.addEventListener("DOMContentLoaded", () => {
     syncNavState();
   }
 
+  // Keep mega-menu state predictable for mouse, keyboard, and touch navigation.
+  const megaMenus = document.querySelectorAll("[data-nav-menu]");
+  const closeMegaMenus = () => {
+    megaMenus.forEach((menu) => {
+      menu.classList.remove("is-open");
+      const trigger = menu.querySelector(".nav-menu__trigger");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  megaMenus.forEach((menu) => {
+    const trigger = menu.querySelector(".nav-menu__trigger");
+    if (!trigger) return;
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const shouldOpen = !menu.classList.contains("is-open");
+      closeMegaMenus();
+      menu.classList.toggle("is-open", shouldOpen);
+      trigger.setAttribute("aria-expanded", String(shouldOpen));
+    });
+
+    menu.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMegaMenus));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-nav-menu]")) closeMegaMenus();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMegaMenus();
+  });
+
+  // Let workspace navigation groups expand independently without changing routes.
+  document.querySelectorAll("[data-sidebar-group]").forEach((group) => {
+    const toggle = group.querySelector(".workspace-sidebar__toggle");
+    if (!toggle) return;
+
+    toggle.addEventListener("click", () => {
+      const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!isExpanded));
+      group.classList.toggle("is-expanded", !isExpanded);
+    });
+  });
+
   document.querySelectorAll(".password-toggle-btn").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();

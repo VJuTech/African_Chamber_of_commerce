@@ -14,9 +14,11 @@
 
   <div class="marketplace-detail">
     <div class="marketplace-detail__media">
-      <div class="listing-hero">
-        <span><%= listing.type === 'product' ? 'Product listing' : 'Service listing' %></span>
-      </div>
+      <% if (listing.media && listing.media.length) { %>
+        <img class="listing-image" src="<%= listing.media[0] %>" alt="<%= listing.title %> product image" />
+      <% } else { %>
+        <div class="listing-hero"><span><%= listing.type === 'product' ? 'Product listing' : 'Service listing' %></span></div>
+      <% } %>
     </div>
 
     <div class="marketplace-detail__content">
@@ -32,9 +34,9 @@
           <span>Pricing</span>
           <% if (listing.pricingModel === 'range') { %>
             <strong><%= listing.currency %> <%= listing.minPrice %> - <%= listing.maxPrice %></strong>
-          <% else if (listing.pricingModel === 'negotiable') { %>
+          <% } else if (listing.pricingModel === 'negotiable') { %>
             <strong>Negotiable</strong>
-          <% else { %>
+          <% } else { %>
             <strong><%= listing.currency %> <%= listing.price %></strong>
           <% } %>
         </div>

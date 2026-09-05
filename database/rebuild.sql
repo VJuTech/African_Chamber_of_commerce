@@ -7,6 +7,9 @@ DROP TABLE IF EXISTS payment_refunds CASCADE;
 DROP TABLE IF EXISTS payment_gateway_events CASCADE;
 DROP TABLE IF EXISTS payment_audit_logs CASCADE;
 DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS logistics_notifications CASCADE;
+DROP TABLE IF EXISTS logistics_audit_logs CASCADE;
+DROP TABLE IF EXISTS shipments CASCADE;
 DROP TABLE IF EXISTS order_audit_logs CASCADE;
 DROP TABLE IF EXISTS order_disputes CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
@@ -726,6 +729,52 @@ CREATE INDEX IF NOT EXISTS idx_orders_seller_id ON orders(seller_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_order_disputes_order_id ON order_disputes(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_audit_logs_order_id ON order_audit_logs(order_id);
+
+-- ========================================
+-- CHAPTER 21: LOGISTICS & DELIVERY MANAGEMENT
+-- ========================================
+CREATE TABLE IF NOT EXISTS shipments (
+  id SERIAL PRIMARY KEY,
+  shipment_reference VARCHAR(120) NOT NULL UNIQUE,
+  order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  delivery_method VARCHAR(80) NOT NULL DEFAULT 'standard',
+  carrier VARCHAR(120) NOT NULL,
+  tracking_number VARCHAR(120) NOT NULL UNIQUE,
+  estimated_delivery_date DATE,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  delivery_address TEXT,
+  status_details TEXT,
+  delivered_at TIMESTAMP,
+  delivery_confirmed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS logistics_audit_logs (
+  id SERIAL PRIMARY KEY,
+  shipment_id INTEGER REFERENCES shipments(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS logistics_notifications (
+  id SERIAL PRIMARY KEY,
+  shipment_id INTEGER REFERENCES shipments(id) ON DELETE CASCADE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  notification_type VARCHAR(80) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_shipments_order_id ON shipments(order_id);
+CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
+CREATE INDEX IF NOT EXISTS idx_logistics_audit_logs_shipment_id ON logistics_audit_logs(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_logistics_notifications_shipment_id ON logistics_notifications(shipment_id);
 
 -- ========================================
 -- CHAPTER 19: PAYMENT PROCESSING SYSTEM

@@ -26,6 +26,7 @@ const eventsRoutes = require("./routes/eventsRoute");
 const trustRoutes = require("./routes/trustRoute");
 const marketplaceRoutes = require("./routes/marketplaceRoute");
 const orderRoutes = require("./routes/orderRoute");
+const logisticsRoutes = require("./routes/logisticsRoute");
 const paymentRoutes = require("./routes/paymentRoute");
 const subscriptionRoutes = require("./routes/subscriptionRoute");
 const assistantRoutes = require("./routes/assistantRoute");
@@ -184,6 +185,7 @@ async function initApp() {
   app.use("/", trustRoutes);
   app.use("/", marketplaceRoutes);
   app.use("/", orderRoutes);
+  app.use("/", logisticsRoutes);
   app.use("/", paymentRoutes);
   app.use("/", subscriptionRoutes);
   app.use("/", assistantRoutes);

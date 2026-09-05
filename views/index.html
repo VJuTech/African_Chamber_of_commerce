@@ -15,6 +15,7 @@
     <!-- Responsive styles are split across the project’s small, medium, and large CSS files. -->
     <link rel="stylesheet" href="/styles/base.css" />
     <link rel="stylesheet" href="/styles/assistant.css" />
+    <link rel="stylesheet" href="/styles/mega-menu.css" />
     <link rel="stylesheet" href="/styles/small.css" media="screen and (max-width: 767px)" />
     <link rel="stylesheet" href="/styles/medium.css" media="screen and (min-width: 768px) and (max-width: 1023px)" />
     <link rel="stylesheet" href="/styles/large.css" media="screen and (min-width: 1024px)" />
@@ -26,10 +27,20 @@
         <img src="/images/site/acc-logo (1).png" alt="African Chamber of Commerce logo" class="brand__logo" />
         <span class="brand__text">African Chamber of Commerce</span>
       </a>
-      <div class="nav-links">
-        <a href="/directory">Directory</a>
-        <a href="/network">Network</a>
-        <a href="/assistant">ACC Assistant</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="landingNav" aria-label="Toggle navigation">
+        <span class="nav-toggle__line"></span>
+        <span class="nav-toggle__line"></span>
+        <span class="nav-toggle__line"></span>
+      </button>
+      <div class="nav-links" id="landingNav">
+        <a href="/">Home</a>
+        <div class="nav-menu" data-nav-menu>
+          <button class="nav-menu__trigger" type="button" aria-expanded="false" aria-controls="landingExploreMenu">Explore <span aria-hidden="true">+</span></button>
+          <div class="nav-menu__panel nav-menu__panel--public" id="landingExploreMenu">
+            <div class="nav-menu__intro"><span class="nav-menu__label">African commerce</span><strong>Discover the network</strong><p>Explore trusted businesses and opportunities across the continent.</p></div>
+            <div class="nav-menu__groups"><div class="nav-menu__group"><span>Explore</span><a href="/directory">Business directory<small>Discover verified companies</small></a><a href="/network">Networking<small>Meet potential partners</small></a><a href="/marketplace">Marketplace<small>Browse products and services</small></a></div><div class="nav-menu__group"><span>Support</span><a href="/assistant">ACC Assistance<small>Get help finding your way</small></a><a href="/login">Member login<small>Open your workspace</small></a><a href="/register">Join the chamber<small>Create your member account</small></a></div></div>
+          </div>
+        </div>
         <a href="/login">Login</a>
         <a href="/register">Register</a>
       </div>

@@ -2,6 +2,7 @@
  * marketplaceController.js - Marketplace listing management for ACC Chapter 17.
  *******************************************/
 const marketplaceModel = require("../models/marketplaceModel");
+const { publicImagePath, removeUploadedImage } = require("../utility/marketplaceUpload");
 
 async function marketplacePage(req, res, next) {
   try {
@@ -56,6 +57,7 @@ async function submitCreateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to create a listing."));
     }
 
+    const uploadedImage = publicImagePath(req.file);
     const result = await marketplaceModel.createListing(userId, {
       businessId: Number(req.body.businessId || userId),
       title: req.body.title,
@@ -71,11 +73,12 @@ async function submitCreateListing(req, res, next) {
       availability: req.body.availability,
       visibility: req.body.visibility,
       location: req.body.location,
-      media: req.body.media ? [req.body.media] : [],
+      media: uploadedImage ? [uploadedImage] : (req.body.media ? [req.body.media] : []),
       tags: String(req.body.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean),
     });
 
     if (!result.success) {
+      removeUploadedImage(req.file);
       return res.render("marketplace/create", {
         title: "Create Listing",
         user: req.session && req.session.user ? req.session.user : null,
@@ -165,6 +168,7 @@ async function updateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to update your listing."));
     }
 
+    const uploadedImage = publicImagePath(req.file);
     const result = await marketplaceModel.updateListing(userId, req.params.id, {
       title: req.body.title,
       description: req.body.description,
@@ -180,10 +184,11 @@ async function updateListing(req, res, next) {
       visibility: req.body.visibility,
       location: req.body.location,
       tags: String(req.body.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean),
-      media: req.body.media ? [req.body.media] : [],
+      media: uploadedImage ? [uploadedImage] : undefined,
     });
 
     if (!result.success) {
+      removeUploadedImage(req.file);
       return res.redirect("/marketplace/" + req.params.id + "/edit?message=" + encodeURIComponent(result.message));
     }
 

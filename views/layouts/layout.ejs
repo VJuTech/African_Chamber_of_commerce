@@ -21,31 +21,71 @@
       <div class="nav-links" id="primaryNav">
         <% if (typeof user !== 'undefined' && user) { %>
           <a href="/">Home</a>
-          <a href="/dashboard">Dashboard</a>
-          <a href="/marketplace">Marketplace</a>
-          <a href="/subscriptions">Subscriptions</a>
-          <a href="/directory">Discover</a>
-          <a href="/trust">Trust</a>
-          <a href="/network">Networking</a>
-          <a href="/assistant">ACC Assistance</a>
+          <div class="nav-menu" data-nav-menu>
+            <button class="nav-menu__trigger" type="button" aria-expanded="false" aria-controls="memberMenu">Explore <span aria-hidden="true">+</span></button>
+            <div class="nav-menu__panel" id="memberMenu">
+              <div class="nav-menu__intro"><span class="nav-menu__label">Member workspace</span><strong>Move business forward</strong><p>Find opportunities, partners, and practical tools in one place.</p></div>
+              <div class="nav-menu__groups">
+                <div class="nav-menu__group"><span>Discover</span><a href="/dashboard">Dashboard<small>Your ACC overview</small></a><a href="/directory">Business directory<small>Find verified companies</small></a><a href="/network">Networking<small>Build valuable connections</small></a></div>
+                <div class="nav-menu__group"><span>Trade</span><a href="/marketplace">Marketplace<small>Buy and sell across Africa</small></a><a href="/logistics">Logistics<small>Track delivery and fulfillment</small></a><a href="/orders">Orders<small>Review commerce activity</small></a></div>
+                <div class="nav-menu__group"><span>Member services</span><a href="/subscriptions">Subscriptions<small>Plans, billing, and benefits</small></a><a href="/trust">Trust<small>Reputation and reviews</small></a><a href="/assistant">ACC Assistance<small>Get platform guidance</small></a></div>
+              </div>
+            </div>
+          </div>
           <a href="/profile">My Profile</a>
           <a href="/messages">Messages</a>
           <a href="/logout">Logout</a>
         <% } else { %>
           <a href="/">Home</a>
-          <a href="/directory">Discover</a>
-          <a href="/assistant">ACC Assistance</a>
-          <a href="/network">Networking</a>
+          <div class="nav-menu" data-nav-menu>
+            <button class="nav-menu__trigger" type="button" aria-expanded="false" aria-controls="publicMenu">Explore <span aria-hidden="true">+</span></button>
+            <div class="nav-menu__panel nav-menu__panel--public" id="publicMenu">
+              <div class="nav-menu__intro"><span class="nav-menu__label">African commerce</span><strong>Discover the network</strong><p>Explore trusted businesses and opportunities across the continent.</p></div>
+              <div class="nav-menu__groups"><div class="nav-menu__group"><span>Explore</span><a href="/directory">Business directory<small>Discover verified companies</small></a><a href="/network">Networking<small>Meet potential partners</small></a><a href="/marketplace">Marketplace<small>Browse products and services</small></a></div><div class="nav-menu__group"><span>Support</span><a href="/assistant">ACC Assistance<small>Get help finding your way</small></a><a href="/login">Member login<small>Open your workspace</small></a><a href="/register">Join the chamber<small>Create your member account</small></a></div></div>
+            </div>
+          </div>
           <a href="/login">Login</a>
           <a href="/register">Register</a>
         <% } %>
       </div>
     </nav>
 
-    <!-- Main content area where page-specific templates are rendered. -->
-    <main class="container">
-      <%- body %>
-    </main>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <!-- Authenticated workspace sidebar keeps high-frequency member routes nearby. -->
+      <div class="workspace-shell">
+        <aside class="workspace-sidebar" id="workspaceSidebar" aria-label="Workspace navigation">
+          <div class="workspace-sidebar__heading">
+            <span class="workspace-sidebar__eyebrow">Member workspace</span>
+            <strong>ACC workspace</strong>
+          </div>
+          <nav class="workspace-sidebar__nav">
+            <a class="workspace-sidebar__link" href="/dashboard"><span class="workspace-sidebar__icon" aria-hidden="true">01</span><span>Overview</span></a>
+            <div class="workspace-sidebar__group" data-sidebar-group>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceTrade"><span><span class="workspace-sidebar__icon" aria-hidden="true">02</span>Commerce</span><span aria-hidden="true">+</span></button>
+              <div class="workspace-sidebar__submenu" id="workspaceTrade"><a href="/marketplace">Marketplace</a><a href="/marketplace/my-listings">My listings</a><a href="/orders">Orders</a><a href="/logistics">Logistics &amp; delivery</a><a href="/payments">Payments</a></div>
+            </div>
+            <div class="workspace-sidebar__group" data-sidebar-group>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceCommunity"><span><span class="workspace-sidebar__icon" aria-hidden="true">03</span>Community</span><span aria-hidden="true">+</span></button>
+              <div class="workspace-sidebar__submenu" id="workspaceCommunity"><a href="/directory">Business directory</a><a href="/network">Networking</a><a href="/messages">Messages</a><a href="/events">Events</a></div>
+            </div>
+            <div class="workspace-sidebar__group" data-sidebar-group>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceAccount"><span><span class="workspace-sidebar__icon" aria-hidden="true">04</span>Account</span><span aria-hidden="true">+</span></button>
+              <div class="workspace-sidebar__submenu" id="workspaceAccount"><a href="/profile">My profile</a><a href="/business/register">Register a business</a><a href="/subscriptions">Subscriptions &amp; billing</a><a href="/trust">Trust centre</a></div>
+            </div>
+            <a class="workspace-sidebar__link" href="/assistant"><span class="workspace-sidebar__icon" aria-hidden="true">05</span><span>ACC Assistance</span></a>
+          </nav>
+          <a class="workspace-sidebar__signout" href="/logout">Sign out <span aria-hidden="true">&rarr;</span></a>
+        </aside>
+        <main class="container workspace-main">
+          <%- body %>
+        </main>
+      </div>
+    <% } else { %>
+      <!-- Main content area where public page-specific templates are rendered. -->
+      <main class="container">
+        <%- body %>
+      </main>
+    <% } %>
 
     <%- include('../Partials/footer') %>
 

@@ -1,0 +1,51 @@
+<!-- ACC Chapter 21: logistics overview for shipment tracking and fulfillment. -->
+<section class="logistics-shell">
+  <header class="logistics-header">
+    <div>
+      <p class="logistics-eyebrow">Chapter 21 / commerce execution</p>
+      <h1>Logistics &amp; delivery</h1>
+      <p>Coordinate fulfillment, monitor shipment progress, and keep buyers informed from dispatch to receipt.</p>
+    </div>
+    <a class="button button--primary" href="/orders/history">View orders</a>
+  </header>
+
+  <% if (message) { %><div class="logistics-alert logistics-alert--success"><%= message %></div><% } %>
+
+  <div class="logistics-grid">
+    <section class="logistics-panel logistics-panel--wide">
+      <div class="logistics-panel__header"><div><p class="logistics-kicker">Live operations</p><h2>Shipments</h2></div><span class="logistics-count"><%= shipments.length %> active</span></div>
+      <% if (!shipments.length) { %>
+        <div class="logistics-empty"><strong>No shipments yet</strong><span>Create a shipment from a confirmed seller order to begin tracking.</span></div>
+      <% } else { %>
+        <div class="logistics-shipment-list">
+          <% shipments.forEach((shipment) => { %>
+            <a class="logistics-shipment-row" href="/logistics/orders/<%= shipment.orderId %>">
+              <span class="logistics-shipment-row__marker"></span>
+              <span><strong><%= shipment.id %></strong><small>Order #<%= shipment.orderId %> · <%= shipment.carrier %></small></span>
+              <span class="logistics-status logistics-status--<%= shipment.status %>"><%= shipment.status.replace(/_/g, ' ') %></span>
+              <span class="logistics-shipment-row__tracking"><%= shipment.trackingNumber %></span>
+            </a>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+
+    <aside class="logistics-panel">
+      <p class="logistics-kicker">Delivery methods</p>
+      <h2>Available options</h2>
+      <ul class="logistics-method-list">
+        <% deliveryMethods.forEach((method) => { %><li><span><%= method.replace(/_/g, ' ') %></span><span class="logistics-method-dot"></span></li><% }); %>
+      </ul>
+      <p class="logistics-muted">Select a method on an order, then create its shipment when the seller is ready.</p>
+    </aside>
+  </div>
+
+  <section class="logistics-panel logistics-orders-panel">
+    <div class="logistics-panel__header"><div><p class="logistics-kicker">Order handoff</p><h2>Orders needing delivery action</h2></div></div>
+    <div class="logistics-order-list">
+      <% orders.forEach((order) => { %>
+        <div class="logistics-order-row"><span><strong>Order #<%= order.id %></strong><small><%= order.listingTitle %> · <%= order.deliveryMethod.replace(/_/g, ' ') %></small></span><span class="logistics-order-row__status"><%= order.status %></span><a class="button button--secondary" href="/logistics/orders/<%= order.id %>">Manage</a></div>
+      <% }); %>
+    </div>
+  </section>
+</section>

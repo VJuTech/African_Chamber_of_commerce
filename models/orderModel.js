@@ -295,6 +295,18 @@ async function getOrderById(orderId) {
   return order ? normalizeOrder(order) : null;
 }
 
+// Persist a buyer's selected delivery method on the existing order lifecycle.
+async function updateDeliveryMethod(buyerId, orderId, deliveryMethod) {
+  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
+  if (!order) return { success: false, message: "Order not found." };
+  if (Number(order.buyerId) !== Number(buyerId)) return { success: false, message: "You can only select delivery for your own order." };
+
+  order.deliveryMethod = deliveryMethod;
+  order.updatedAt = new Date().toISOString();
+  logOrderAudit("delivery_method_selected", { orderId: order.id, buyerId, deliveryMethod, outcome: "success" });
+  return { success: true, order: normalizeOrder(order), message: "Delivery method saved successfully." };
+}
+
 async function raiseDispute(buyerId, orderId, reason = "") {
   const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
 
@@ -337,6 +349,7 @@ module.exports = {
   getOrderHistory,
   getSellerOrders,
   getOrderById,
+  updateDeliveryMethod,
   raiseDispute,
   getOrderAuditLog,
   fallbackOrders,

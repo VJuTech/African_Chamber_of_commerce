@@ -16,7 +16,7 @@
     <div class="status-banner success"><%= message %></div>
   <% } %>
 
-  <form method="post" action="/marketplace/create" class="marketplace-form">
+  <form method="post" action="/marketplace/create" class="marketplace-form" enctype="multipart/form-data">
     <div class="form-grid">
       <div class="field-group span-2">
         <label for="title">Listing title</label>
@@ -105,8 +105,9 @@
       </div>
 
       <div class="field-group span-2">
-        <label for="media">Listing image</label>
-        <input id="media" name="media" type="text" value="<%= formData.media || '' %>" placeholder="image-name.jpg" />
+        <label for="listingImage">Product image</label>
+        <input id="listingImage" name="listingImage" type="file" accept="image/jpeg,image/png" />
+        <small class="field-help">JPEG or PNG, up to 2 MB.</small>
       </div>
     </div>
 

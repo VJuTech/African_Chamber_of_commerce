@@ -16,7 +16,7 @@
     <div class="status-banner success"><%= message %></div>
   <% } %>
 
-  <form method="post" action="/marketplace/<%= listing.id %>/edit" class="marketplace-form">
+  <form method="post" action="/marketplace/<%= listing.id %>/edit" class="marketplace-form" enctype="multipart/form-data">
     <div class="form-grid">
       <div class="field-group span-2">
         <label for="title">Listing title</label>
@@ -102,6 +102,12 @@
       <div class="field-group span-2">
         <label for="tags">Tags</label>
         <input id="tags" name="tags" type="text" value="<%= formData.tags ? formData.tags.join(', ') : '' %>" />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="listingImage">Replace listing image</label>
+        <input id="listingImage" name="listingImage" type="file" accept="image/jpeg,image/png" />
+        <small class="field-help">JPEG or PNG, up to 2 MB. Leave blank to keep the current image.</small>
       </div>
     </div>
 

@@ -44,9 +44,10 @@
           <div class="field-group">
             <label for="deliveryMethod">Delivery method</label>
             <select id="deliveryMethod" name="deliveryMethod">
-              <option value="Courier" <%= formData.deliveryMethod === 'Courier' ? 'selected' : '' %>>Courier</option>
-              <option value="Express" <%= formData.deliveryMethod === 'Express' ? 'selected' : '' %>>Express</option>
-              <option value="Pickup" <%= formData.deliveryMethod === 'Pickup' ? 'selected' : '' %>>Pickup</option>
+              <option value="standard" <%= formData.deliveryMethod === 'standard' ? 'selected' : '' %>>Standard delivery</option>
+              <option value="express" <%= formData.deliveryMethod === 'express' ? 'selected' : '' %>>Express delivery</option>
+              <option value="pickup" <%= formData.deliveryMethod === 'pickup' ? 'selected' : '' %>>Local pickup</option>
+              <option value="third_party" <%= formData.deliveryMethod === 'third_party' ? 'selected' : '' %>>Third-party logistics</option>
             </select>
           </div>
 
