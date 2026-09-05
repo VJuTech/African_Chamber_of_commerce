@@ -1091,6 +1091,61 @@ CREATE INDEX IF NOT EXISTS idx_contracts_order_id ON contracts(order_id);
 CREATE INDEX IF NOT EXISTS idx_contract_signatures_contract_id ON contract_signatures(contract_id);
 CREATE INDEX IF NOT EXISTS idx_contract_documents_contract_id ON contract_documents(contract_id);
 CREATE INDEX IF NOT EXISTS idx_contract_audit_logs_contract_id ON contract_audit_logs(contract_id);
+
+-- ========================================
+-- CHAPTER 24: DISPUTE RESOLUTION SYSTEM
+-- ========================================
+
+-- Store cases linked to existing orders or contracts and preserve the participant set.
+CREATE TABLE IF NOT EXISTS disputes (
+  id SERIAL PRIMARY KEY,
+  dispute_reference VARCHAR(120) NOT NULL UNIQUE,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  contract_id INTEGER REFERENCES contracts(id) ON DELETE SET NULL,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
+  raised_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  issue_description TEXT NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'open',
+  moderator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  resolution_type VARCHAR(50),
+  resolution_details TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMP,
+  closed_at TIMESTAMP
+);
+
+-- Keep evidence private while retaining integrity metadata and submitter accountability.
+CREATE TABLE IF NOT EXISTS dispute_evidence (
+  id SERIAL PRIMARY KEY,
+  dispute_id INTEGER NOT NULL REFERENCES disputes(id) ON DELETE CASCADE,
+  submitted_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  evidence_type VARCHAR(50) NOT NULL,
+  file_name VARCHAR(255),
+  storage_name VARCHAR(255),
+  checksum VARCHAR(128),
+  content TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Preserve every review, mediation, resolution, escalation, and closure decision.
+CREATE TABLE IF NOT EXISTS dispute_audit_logs (
+  id SERIAL PRIMARY KEY,
+  dispute_id INTEGER REFERENCES disputes(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for case history, moderation queues, evidence review, and audit access.
+CREATE INDEX IF NOT EXISTS idx_disputes_order_id ON disputes(order_id);
+CREATE INDEX IF NOT EXISTS idx_disputes_contract_id ON disputes(contract_id);
+CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status);
+CREATE INDEX IF NOT EXISTS idx_disputes_moderator_id ON disputes(moderator_id);
+CREATE INDEX IF NOT EXISTS idx_dispute_evidence_dispute_id ON dispute_evidence(dispute_id);
+CREATE INDEX IF NOT EXISTS idx_dispute_audit_logs_dispute_id ON dispute_audit_logs(dispute_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.

@@ -1,0 +1,43 @@
+/*
+ * disputes.css - External visual system for ACC Chapter 24 dispute resolution.
+ * The visual language prioritizes fairness, status clarity, and evidence review.
+ */
+.dispute-shell { display: grid; gap: 1.5rem; min-width: 0; }
+.dispute-hero { display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-end; padding: 2rem; border-radius: 18px; background: linear-gradient(135deg, #3d314a, #8a4f42); color: #fff; }
+.dispute-hero h1 { max-width: 20ch; margin: 0; font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.08; }
+.dispute-hero p { max-width: 64ch; margin: .8rem 0 0; color: #f9e5df; }
+.dispute-kicker { margin: 0 0 .55rem; color: #f5c76b; font-size: .72rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.dispute-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.dispute-button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: .7rem 1rem; border: 1px solid transparent; border-radius: 9px; background: #f5c76b; color: #3d314a; font-weight: 800; text-decoration: none; cursor: pointer; }
+.dispute-button--secondary { border-color: #d9c9c5; background: #fff; color: #3d314a; }
+.dispute-button--quiet { border-color: #e1d7d4; background: #fffaf8; color: #70443b; }
+.dispute-notice { padding: .85rem 1rem; border-left: 4px solid #8a4f42; background: #fff4f0; color: #73342b; }
+.dispute-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.dispute-panel { min-width: 0; padding: 1.35rem; border: 1px solid #e7dedd; border-radius: 14px; background: #fff; box-shadow: 0 12px 30px rgba(61, 49, 74, .07); }
+.dispute-panel--wide { grid-column: 1 / -1; }
+.dispute-panel h2, .dispute-panel h3 { margin: 0; color: #3d314a; }
+.dispute-panel__header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.dispute-panel__header p, .dispute-help { margin: .4rem 0 0; color: #756967; }
+.dispute-list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
+.dispute-list__item { display: grid; gap: .55rem; padding: 1rem; border: 1px solid #eee4e1; border-radius: 10px; background: #fffdfc; }
+.dispute-list__item h3 { overflow-wrap: anywhere; font-size: 1rem; }
+.dispute-meta { display: flex; flex-wrap: wrap; gap: .45rem 1rem; margin: 0; color: #756967; font-size: .88rem; }
+.dispute-status { display: inline-flex; width: fit-content; padding: .3rem .55rem; border-radius: 999px; background: #fbe9e7; color: #8a3f35; font-size: .75rem; font-weight: 800; text-transform: capitalize; }
+.dispute-status--resolved, .dispute-status--closed { background: #e6f4f1; color: #11645f; }
+.dispute-status--under_review, .dispute-status--in_mediation { background: #fff3cd; color: #7a5200; }
+.dispute-status--escalated { background: #eee4f5; color: #654275; }
+.dispute-form { display: grid; gap: 1rem; max-width: 900px; }
+.dispute-form__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.dispute-field { display: grid; gap: .4rem; min-width: 0; }
+.dispute-field--full { grid-column: 1 / -1; }
+.dispute-field label { color: #3d314a; font-size: .88rem; font-weight: 800; }
+.dispute-field input, .dispute-field select, .dispute-field textarea { width: 100%; box-sizing: border-box; padding: .7rem .8rem; border: 1px solid #d8c9c6; border-radius: 8px; color: #3d314a; font: inherit; }
+.dispute-field textarea { min-height: 125px; resize: vertical; }
+.dispute-summary { display: grid; gap: .8rem; margin: 0; }
+.dispute-summary div { padding-bottom: .75rem; border-bottom: 1px solid #eee4e1; }
+.dispute-summary dt { color: #756967; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.dispute-summary dd { margin: .3rem 0 0; color: #3d314a; overflow-wrap: anywhere; }
+.dispute-evidence { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+.dispute-evidence li { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem; border: 1px solid #eee4e1; border-radius: 8px; }
+.dispute-moderator-grid { display: grid; gap: 1rem; }
+@media (max-width: 760px) { .dispute-hero { flex-direction: column; align-items: stretch; } .dispute-grid, .dispute-form__grid { grid-template-columns: 1fr; } .dispute-panel--wide, .dispute-field--full { grid-column: auto; } .dispute-evidence li { flex-direction: column; align-items: flex-start; } }
