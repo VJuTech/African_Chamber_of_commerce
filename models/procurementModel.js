@@ -182,7 +182,7 @@ async function awardQuotation(buyerId, rfqId, quotationId) {
   });
   rfq.status = "awarded";
   rfq.updatedAt = new Date().toISOString();
-  const procurementOrder = { id: procurementOrders.length + 1, reference: generateReference("PO"), rfqId: rfq.id, quotationId: quotation.id, buyerId: rfq.buyerId, supplierId: quotation.supplierId, orderAmount: quotation.quotedPrice, currency: quotation.currency, paymentStatus: "pending", deliveryStatus: "pending", status: "confirmed", createdAt: new Date().toISOString(), paymentPath: `/payments?procurementOrderId=${procurementOrders.length + 1}`, logisticsPath: `/logistics?procurementOrderId=${procurementOrders.length + 1}` };
+  const procurementOrder = { id: procurementOrders.length + 1, reference: generateReference("PO"), rfqId: rfq.id, quotationId: quotation.id, buyerId: rfq.buyerId, supplierId: quotation.supplierId, orderAmount: quotation.quotedPrice, currency: quotation.currency, paymentStatus: "pending", deliveryStatus: "pending", status: "confirmed", createdAt: new Date().toISOString(), paymentPath: `/payments?procurementOrderId=${procurementOrders.length + 1}`, logisticsPath: `/logistics?procurementOrderId=${procurementOrders.length + 1}`, contractPath: `/contracts/create?procurementOrderId=${procurementOrders.length + 1}` };
   procurementOrders.push(procurementOrder);
   logAudit("award_made", { rfqId: rfq.id, quotationId: quotation.id, procurementOrderId: procurementOrder.id, buyerId, supplierId: quotation.supplierId, outcome: "success" });
   logNotification("bid_accepted", quotation.supplierId, { rfqId: rfq.id, quotationId: quotation.id, procurementOrderId: procurementOrder.id });

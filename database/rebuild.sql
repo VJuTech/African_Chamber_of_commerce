@@ -1018,6 +1018,79 @@ CREATE INDEX IF NOT EXISTS idx_procurement_quotations_supplier_id ON procurement
 CREATE INDEX IF NOT EXISTS idx_procurement_orders_buyer_id ON procurement_orders(buyer_id);
 CREATE INDEX IF NOT EXISTS idx_procurement_orders_supplier_id ON procurement_orders(supplier_id);
 CREATE INDEX IF NOT EXISTS idx_procurement_audit_logs_user_id ON procurement_audit_logs(user_id);
+
+-- ========================================
+-- CHAPTER 23: CONTRACT MANAGEMENT SYSTEM
+-- ========================================
+
+-- Store contract parties, commercial terms, lifecycle state, and Chapter 22/18/19 references.
+CREATE TABLE IF NOT EXISTS contracts (
+  id SERIAL PRIMARY KEY,
+  contract_reference VARCHAR(120) NOT NULL UNIQUE,
+  creator_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  effective_date DATE NOT NULL,
+  expiration_date DATE NOT NULL,
+  scope_of_work TEXT,
+  payment_terms TEXT,
+  delivery_obligations TEXT,
+  penalties_conditions TEXT,
+  template_type VARCHAR(50) NOT NULL DEFAULT 'procurement',
+  content TEXT,
+  status VARCHAR(50) NOT NULL DEFAULT 'draft',
+  version INTEGER NOT NULL DEFAULT 1,
+  procurement_order_id INTEGER REFERENCES procurement_orders(id) ON DELETE SET NULL,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  terminated_at TIMESTAMP
+);
+
+-- Keep signer identity, version, timestamp, and signature evidence auditable.
+CREATE TABLE IF NOT EXISTS contract_signatures (
+  id SERIAL PRIMARY KEY,
+  contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  signer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  signature_hash VARCHAR(128),
+  signature_version INTEGER NOT NULL DEFAULT 1,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  signed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Store metadata for privately managed generated documents and supporting files.
+CREATE TABLE IF NOT EXISTS contract_documents (
+  id SERIAL PRIMARY KEY,
+  contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  file_name VARCHAR(255) NOT NULL,
+  storage_name VARCHAR(255) NOT NULL,
+  document_type VARCHAR(50) NOT NULL DEFAULT 'attachment',
+  uploaded_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  contract_version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Preserve every contract mutation for legal and operational review.
+CREATE TABLE IF NOT EXISTS contract_audit_logs (
+  id SERIAL PRIMARY KEY,
+  contract_id INTEGER REFERENCES contracts(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add indexes for authorized party lookup, lifecycle dashboards, documents, and audit review.
+CREATE INDEX IF NOT EXISTS idx_contracts_creator_id ON contracts(creator_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_status ON contracts(status);
+CREATE INDEX IF NOT EXISTS idx_contracts_procurement_order_id ON contracts(procurement_order_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_order_id ON contracts(order_id);
+CREATE INDEX IF NOT EXISTS idx_contract_signatures_contract_id ON contract_signatures(contract_id);
+CREATE INDEX IF NOT EXISTS idx_contract_documents_contract_id ON contract_documents(contract_id);
+CREATE INDEX IF NOT EXISTS idx_contract_audit_logs_contract_id ON contract_audit_logs(contract_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.
