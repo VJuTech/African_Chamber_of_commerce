@@ -22,6 +22,9 @@ html {
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   font-family: Arial, Helvetica, sans-serif;
   background: linear-gradient(180deg, #f9f5ff 0%, #f2ebff 100%);
   color: var(--acc-text);
@@ -150,6 +153,8 @@ img {
 }
 
 .container {
+  flex: 1 0 auto;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem 3rem;

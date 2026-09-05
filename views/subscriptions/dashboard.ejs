@@ -1,0 +1,101 @@
+<!-- Chapter 20 subscription and billing dashboard. -->
+<section class="subscription-page" aria-labelledby="subscription-page-title">
+  <header class="subscription-hero">
+    <div>
+      <p class="subscription-kicker">ACC revenue services</p>
+      <h1 id="subscription-page-title">Plans built for African business growth.</h1>
+      <p class="subscription-hero__copy">Choose the reach, visibility, and support your organization needs. Billing is transparent, recurring, and always under your control.</p>
+    </div>
+    <div class="subscription-hero__mark" aria-hidden="true"><span>ACC</span><strong>20</strong></div>
+  </header>
+
+  <% if (message) { %><div class="subscription-alert subscription-alert--success" role="status"><%= message %></div><% } %>
+  <div class="subscription-alert subscription-alert--error" id="subscriptionError" role="alert" hidden></div>
+
+  <section class="subscription-overview" aria-labelledby="subscription-overview-title">
+    <div class="subscription-section-heading">
+      <div><p class="subscription-kicker">Your account</p><h2 id="subscription-overview-title">Subscription overview</h2></div>
+      <% if (subscription) { %><span class="subscription-status subscription-status--<%= subscription.status %>"><%= subscription.status %></span><% } %>
+    </div>
+    <% if (subscription) { %>
+      <div class="subscription-overview__grid">
+        <div><span class="subscription-label">Current plan</span><strong><%= subscription.display_name %></strong><span><%= subscription.billing_cycle %> billing</span></div>
+        <div><span class="subscription-label">Next billing date</span><strong><%= new Date(subscription.current_period_end).toLocaleDateString() %></strong><span><%= subscription.cancel_at_period_end ? 'Cancellation scheduled' : 'Auto-renewal enabled' %></span></div>
+        <div><span class="subscription-label">Feature access</span><strong><%= subscription.listing_limit === null ? 'Unlimited' : subscription.listing_limit %> listings</strong><span><%= subscription.priority_support ? 'Priority support included' : 'Standard support' %></span></div>
+      </div>
+      <div class="subscription-actions">
+        <button class="subscription-button subscription-button--quiet" type="button" data-cancel-subscription <%= subscription.cancel_at_period_end ? 'disabled' : '' %>><%= subscription.cancel_at_period_end ? 'Cancellation scheduled' : 'Cancel at period end' %></button>
+      </div>
+    <% } else { %>
+      <p class="subscription-empty">You are currently on the ACC free experience. Select a plan below to activate more business tools.</p>
+    <% } %>
+  </section>
+
+  <section class="subscription-plans" aria-labelledby="subscription-plans-title">
+    <div class="subscription-section-heading"><div><p class="subscription-kicker">Choose your level</p><h2 id="subscription-plans-title">Subscription plans</h2></div><span class="subscription-cycle-note">Monthly, quarterly, or yearly</span></div>
+    <div class="subscription-plan-grid">
+      <% plans.forEach(function (plan) { %>
+        <article class="subscription-plan-card <%= plan.plan_key === 'premium' ? 'subscription-plan-card--featured' : '' %>">
+          <% if (plan.plan_key === 'premium') { %><span class="subscription-plan-card__ribbon">Most popular</span><% } %>
+          <div class="subscription-plan-card__top"><p class="subscription-plan-card__eyebrow">Tier <%= plan.tier_level %></p><h3><%= plan.display_name %></h3><p><%= plan.description %></p></div>
+          <div class="subscription-price"><span>$</span><strong data-plan-price="<%= plan.plan_key %>"><%= Number(plan.monthly_price).toFixed(0) %></strong><small>/ month</small></div>
+          <label class="subscription-select-label" for="cycle-<%= plan.plan_key %>">Billing cycle</label>
+          <select class="subscription-cycle" id="cycle-<%= plan.plan_key %>" data-plan-cycle="<%= plan.plan_key %>" data-monthly="<%= plan.monthly_price %>" data-quarterly="<%= plan.quarterly_price %>" data-yearly="<%= plan.yearly_price %>">
+            <option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="yearly">Yearly</option>
+          </select>
+          <ul class="subscription-feature-list"><% (Array.isArray(plan.features) ? plan.features : []).forEach(function (feature) { %><li><span aria-hidden="true">+</span><%= feature %></li><% }); %></ul>
+          <button class="subscription-button <%= plan.plan_key === 'premium' ? 'subscription-button--primary' : 'subscription-button--outline' %>" type="button" data-subscribe-plan="<%= plan.plan_key %>" data-current-plan="<%= subscription ? subscription.plan_key : '' %>"><%= subscription && subscription.plan_key === plan.plan_key ? 'Current plan' : subscription ? 'Select plan' : 'Start with ' + plan.display_name %></button>
+        </article>
+      <% }); %>
+    </div>
+  </section>
+
+  <section class="subscription-history" aria-labelledby="subscription-history-title">
+    <div class="subscription-section-heading"><div><p class="subscription-kicker">Payment records</p><h2 id="subscription-history-title">Billing history & invoices</h2></div></div>
+    <% if (invoices.length) { %>
+      <div class="subscription-table-wrap"><table class="subscription-table"><thead><tr><th>Invoice</th><th>Date</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead><tbody><% invoices.forEach(function (invoice) { %><tr><td><strong><%= invoice.invoice_number %></strong></td><td><%= new Date(invoice.payment_date || invoice.created_at).toLocaleDateString() %></td><td><%= invoice.currency %> <%= Number(invoice.amount).toFixed(2) %></td><td><%= invoice.payment_method || 'Not recorded' %></td><td><span class="subscription-status subscription-status--<%= invoice.status %>"><%= invoice.status %></span></td></tr><% }); %></tbody></table></div>
+    <% } else { %><p class="subscription-empty">Completed subscription invoices will appear here.</p><% } %>
+  </section>
+
+  <% if (notifications.length) { %><aside class="subscription-notifications" aria-labelledby="subscription-notifications-title"><h2 id="subscription-notifications-title">Recent subscription notifications</h2><% notifications.forEach(function (notification) { %><div class="subscription-notification"><strong><%= notification.title %></strong><span><%= notification.message %></span></div><% }); %></aside><% } %>
+</section>
+
+<script>
+  // Keep plan pricing visible while leaving the authoritative amount on the server.
+  document.querySelectorAll('[data-plan-cycle]').forEach(function (select) {
+    select.addEventListener('change', function () {
+      var price = document.querySelector('[data-plan-price="' + select.dataset.planCycle + '"]');
+      if (price) price.textContent = Number(select.dataset[select.value]).toFixed(0);
+      var suffix = price ? price.nextElementSibling : null;
+      if (suffix) suffix.textContent = select.value === 'monthly' ? '/ month' : select.value === 'quarterly' ? '/ quarter' : '/ year';
+    });
+  });
+
+  // Submit subscription lifecycle actions through the authenticated JSON endpoints.
+  document.querySelectorAll('[data-subscribe-plan]').forEach(function (button) {
+    button.addEventListener('click', async function () {
+      var planKey = button.dataset.subscribePlan;
+      var cycle = document.querySelector('[data-plan-cycle="' + planKey + '"]').value;
+      var isCurrent = button.dataset.currentPlan === planKey;
+      var endpoint = isCurrent ? '/subscriptions/change-plan' : '/subscriptions/subscribe';
+      var body = isCurrent ? { planKey: planKey } : { planKey: planKey, billingCycle: cycle, paymentMethod: 'card' };
+      await submitSubscriptionAction(endpoint, body);
+    });
+  });
+
+  var cancelButton = document.querySelector('[data-cancel-subscription]');
+  if (cancelButton) cancelButton.addEventListener('click', function () { submitSubscriptionAction('/subscriptions/cancel', {}); });
+
+  async function submitSubscriptionAction(endpoint, body) {
+    var errorBox = document.getElementById('subscriptionError');
+    try {
+      var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
+      var result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'Subscription action failed.');
+      window.location.href = '/subscriptions?message=' + encodeURIComponent(result.message);
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    }
+  }
+</script>

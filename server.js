@@ -27,6 +27,7 @@ const trustRoutes = require("./routes/trustRoute");
 const marketplaceRoutes = require("./routes/marketplaceRoute");
 const orderRoutes = require("./routes/orderRoute");
 const paymentRoutes = require("./routes/paymentRoute");
+const subscriptionRoutes = require("./routes/subscriptionRoute");
 const assistantRoutes = require("./routes/assistantRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
@@ -184,6 +185,7 @@ async function initApp() {
   app.use("/", marketplaceRoutes);
   app.use("/", orderRoutes);
   app.use("/", paymentRoutes);
+  app.use("/", subscriptionRoutes);
   app.use("/", assistantRoutes);
 
   // Handle unmatched routes gracefully.

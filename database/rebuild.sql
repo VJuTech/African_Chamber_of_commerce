@@ -790,3 +790,124 @@ CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payment_audit_logs_payment_id ON payment_audit_logs(payment_id);
 CREATE INDEX IF NOT EXISTS idx_payment_gateway_events_payment_id ON payment_gateway_events(payment_id);
 CREATE INDEX IF NOT EXISTS idx_payment_refunds_payment_id ON payment_refunds(payment_id);
+
+-- ========================================
+-- CHAPTER 20: SUBSCRIPTION & BILLING SYSTEM
+-- ========================================
+
+-- Subscription plans extend membership tiers with billing-specific configuration.
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id SERIAL PRIMARY KEY,
+  tier_id INTEGER NOT NULL UNIQUE REFERENCES membership_tiers(id) ON DELETE RESTRICT,
+  plan_key VARCHAR(50) NOT NULL UNIQUE,
+  display_name VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL,
+  monthly_price DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (monthly_price >= 0),
+  quarterly_price DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (quarterly_price >= 0),
+  yearly_price DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (yearly_price >= 0),
+  listing_limit INTEGER,
+  visibility_boost INTEGER NOT NULL DEFAULT 0,
+  priority_support BOOLEAN NOT NULL DEFAULT FALSE,
+  features JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One current subscription exists per subscriber; pending plans support scheduled downgrades.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  plan_id INTEGER NOT NULL REFERENCES subscription_plans(id),
+  pending_plan_id INTEGER REFERENCES subscription_plans(id),
+  billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'quarterly', 'yearly')),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('active', 'pending', 'expired', 'cancelled', 'suspended')),
+  current_period_start TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  current_period_end TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 month'),
+  cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  next_retry_at TIMESTAMP,
+  payment_method VARCHAR(50),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Invoice records are immutable billing records linked to a subscription payment attempt.
+CREATE TABLE IF NOT EXISTS subscription_invoices (
+  id SERIAL PRIMARY KEY,
+  subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+  invoice_number VARCHAR(80) NOT NULL UNIQUE,
+  amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  payment_date TIMESTAMP,
+  due_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payment_method VARCHAR(50),
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'paid', 'failed', 'void')),
+  failure_reason TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payment attempts connect recurring billing to the Chapter 19 payment vocabulary.
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  id SERIAL PRIMARY KEY,
+  invoice_id INTEGER NOT NULL REFERENCES subscription_invoices(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider VARCHAR(50) NOT NULL DEFAULT 'paystack',
+  payment_reference VARCHAR(120) NOT NULL UNIQUE,
+  amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  payment_method VARCHAR(50),
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'successful', 'failed')),
+  failure_reason TEXT,
+  processed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- In-app delivery record for activation, renewal, failure, and expiry notifications.
+CREATE TABLE IF NOT EXISTS subscription_notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_type VARCHAR(60) NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  message TEXT NOT NULL,
+  read_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Subscription audit events provide the required lifecycle trail.
+CREATE TABLE IF NOT EXISTS subscription_audit_logs (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+  event_type VARCHAR(80) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscription_invoices_subscription_id ON subscription_invoices(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_invoices_status ON subscription_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_subscription_payments_user_id ON subscription_payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_notifications_user_id ON subscription_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
+
+-- Seed the four Chapter 20 plans and their feature-access metadata.
+INSERT INTO membership_tiers (tier_name, tier_level, description, pricing, billing_cycle)
+VALUES ('Free', 0, 'A free starting plan for every ACC member.', 0, 'monthly')
+ON CONFLICT (tier_name) DO NOTHING;
+
+INSERT INTO subscription_plans (tier_id, plan_key, display_name, description, monthly_price, quarterly_price, yearly_price, listing_limit, visibility_boost, priority_support, features)
+SELECT id, 'free', 'Free', 'A practical starting point for exploring ACC.', 0, 0, 0, 1, 0, FALSE, '["ACC directory profile", "Community access"]'::jsonb FROM membership_tiers WHERE tier_name = 'Free'
+ON CONFLICT (plan_key) DO NOTHING;
+
+INSERT INTO subscription_plans (tier_id, plan_key, display_name, description, monthly_price, quarterly_price, yearly_price, listing_limit, visibility_boost, priority_support, features)
+SELECT id, 'basic', 'Basic', 'Essential tools for an active business presence.', 19, 51, 190, 3, 1, FALSE, '["ACC directory profile", "Business listings", "Standard discovery"]'::jsonb FROM membership_tiers WHERE tier_name = 'Basic'
+ON CONFLICT (plan_key) DO NOTHING;
+
+INSERT INTO subscription_plans (tier_id, plan_key, display_name, description, monthly_price, quarterly_price, yearly_price, listing_limit, visibility_boost, priority_support, features)
+SELECT id, 'premium', 'Premium', 'More reach, more listings, and faster support.', 59, 159, 590, 10, 3, TRUE, '["Everything in Basic", "Premium tools", "Visibility boost", "Priority support"]'::jsonb FROM membership_tiers WHERE tier_name = 'Premium'
+ON CONFLICT (plan_key) DO NOTHING;
+
+INSERT INTO subscription_plans (tier_id, plan_key, display_name, description, monthly_price, quarterly_price, yearly_price, listing_limit, visibility_boost, priority_support, features)
+SELECT id, 'enterprise', 'Enterprise', 'A full growth suite for established organizations.', 149, 402, 1490, NULL, 5, TRUE, '["Everything in Premium", "Unlimited listings", "Dedicated support", "Enterprise visibility"]'::jsonb FROM membership_tiers WHERE tier_name = 'Enterprise'
+ON CONFLICT (plan_key) DO NOTHING;

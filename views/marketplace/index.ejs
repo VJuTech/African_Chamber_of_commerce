@@ -58,9 +58,9 @@
               <div class="listing-price">
                 <% if (listing.pricingModel === 'range') { %>
                   <strong><%= listing.currency %> <%= listing.minPrice %> - <%= listing.maxPrice %></strong>
-                <% else if (listing.pricingModel === 'negotiable') { %>
+                <% } else if (listing.pricingModel === 'negotiable') { %>
                   <strong>Negotiable</strong>
-                <% else { %>
+                <% } else { %>
                   <strong><%= listing.currency %> <%= listing.price %></strong>
                 <% } %>
               </div>
