@@ -4,6 +4,7 @@
  *******************************************/
 const fs = require("fs");
 const path = require("path");
+const notificationModel = require("./notificationModel");
 
 const auditLogPath = path.join(__dirname, "..", "logs", "events-audit.log");
 const notificationLogPath = path.join(__dirname, "..", "logs", "events-notifications.log");
@@ -98,6 +99,8 @@ function logEventNotification(type, payload = {}) {
   };
 
   fs.appendFileSync(notificationLogPath, `${JSON.stringify(entry)}\n`);
+  // Forward event activity to the shared Chapter 25 notification service.
+  notificationModel.generateFromEvent(type, payload);
   return entry;
 }
 

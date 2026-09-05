@@ -1146,6 +1146,66 @@ CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status);
 CREATE INDEX IF NOT EXISTS idx_disputes_moderator_id ON disputes(moderator_id);
 CREATE INDEX IF NOT EXISTS idx_dispute_evidence_dispute_id ON dispute_evidence(dispute_id);
 CREATE INDEX IF NOT EXISTS idx_dispute_audit_logs_dispute_id ON dispute_audit_logs(dispute_id);
+
+-- ========================================
+-- CHAPTER 25: NOTIFICATION & ALERT SYSTEM
+-- ========================================
+
+-- Store generated recipient alerts independently from channel delivery attempts.
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_type VARCHAR(50) NOT NULL,
+  priority VARCHAR(30) NOT NULL DEFAULT 'normal',
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  link VARCHAR(500) NOT NULL DEFAULT '/notifications',
+  status VARCHAR(30) NOT NULL DEFAULT 'unread',
+  dedupe_key VARCHAR(255),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP
+);
+
+-- Track each in-app, email, SMS, or push attempt for delivery reliability and retries.
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+  id BIGSERIAL PRIMARY KEY,
+  notification_id BIGINT NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  channel VARCHAR(30) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'queued',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  delivered_at TIMESTAMP,
+  failure_reason TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (notification_id, channel)
+);
+
+-- Persist per-user channel, category, frequency, and spam-control preferences.
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  channels JSONB NOT NULL DEFAULT '["in_app", "email", "push"]'::jsonb,
+  notification_types JSONB NOT NULL DEFAULT '["system", "transaction", "social", "event"]'::jsonb,
+  frequency VARCHAR(30) NOT NULL DEFAULT 'immediate',
+  max_per_hour INTEGER NOT NULL DEFAULT 30,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Record generation, sending, reading, failure, retry, and preference events.
+CREATE TABLE IF NOT EXISTS notification_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  notification_id BIGINT REFERENCES notifications(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  channel VARCHAR(30),
+  details JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_queue ON notification_deliveries(status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_notification_audit_logs_user ON notification_audit_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.

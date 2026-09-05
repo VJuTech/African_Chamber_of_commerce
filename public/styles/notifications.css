@@ -1,0 +1,35 @@
+/* Chapter 25 visual system: restrained blue, coral, and slate tones for alert-heavy workflows. */
+.notification-shell { max-width: 1180px; margin: 0 auto; padding: 2rem 1.25rem 4rem; color: #17212b; }
+.notification-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; padding: 2rem; margin-bottom: 1.25rem; border: 1px solid #d7e1e5; border-radius: 8px; background: linear-gradient(135deg, #f2f8fa, #fff8f1); }
+.notification-kicker, .notification-type { margin: 0 0 .45rem; color: #b74d35; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.notification-hero h1 { margin: 0; font: 700 clamp(2rem, 4vw, 3.4rem)/1.05 Georgia, serif; color: #153e55; }
+.notification-hero p, .notification-panel__header p { color: #60717a; }
+.notification-live-indicator { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem .8rem; border-radius: 999px; color: #17634a; background: #e4f5ed; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.notification-live-indicator::before { width: .45rem; height: .45rem; border-radius: 50%; background: #27a66f; content: ""; }
+.notification-live-indicator[data-state="offline"] { color: #87512c; background: #fff0e4; }
+.notification-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .8fr); gap: 1.25rem; align-items: start; }
+.notification-panel { padding: 1.35rem; border: 1px solid #d7e1e5; border-radius: 8px; background: #fff; box-shadow: 0 10px 28px rgba(28, 54, 68, .06); }
+.notification-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.notification-panel h2 { margin: 0; color: #153e55; font-size: 1.3rem; }
+.notification-panel__header p { margin: .35rem 0 0; font-size: .9rem; }
+.notification-count { color: #b74d35; font-size: .8rem; font-weight: 800; }
+.notification-list { display: grid; gap: .7rem; }
+.notification-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid #e1e8ea; border-left: 4px solid #c8d5da; background: #fbfcfc; }
+.notification-item--unread { border-left-color: #d9684d; background: #fffaf6; }
+.notification-item h3 { margin: .1rem 0 .35rem; color: #153e55; font-size: 1rem; }
+.notification-item p { margin: 0 0 .45rem; color: #45565f; }
+.notification-item time { color: #7b898e; font-size: .78rem; }
+.notification-button { border: 1px solid #b9cbd1; border-radius: 5px; padding: .55rem .75rem; color: #153e55; background: #fff; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.notification-button:hover { border-color: #d9684d; color: #a74731; }
+.notification-button--primary { width: 100%; border-color: #153e55; color: #fff; background: #153e55; }
+.notification-read-state { color: #718188; font-size: .78rem; }
+.notification-empty { padding: 2rem 1rem; text-align: center; color: #718188; }
+.notification-notice { margin-bottom: 1.25rem; padding: .8rem 1rem; border-left: 4px solid #2d936c; color: #17634a; background: #eaf7f0; }
+.notification-form fieldset { margin: 0 0 1.25rem; padding: 0; border: 0; }
+.notification-form legend { margin-bottom: .65rem; color: #153e55; font-weight: 800; }
+.notification-check { display: flex; align-items: center; gap: .55rem; margin: .65rem 0; color: #45565f; font-size: .9rem; text-transform: capitalize; }
+.notification-check input { accent-color: #d9684d; }
+.notification-field { display: grid; gap: .4rem; margin-bottom: 1rem; }
+.notification-field label { color: #45565f; font-size: .85rem; font-weight: 700; }
+.notification-field input, .notification-field select { width: 100%; box-sizing: border-box; border: 1px solid #c8d5da; border-radius: 5px; padding: .65rem; color: #17212b; background: #fff; font: inherit; }
+@media (max-width: 760px) { .notification-hero, .notification-item { align-items: stretch; flex-direction: column; } .notification-layout { grid-template-columns: 1fr; } .notification-live-indicator { align-self: flex-start; } }

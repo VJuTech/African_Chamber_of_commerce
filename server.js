@@ -36,6 +36,8 @@ const procurementRoutes = require("./routes/procurementRoute");
 const contractRoutes = require("./routes/contractRoute");
 // Load the Chapter 24 dispute route collection for transaction parties and moderators.
 const disputeRoutes = require("./routes/disputeRoute");
+// Load the Chapter 25 notification route collection for inbox and alert preferences.
+const notificationRoutes = require("./routes/notificationRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -201,6 +203,8 @@ async function initApp() {
   app.use("/", contractRoutes);
   // Mount dispute resolution after contracts so cases can reference contract records.
   app.use("/", disputeRoutes);
+  // Mount notifications after the authenticated workspace routes.
+  app.use("/", notificationRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

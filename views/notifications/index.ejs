@@ -1,0 +1,21 @@
+<!-- Chapter 25 notification inbox and preference controls. -->
+<div class="notification-shell">
+  <section class="notification-hero"><div><p class="notification-kicker">Chapter 25 / Communication heartbeat</p><h1>Notifications</h1><p>Stay aware of transactions, conversations, events, and important ACC system updates.</p></div><span class="notification-live-indicator" data-notification-live>Live connection</span></section>
+  <% if (message) { %><div class="notification-notice"><%= message %></div><% } %>
+  <div class="notification-layout">
+    <section class="notification-panel"><div class="notification-panel__header"><div><h2>Recent activity</h2><p>Newest alerts appear first. Unread items remain highlighted until reviewed.</p></div><span class="notification-count"><%= notifications.filter((item) => item.status === 'unread').length %> unread</span></div>
+      <div class="notification-list" data-notification-list>
+        <% if (!notifications.length) { %><p class="notification-empty">You are all caught up. New alerts will appear here.</p><% } %>
+        <% notifications.forEach(function(notification) { %>
+          <article class="notification-item <%= notification.status === 'unread' ? 'notification-item--unread' : '' %>" data-notification-id="<%= notification.id %>">
+            <div class="notification-item__content"><span class="notification-type"><%= notification.type %></span><h3><%= notification.title %></h3><p><%= notification.message %></p><time datetime="<%= notification.createdAt %>"><%= new Date(notification.createdAt).toLocaleString() %></time></div>
+            <% if (notification.status === 'unread') { %><form method="post" action="/notifications/<%= notification.id %>/read"><button class="notification-button" type="submit">Mark as read</button></form><% } else { %><span class="notification-read-state">Read</span><% } %>
+          </article>
+        <% }) %>
+      </div>
+    </section>
+    <aside class="notification-panel notification-preferences"><div class="notification-panel__header"><div><h2>Alert preferences</h2><p>Choose how ACC keeps you informed.</p></div></div>
+      <form method="post" action="/notifications/preferences" class="notification-form"><fieldset><legend>Delivery</legend><label class="notification-check"><input type="checkbox" name="enabled" value="true" <%= preferences.enabled ? 'checked' : '' %> /> <span>Enable notifications</span></label><% ['in_app','email','sms','push'].forEach(function(channel) { %><label class="notification-check"><input type="checkbox" name="channels" value="<%= channel %>" <%= preferences.channels.includes(channel) ? 'checked' : '' %> /> <span><%= channel.replace(/_/g, ' ') %></span></label><% }) %></fieldset><fieldset><legend>Alert categories</legend><% ['system','transaction','social','event'].forEach(function(type) { %><label class="notification-check"><input type="checkbox" name="types" value="<%= type %>" <%= preferences.types.includes(type) ? 'checked' : '' %> /> <span><%= type %></span></label><% }) %></fieldset><div class="notification-field"><label for="frequency">Frequency</label><select id="frequency" name="frequency"><option value="immediate" <%= preferences.frequency === 'immediate' ? 'selected' : '' %>>Immediate</option><option value="daily" <%= preferences.frequency === 'daily' ? 'selected' : '' %>>Daily summary</option></select></div><div class="notification-field"><label for="maxPerHour">Maximum alerts per hour</label><input id="maxPerHour" name="maxPerHour" type="number" min="1" max="100" value="<%= preferences.maxPerHour %>" /></div><button class="notification-button notification-button--primary" type="submit">Save preferences</button></form>
+    </aside>
+  </div>
+</div>

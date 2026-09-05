@@ -4,6 +4,7 @@
  *******************************************/
 const fs = require("fs");
 const path = require("path");
+const notificationModel = require("./notificationModel");
 
 const auditLogPath = path.join(__dirname, "..", "logs", "payments-audit.log");
 const gatewayLogPath = path.join(__dirname, "..", "logs", "payments-gateway.log");
@@ -73,6 +74,10 @@ function logPaymentAudit(eventType, details = {}) {
 
   fallbackAuditLog.push(entry);
   fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
+  // Forward completed payment events to the shared Chapter 25 notification service.
+  if (eventType === "payment_status_updated" && details.status === "successful") {
+    notificationModel.generateFromEvent("payment_completed", details);
+  }
   return entry;
 }
 
