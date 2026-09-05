@@ -1,36 +1,86 @@
-<div class="card">
-  <h2>Dashboard</h2>
-  <p>Welcome back, <strong><%= user && user.name ? user.name : 'Member' %></strong>.</p>
-
-  <% if (user && (user.status === 'pending_verification' || user.email_verified === false)) { %>
-    <div class="message error" role="status">
-      <strong>Your email is not verified.</strong>
-      <span>Verify your account to activate all account features.</span>
-      <a href="/verify-account">Verify your account</a>
+<% const isPending = user && (user.status === 'pending_verification' || user.email_verified === false); %>
+<section class="dashboard-page" aria-labelledby="dashboard-title">
+  <header class="dashboard-hero">
+    <div>
+      <p class="dashboard-eyebrow">Member workspace</p>
+      <h1 id="dashboard-title">Good to see you, <%= user && user.name ? user.name : 'Member' %>.</h1>
+      <p class="dashboard-intro">Your central workspace for building trusted business relationships across Africa.</p>
     </div>
+    <a class="dashboard-primary-action" href="/profile">View profile <span aria-hidden="true">&rarr;</span></a>
+  </header>
+
+  <% if (isPending) { %>
+    <aside class="dashboard-alert" role="status">
+      <div class="dashboard-alert__mark" aria-hidden="true">!</div>
+      <div class="dashboard-alert__content">
+        <strong>Finish verifying your account</strong>
+        <p>You can explore the platform now. Verification unlocks business registration, messaging, networking, and transactions.</p>
+      </div>
+      <a class="dashboard-alert__link" href="/verify-account">Verify account <span aria-hidden="true">&rarr;</span></a>
+    </aside>
   <% } %>
 
-  <div class="dashboard-grid">
-    <div class="panel">
-      <h3>Quick access</h3>
-      <ul>
-        <li><a href="/business/register">Register Business</a></li>
-        <li><a href="/business/my-businesses">My Businesses</a></li>
-        <li><a href="/marketplace">Marketplace</a></li>
-        <li><a href="/marketplace/my-listings">My Listings</a></li>
-        <li><a href="/trust">Trust Dashboard</a></li>
-        <li><a href="/profile">My Profile</a></li>
-        <li><a href="/messages">Messages</a></li>
-        <li><a href="/assistant">ACC Assistant</a></li>
-        <li><a href="/logout">Logout</a></li>
-      </ul>
-    </div>
-
-    <div class="panel">
-      <h3>Account summary</h3>
-      <p><strong>Status:</strong> <%= user && user.status ? user.status : 'Active' %></p>
-      <p><strong>Role:</strong> <%= user && user.role ? user.role : 'Member' %></p>
-      <p><strong>Email:</strong> <%= user && user.email ? user.email : 'Not available' %></p>
-    </div>
+  <div class="dashboard-metrics" aria-label="Account overview">
+    <article class="dashboard-metric dashboard-metric--accent">
+      <span class="dashboard-metric__label">Account status</span>
+      <strong><%= isPending ? 'Pending verification' : 'Active' %></strong>
+      <span class="dashboard-metric__note"><%= isPending ? 'Action required' : 'Ready to participate' %></span>
+    </article>
+    <article class="dashboard-metric">
+      <span class="dashboard-metric__label">Membership</span>
+      <strong>ACC Member</strong>
+      <span class="dashboard-metric__note">Access your member benefits</span>
+    </article>
+    <article class="dashboard-metric">
+      <span class="dashboard-metric__label">Profile strength</span>
+      <strong>Getting started</strong>
+      <span class="dashboard-metric__note">Add details to build trust</span>
+    </article>
   </div>
-</div>
+
+  <div class="dashboard-content-grid">
+    <section class="dashboard-section dashboard-section--actions" aria-labelledby="actions-title">
+      <div class="dashboard-section__heading">
+        <div>
+          <p class="dashboard-eyebrow">Move forward</p>
+          <h2 id="actions-title">Quick actions</h2>
+        </div>
+        <span class="dashboard-section__count">9 options</span>
+      </div>
+      <div class="dashboard-actions">
+        <a class="dashboard-action dashboard-action--featured" href="/business/register">
+          <span class="dashboard-action__index">01</span>
+          <span><strong>Register a business</strong><small>Create your verified business presence</small></span>
+          <span class="dashboard-action__arrow" aria-hidden="true">&rarr;</span>
+        </a>
+        <a class="dashboard-action" href="/marketplace"><span class="dashboard-action__index">02</span><span><strong>Explore marketplace</strong><small>Discover products and opportunities</small></span><span class="dashboard-action__arrow" aria-hidden="true">&rarr;</span></a>
+        <a class="dashboard-action" href="/directory"><span class="dashboard-action__index">03</span><span><strong>Discover businesses</strong><small>Find partners across the continent</small></span><span class="dashboard-action__arrow" aria-hidden="true">&rarr;</span></a>
+        <a class="dashboard-action" href="/network"><span class="dashboard-action__index">04</span><span><strong>Build your network</strong><small>Connect with business leaders</small></span><span class="dashboard-action__arrow" aria-hidden="true">&rarr;</span></a>
+      </div>
+    </section>
+
+    <aside class="dashboard-section dashboard-section--account" aria-labelledby="account-title">
+      <div class="dashboard-section__heading">
+        <div>
+          <p class="dashboard-eyebrow">Your details</p>
+          <h2 id="account-title">Account summary</h2>
+        </div>
+        <span class="dashboard-status-dot <%= isPending ? 'dashboard-status-dot--pending' : '' %>" aria-label="<%= isPending ? 'Pending verification' : 'Active' %>"></span>
+      </div>
+      <dl class="dashboard-details">
+        <div><dt>Full name</dt><dd><%= user && user.name ? user.name : 'Member' %></dd></div>
+        <div><dt>Email address</dt><dd><%= user && user.email ? user.email : 'Not available' %></dd></div>
+        <div><dt>Member role</dt><dd><%= user && user.role ? user.role : 'Member' %></dd></div>
+        <div><dt>Account status</dt><dd class="dashboard-details__status"><%= isPending ? 'Pending verification' : 'Active' %></dd></div>
+      </dl>
+      <a class="dashboard-secondary-action" href="/profile">Manage account <span aria-hidden="true">&rarr;</span></a>
+    </aside>
+  </div>
+
+  <footer class="dashboard-footer-links" aria-label="More member services">
+    <a href="/messages"><span>Messages</span><small>Stay in touch</small></a>
+    <a href="/marketplace/my-listings"><span>My listings</span><small>Manage your offers</small></a>
+    <a href="/assistant"><span>ACC Assistant</span><small>Get practical guidance</small></a>
+    <a href="/logout"><span>Sign out</span><small>End this session</small></a>
+  </footer>
+</section>
