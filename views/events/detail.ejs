@@ -18,6 +18,15 @@
         <span class="tag"><%= event.eventType %></span>
         <span class="tag tag--light"><%= event.visibility %></span>
       </div>
+      <% if (event.flyerPath) { %>
+        <div class="event-flyer">
+          <% if (/\.pdf(?:$|\?)/i.test(event.flyerPath)) { %>
+            <a class="button button--secondary" href="<%= event.flyerPath %>" target="_blank" rel="noopener">View event flyer (PDF)</a>
+          <% } else { %>
+            <img src="<%= event.flyerPath %>" alt="Flyer for <%= event.title %>" loading="lazy" />
+          <% } %>
+        </div>
+      <% } %>
       <p class="event-summary"><%= event.description %></p>
 
       <div class="detail-list">

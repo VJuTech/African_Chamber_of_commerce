@@ -1,15 +1,23 @@
 const businessModel = require("../models/businessModel");
+const { africanCountries, industryCategories } = require("../utility/business-options");
+const { publicLogoPath, removeUploadedLogo } = require("../utility/businessUpload");
+
+function registrationViewData(req, formData = {}, error = "", success = "") {
+  return {
+    title: "Register Business",
+    user: req.session && req.session.user ? req.session.user : null,
+    formData,
+    error,
+    success,
+    africanCountries,
+    industryCategories,
+  };
+}
 
 // This controller handles the chapter-10 registration journey: start, draft-save,
 // submission, and status management for each business account.
 async function registerBusinessPage(req, res) {
-  res.render("business/register", {
-    title: "Register Business",
-    user: req.session && req.session.user ? req.session.user : null,
-    formData: {},
-    error: "",
-    success: "",
-  });
+  res.render("business/register", registrationViewData(req));
 }
 
 async function createBusinessAccount(req, res, next) {
@@ -19,16 +27,14 @@ async function createBusinessAccount(req, res, next) {
       return res.redirect("/login?message=Please sign in to create a business account.");
     }
 
-    const result = await businessModel.createBusiness(userId, req.body);
+    const result = await businessModel.createBusiness(userId, {
+      ...req.body,
+      logo: publicLogoPath(req.file) || req.body.logo,
+    });
 
     if (!result.success) {
-      return res.render("business/register", {
-        title: "Register Business",
-        user: req.session && req.session.user ? req.session.user : null,
-        formData: req.body,
-        error: result.message,
-        success: "",
-      });
+      removeUploadedLogo(req.file);
+      return res.render("business/register", registrationViewData(req, req.body, result.message));
     }
 
     return res.redirect("/business/my-businesses?message=" + encodeURIComponent(result.message));
@@ -47,13 +53,7 @@ async function saveBusinessDraft(req, res, next) {
     const result = await businessModel.saveBusinessDraft(userId, req.body);
 
     if (!result.success) {
-      return res.render("business/register", {
-        title: "Register Business",
-        user: req.session && req.session.user ? req.session.user : null,
-        formData: req.body,
-        error: result.message,
-        success: "",
-      });
+      return res.render("business/register", registrationViewData(req, req.body, result.message));
     }
 
     return res.redirect("/business/my-businesses?message=" + encodeURIComponent(result.message));

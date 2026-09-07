@@ -123,6 +123,7 @@ function validateBusinessPayload(payload = {}) {
   const requiredFields = [
     "businessName",
     "businessType",
+    "countryOfResidence",
     "countryOfRegistration",
     "businessAddress",
     "contactEmail",

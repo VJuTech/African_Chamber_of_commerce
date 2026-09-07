@@ -47,6 +47,7 @@ function normalizeBusinessRecord(record = {}) {
     id: record.id,
     businessName: record.business_name || record.businessName || "",
     businessType: record.business_type || record.businessType || "",
+    countryOfResidence: record.country_of_residence || record.countryOfResidence || "",
     countryOfRegistration: record.country_of_registration || record.countryOfRegistration || "",
     businessAddress: record.business_address || record.businessAddress || "",
     contactEmail: record.contact_email || record.contactEmail || "",
@@ -71,6 +72,7 @@ async function createBusiness(userId, payload = {}) {
   const businessPayload = {
     businessName: payload.businessName,
     businessType: payload.businessType,
+    countryOfResidence: payload.countryOfResidence,
     countryOfRegistration: payload.countryOfRegistration,
     businessAddress: payload.businessAddress,
     contactEmail: payload.contactEmail,
@@ -122,6 +124,7 @@ async function createBusiness(userId, payload = {}) {
       `INSERT INTO business_accounts (
         business_name,
         business_type,
+        country_of_residence,
         country_of_registration,
         business_address,
         contact_email,
@@ -137,11 +140,12 @@ async function createBusiness(userId, payload = {}) {
         ownership_role,
         created_at,
         updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
       RETURNING *`,
       [
         businessPayload.businessName,
         businessPayload.businessType,
+        businessPayload.countryOfResidence,
         businessPayload.countryOfRegistration,
         businessPayload.businessAddress,
         businessPayload.contactEmail,
@@ -184,6 +188,7 @@ async function createBusiness(userId, payload = {}) {
       id: inMemoryBusinesses.length + 1,
       business_name: businessPayload.businessName,
       business_type: businessPayload.businessType,
+      country_of_residence: businessPayload.countryOfResidence,
       country_of_registration: businessPayload.countryOfRegistration,
       business_address: businessPayload.businessAddress,
       contact_email: businessPayload.contactEmail,

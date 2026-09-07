@@ -37,6 +37,9 @@
       <% listings.forEach((listing) => { %>
         <article class="listing-card">
           <div class="listing-card__media">
+            <% if (listing.media && listing.media.length) { %>
+              <img class="listing-card__image" src="<%= listing.media[0] %>" alt="<%= listing.title %> image" loading="lazy" />
+            <% } %>
             <span><%= listing.type === 'product' ? 'Product' : 'Service' %></span>
           </div>
           <div class="listing-card__body">

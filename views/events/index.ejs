@@ -56,6 +56,9 @@
     <% } else { %>
       <% events.forEach((event) => { %>
         <article class="event-card">
+          <% if (event.flyerPath && !/\.pdf(?:$|\?)/i.test(event.flyerPath)) { %>
+            <img class="event-card__flyer" src="<%= event.flyerPath %>" alt="Flyer for <%= event.title %>" loading="lazy" />
+          <% } %>
           <div class="event-card__topline">
             <span class="tag"><%= event.eventType %></span>
             <span class="visibility"><%= event.visibility %></span>

@@ -4,6 +4,7 @@
  *******************************************/
 const fs = require("fs");
 const path = require("path");
+const pool = require("../database/connection");
 
 const auditLogPath = path.join(__dirname, "..", "logs", "marketplace-audit.log");
 fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
@@ -83,8 +84,8 @@ function normalizeListing(record = {}) {
     type: (record.type || "product").toLowerCase(),
     pricingModel: (record.pricingModel || record.pricing_model || "fixed").toLowerCase(),
     price: Number(record.price || 0),
-    minPrice: Number(record.minPrice || 0),
-    maxPrice: Number(record.maxPrice || 0),
+    minPrice: Number(record.minPrice || record.min_price || 0),
+    maxPrice: Number(record.maxPrice || record.max_price || 0),
     currency: record.currency || "USD",
     inventory: Number(record.inventory || 0),
     availability: record.availability || (record.type === "product" ? "in_stock" : "available"),
@@ -93,8 +94,8 @@ function normalizeListing(record = {}) {
     media: Array.isArray(record.media) ? record.media : [],
     tags: Array.isArray(record.tags) ? record.tags : [],
     status: (record.status || "active").toLowerCase(),
-    createdAt: record.createdAt || new Date().toISOString(),
-    updatedAt: record.updatedAt || record.createdAt || new Date().toISOString(),
+    createdAt: record.createdAt || record.created_at || new Date().toISOString(),
+    updatedAt: record.updatedAt || record.updated_at || record.created_at || new Date().toISOString(),
   };
 }
 
@@ -179,17 +180,81 @@ async function createListing(userId, payload = {}) {
     updatedAt: new Date().toISOString(),
   };
 
-  fallbackListings.push(listing);
-  logMarketplaceAudit("listing_created", { listingId: listing.id, userId, businessId, title, visibility, outcome: "success" });
-
-  return {
-    success: true,
-    listing: normalizeListing(listing),
-    message: "Listing created successfully.",
-  };
+  try {
+    const result = await pool.query(
+      `INSERT INTO marketplace_listings (
+        business_id, user_id, title, description, category, listing_type, pricing_model,
+        price, min_price, max_price, currency, inventory, availability, visibility,
+        location, media, tags, status, created_at, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17::jsonb,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [businessId, userId, title, description, category, type, pricingModel, price,
+        listing.minPrice, listing.maxPrice, currency, listing.inventory, listing.availability,
+        visibility, location, JSON.stringify(listing.media), JSON.stringify(listing.tags)]
+    );
+    const persistedListing = normalizeListing(result.rows[0]);
+    logMarketplaceAudit("listing_created", { listingId: persistedListing.id, userId, businessId, title, visibility, outcome: "success" });
+    return { success: true, listing: persistedListing, message: "Listing created successfully." };
+  } catch (error) {
+    // Keep the local fallback for development environments without PostgreSQL.
+    fallbackListings.push(listing);
+    logMarketplaceAudit("listing_created", { listingId: listing.id, userId, businessId, title, visibility, outcome: "fallback" });
+    return { success: true, listing: normalizeListing(listing), message: "Listing created successfully in fallback mode." };
+  }
 }
 
 async function updateListing(userId, listingId, payload = {}) {
+  try {
+    const existingResult = await pool.query(
+      "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
+      [listingId]
+    );
+    if (existingResult.rows.length === 0) return { success: false, message: "Listing not found." };
+
+    const existing = normalizeListing(existingResult.rows[0]);
+    if (Number(existing.userId) !== Number(userId)) {
+      return { success: false, message: "You can only update your own listings." };
+    }
+
+    const next = {
+      ...existing,
+      title: typeof payload.title !== "undefined" ? String(payload.title || "").trim() : existing.title,
+      description: typeof payload.description !== "undefined" ? String(payload.description || "").trim() : existing.description,
+      category: typeof payload.category !== "undefined" ? String(payload.category || "").trim() : existing.category,
+      type: typeof payload.type !== "undefined" ? String(payload.type || "product").trim().toLowerCase() : existing.type,
+      pricingModel: typeof payload.pricingModel !== "undefined" ? String(payload.pricingModel || "fixed").trim().toLowerCase() : existing.pricingModel,
+      price: typeof payload.price !== "undefined" ? Number(payload.price || 0) : existing.price,
+      minPrice: typeof payload.minPrice !== "undefined" ? Number(payload.minPrice || 0) : existing.minPrice,
+      maxPrice: typeof payload.maxPrice !== "undefined" ? Number(payload.maxPrice || 0) : existing.maxPrice,
+      currency: typeof payload.currency !== "undefined" ? String(payload.currency || "USD").trim().toUpperCase() : existing.currency,
+      inventory: typeof payload.inventory !== "undefined" ? Number(payload.inventory || 0) : existing.inventory,
+      availability: typeof payload.availability !== "undefined" ? String(payload.availability || "available").trim().toLowerCase() : existing.availability,
+      visibility: typeof payload.visibility !== "undefined" ? String(payload.visibility || "public").trim().toLowerCase() : existing.visibility,
+      location: typeof payload.location !== "undefined" ? String(payload.location || "").trim() : existing.location,
+      tags: typeof payload.tags !== "undefined" && Array.isArray(payload.tags) ? payload.tags : existing.tags,
+      media: typeof payload.media !== "undefined" ? (Array.isArray(payload.media) ? payload.media : [payload.media]) : existing.media,
+    };
+
+    if (!next.title || !next.description || !next.category) {
+      return { success: false, message: "Title, description, and category are required." };
+    }
+
+    const result = await pool.query(
+      `UPDATE marketplace_listings SET title=$1, description=$2, category=$3, listing_type=$4,
+        pricing_model=$5, price=$6, min_price=$7, max_price=$8, currency=$9, inventory=$10,
+        availability=$11, visibility=$12, location=$13, media=$14::jsonb, tags=$15::jsonb,
+        updated_at=CURRENT_TIMESTAMP WHERE id=$16 AND user_id=$17 RETURNING *`,
+      [next.title, next.description, next.category, next.type, next.pricingModel, next.price,
+        next.minPrice, next.maxPrice, next.currency, next.inventory, next.availability,
+        next.visibility, next.location, JSON.stringify(next.media), JSON.stringify(next.tags), listingId, userId]
+    );
+    const updatedListing = normalizeListing(result.rows[0]);
+    logMarketplaceAudit("listing_updated", { listingId: updatedListing.id, userId, businessId: updatedListing.businessId, outcome: "success" });
+    return { success: true, listing: updatedListing, message: "Listing updated successfully." };
+  } catch (error) {
+    // Use the existing local implementation when PostgreSQL is unavailable.
+  }
+
   const listing = fallbackListings.find((entry) => Number(entry.id) === Number(listingId));
 
   if (!listing) {
@@ -236,6 +301,19 @@ async function updateListing(userId, listingId, payload = {}) {
 }
 
 async function deleteListing(userId, listingId) {
+  try {
+    const result = await pool.query(
+      `UPDATE marketplace_listings SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1 AND user_id = $2 AND status <> 'deleted' RETURNING id, business_id`,
+      [listingId, userId]
+    );
+    if (result.rows.length === 0) return { success: false, message: "Listing not found or you do not have permission to delete it." };
+    logMarketplaceAudit("listing_deleted", { listingId, userId, businessId: result.rows[0].business_id, outcome: "success" });
+    return { success: true, message: "Listing removed successfully." };
+  } catch (error) {
+    // Use the existing local implementation when PostgreSQL is unavailable.
+  }
+
   const listing = fallbackListings.find((entry) => Number(entry.id) === Number(listingId));
 
   if (!listing) {
@@ -264,6 +342,44 @@ async function getMarketplaceListings(filters = {}) {
   const type = String(filters.type || "all").trim().toLowerCase();
   const category = String(filters.category || "").trim();
   const visibility = String(filters.visibility || "public").trim().toLowerCase();
+
+  try {
+    const values = [];
+    const conditions = ["status <> 'deleted'"];
+    if (visibility !== "all") {
+      values.push(visibility);
+      conditions.push(`visibility = $${values.length}`);
+    }
+    if (type && type !== "all") {
+      values.push(type);
+      conditions.push(`listing_type = $${values.length}`);
+    }
+    if (category) {
+      values.push(`%${category}%`);
+      conditions.push(`category ILIKE $${values.length}`);
+    }
+    if (keyword) {
+      values.push(`%${keyword}%`);
+      conditions.push(`(title ILIKE $${values.length} OR description ILIKE $${values.length} OR category ILIKE $${values.length} OR tags::text ILIKE $${values.length})`);
+    }
+
+    const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM marketplace_listings WHERE ${conditions.join(" AND ")}`, values);
+    const total = countResult.rows[0].total;
+    const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
+    const safePage = Math.min(Math.max(page, 1), totalPages);
+    values.push(limit, (safePage - 1) * limit);
+    const result = await pool.query(
+      `SELECT * FROM marketplace_listings WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+    if (total > 0) {
+      return { listings: result.rows.map(normalizeListing), total, page: safePage, limit, totalPages };
+    }
+    // Preserve the existing demo fallback only when PostgreSQL has no matching rows.
+    // Persisted records remain authoritative whenever they exist.
+  } catch (error) {
+    // Use the existing local implementation when PostgreSQL is unavailable.
+  }
 
   let records = fallbackListings.filter((entry) => entry.status !== "deleted" && (visibility === "all" || entry.visibility === visibility));
 
@@ -298,11 +414,31 @@ async function getMarketplaceListings(filters = {}) {
 }
 
 async function getListingById(listingId) {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
+      [listingId]
+    );
+    return result.rows.length ? normalizeListing(result.rows[0]) : null;
+  } catch (error) {
+    // Use the existing local implementation when PostgreSQL is unavailable.
+  }
+
   const listing = fallbackListings.find((entry) => Number(entry.id) === Number(listingId) && entry.status !== "deleted");
   return listing ? normalizeListing(listing) : null;
 }
 
 async function getBusinessListings(businessId) {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM marketplace_listings WHERE business_id = $1 AND status <> 'deleted' ORDER BY created_at DESC",
+      [businessId]
+    );
+    return result.rows.map(normalizeListing);
+  } catch (error) {
+    // Use the existing local implementation when PostgreSQL is unavailable.
+  }
+
   const records = fallbackListings.filter(
     (entry) => Number(entry.businessId) === Number(businessId) && entry.status !== "deleted"
   );

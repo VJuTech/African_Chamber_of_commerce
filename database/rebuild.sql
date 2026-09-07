@@ -321,6 +321,7 @@ CREATE TABLE business_accounts (
   id SERIAL PRIMARY KEY,
   business_name VARCHAR(255) NOT NULL,
   business_type VARCHAR(120) NOT NULL,
+  country_of_residence VARCHAR(120) NOT NULL,
   country_of_registration VARCHAR(120) NOT NULL,
   business_address TEXT NOT NULL,
   contact_email VARCHAR(255) NOT NULL,
@@ -421,6 +422,7 @@ ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NU
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS search_rank INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS membership_level VARCHAR(60) NOT NULL DEFAULT 'Basic';
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS state_region VARCHAR(120);
+ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS country_of_residence VARCHAR(120);
 
 CREATE TABLE business_directory_search_logs (
   id SERIAL PRIMARY KEY,
@@ -474,6 +476,7 @@ CREATE INDEX idx_business_connection_reports_user_id ON business_connection_repo
 INSERT INTO business_accounts (
   business_name,
   business_type,
+  country_of_residence,
   country_of_registration,
   business_address,
   contact_email,
@@ -495,6 +498,7 @@ INSERT INTO business_accounts (
 SELECT
   'ACC Demo Holding',
   'Limited Liability Company (LLC)',
+  'Nigeria',
   'Nigeria',
   'Plot 18, Lekki Phase 1, Lagos, Nigeria',
   'hello@accdemo.com',
@@ -547,6 +551,7 @@ CREATE TABLE IF NOT EXISTS event_records (
   capacity INTEGER,
   ticket_type VARCHAR(50) NOT NULL DEFAULT 'free',
   price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  flyer_path VARCHAR(255),
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -587,6 +592,7 @@ CREATE TABLE IF NOT EXISTS event_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_event_records_status ON event_records(status);
 CREATE INDEX IF NOT EXISTS idx_event_records_event_type ON event_records(event_type);
+ALTER TABLE event_records ADD COLUMN IF NOT EXISTS flyer_path VARCHAR(255);
 CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
 CREATE INDEX IF NOT EXISTS idx_event_feedback_event_id ON event_feedback(event_id);
 
@@ -676,6 +682,7 @@ CREATE TABLE IF NOT EXISTS marketplace_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_business_id ON marketplace_listings(business_id);
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_visibility ON marketplace_listings(visibility);
 
 -- ========================================
 -- CHAPTER 18: ORDER MANAGEMENT

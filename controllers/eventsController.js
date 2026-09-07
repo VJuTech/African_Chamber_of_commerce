@@ -2,6 +2,7 @@
  * eventsController.js - Controller logic for browsing, creating, registering, and managing ACC events.
  *******************************************/
 const eventsModel = require("../models/eventsModel");
+const { publicFlyerPath, removeUploadedFlyer } = require("../utility/eventUpload");
 
 async function eventsPage(req, res, next) {
   try {
@@ -53,6 +54,7 @@ async function createEventPage(req, res, next) {
 
 async function submitCreateEvent(req, res, next) {
   try {
+    const flyerPath = publicFlyerPath(req.file);
     const payload = {
       title: req.body.title,
       description: req.body.description,
@@ -67,11 +69,13 @@ async function submitCreateEvent(req, res, next) {
       ticketType: req.body.ticketType || "free",
       price: req.body.price || 0,
       createdBy: req.session && req.session.user ? req.session.user.id : null,
+      flyerPath,
     };
 
     const result = await eventsModel.createEvent(payload);
 
     if (!result.success) {
+      removeUploadedFlyer(req.file);
       return res.status(400).render("events/create", {
         title: "Create Event",
         user: req.session && req.session.user ? req.session.user : null,
@@ -87,6 +91,7 @@ async function submitCreateEvent(req, res, next) {
     const redirectMessage = published && published.success ? "Event published successfully." : "Event created successfully.";
     return res.redirect(`/events/${eventId}?message=${encodeURIComponent(redirectMessage)}`);
   } catch (error) {
+    removeUploadedFlyer(req.file);
     return next(error);
   }
 }

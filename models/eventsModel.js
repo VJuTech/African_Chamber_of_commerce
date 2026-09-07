@@ -5,6 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 const notificationModel = require("./notificationModel");
+const pool = require("../database/connection");
 
 const auditLogPath = path.join(__dirname, "..", "logs", "events-audit.log");
 const notificationLogPath = path.join(__dirname, "..", "logs", "events-notifications.log");
@@ -120,10 +121,11 @@ function normalizeEvent(record = {}) {
     capacity: Number(record.capacity || 0),
     ticketType: (record.ticketType || "free").toLowerCase(),
     price: Number(record.price || 0),
-    createdBy: record.createdBy || null,
-    createdAt: record.createdAt || new Date().toISOString(),
-    updatedAt: record.updatedAt || record.createdAt || new Date().toISOString(),
-    publishedAt: record.publishedAt || null,
+    flyerPath: record.flyerPath || record.flyer_path || "",
+    createdBy: record.createdBy || record.created_by || null,
+    createdAt: record.createdAt || record.created_at || new Date().toISOString(),
+    updatedAt: record.updatedAt || record.updated_at || record.created_at || new Date().toISOString(),
+    publishedAt: record.publishedAt || record.published_at || null,
     registrationCount: Number(record.registrationCount || 0),
   };
 }
@@ -145,6 +147,7 @@ async function createEvent(payload = {}) {
   const capacity = Number(payload.capacity || 0);
   const ticketType = String(payload.ticketType || "free").trim().toLowerCase();
   const price = Number(payload.price || 0);
+  const flyerPath = String(payload.flyerPath || payload.flyer_path || "").trim() || null;
 
   if (!title || !description || !startDate) {
     return { success: false, message: "Event title, description, and start date are required." };
@@ -165,12 +168,31 @@ async function createEvent(payload = {}) {
     capacity,
     ticketType,
     price,
+    flyerPath,
     createdBy: payload.createdBy || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     publishedAt: null,
     registrationCount: 0,
   };
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO event_records (
+        title, description, organizer, event_type, event_format, start_date, end_date,
+        location, visibility, status, capacity, ticket_type, price, flyer_path, created_by,
+        created_at, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [title, description, organizer, eventType, eventFormat, startDate, endDate, location || "TBD",
+        visibility, capacity, ticketType, price, flyerPath, payload.createdBy || null]
+    );
+    const createdEvent = normalizeEvent(result.rows[0]);
+    logEventAudit("event_created", { eventId: createdEvent.id, createdBy: payload.createdBy || null, eventType, outcome: "success" });
+    return { success: true, event: createdEvent, ...createdEvent, message: "Event created successfully." };
+  } catch (error) {
+    // Preserve the local event engine for development environments without PostgreSQL.
+  }
 
   fallbackEvents.push(record);
   logEventAudit("event_created", {
@@ -190,6 +212,23 @@ async function createEvent(payload = {}) {
 }
 
 async function publishEvent(eventId, userId = null) {
+  try {
+    const result = await pool.query(
+      `UPDATE event_records SET status = 'published', published_at = CURRENT_TIMESTAMP,
+       updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND ($2::integer IS NULL OR created_by = $2)
+       RETURNING *`,
+      [eventId, userId]
+    );
+    if (result.rows.length > 0) {
+      const event = normalizeEvent(result.rows[0]);
+      logEventAudit("event_published", { eventId: event.id, userId, outcome: "success" });
+      logEventNotification("event_published", { eventId: event.id, title: event.title, organizer: event.organizer });
+      return { success: true, event, message: "Event published successfully." };
+    }
+  } catch (error) {
+    // Preserve the local event engine for development environments without PostgreSQL.
+  }
+
   const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
 
   if (!event) {
@@ -216,6 +255,40 @@ async function getEvents(filters = {}) {
   const keyword = String(filters.keyword || "").trim().toLowerCase();
   const eventType = String(filters.eventType || filters.type || "all").trim().toLowerCase();
   const visibility = String(filters.visibility || "all").trim().toLowerCase();
+
+  try {
+    const values = [];
+    const conditions = ["status = 'published'"];
+    if (visibility !== "all") {
+      values.push(visibility);
+      conditions.push(`visibility = $${values.length}`);
+    }
+    if (eventType !== "all") {
+      values.push(eventType);
+      conditions.push(`event_type = $${values.length}`);
+    }
+    if (keyword) {
+      values.push(`%${keyword}%`);
+      conditions.push(`(title ILIKE $${values.length} OR description ILIKE $${values.length} OR organizer ILIKE $${values.length} OR location ILIKE $${values.length})`);
+    }
+    const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM event_records WHERE ${conditions.join(" AND ")}`, values);
+    const total = countResult.rows[0].total;
+    const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
+    const safePage = Math.min(Math.max(page, 1), totalPages);
+    values.push(limit, (safePage - 1) * limit);
+    const result = await pool.query(
+      `SELECT e.*, COUNT(r.id)::int AS registration_count FROM event_records e
+       LEFT JOIN event_registrations r ON r.event_id = e.id
+       WHERE ${conditions.map((condition) => `e.${condition}`).join(" AND ")}
+       GROUP BY e.id ORDER BY e.start_date ASC LIMIT $${values.length - 1} OFFSET $${values.length}`,
+      values
+    );
+    if (total > 0) {
+      return { events: result.rows.map(normalizeEvent), total, page: safePage, limit, totalPages };
+    }
+  } catch (error) {
+    // Preserve the local event engine for development environments without PostgreSQL.
+  }
 
   let records = fallbackEvents.filter((entry) => entry.status === "published");
 
@@ -256,6 +329,18 @@ async function getEvents(filters = {}) {
 }
 
 async function getEventById(eventId) {
+  try {
+    const result = await pool.query(
+      `SELECT e.*, COUNT(r.id)::int AS registration_count FROM event_records e
+       LEFT JOIN event_registrations r ON r.event_id = e.id
+       WHERE e.id = $1 GROUP BY e.id LIMIT 1`,
+      [eventId]
+    );
+    if (result.rows.length > 0) return normalizeEvent(result.rows[0]);
+  } catch (error) {
+    // Preserve the local event engine for development environments without PostgreSQL.
+  }
+
   const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
   if (!event) return null;
 
