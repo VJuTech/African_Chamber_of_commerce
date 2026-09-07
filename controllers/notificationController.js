@@ -2,14 +2,14 @@
 const notificationModel = require("../models/notificationModel");
 
 // Render the chronological notification inbox and current delivery policy.
-function notificationsPage(req, res, next) {
+async function notificationsPage(req, res, next) {
   try {
     const userId = req.session.user.id;
     return res.render("notifications/index", {
       title: "Notifications",
       user: req.session.user,
-      notifications: notificationModel.getNotificationsForUser(userId),
-      preferences: notificationModel.getPreferences(userId),
+      notifications: await notificationModel.getNotificationsForUser(userId),
+      preferences: await notificationModel.getPreferences(userId),
       message: req.query.message || "",
       error: "",
       pageScript: "/scripts/notifications.js",
@@ -20,9 +20,9 @@ function notificationsPage(req, res, next) {
 }
 
 // Mark a notification as read and return to the inbox with a clear outcome.
-function markNotificationRead(req, res, next) {
+async function markNotificationRead(req, res, next) {
   try {
-    const result = notificationModel.markAsRead(req.session.user.id, req.params.id);
+    const result = await notificationModel.markAsRead(req.session.user.id, req.params.id);
     return res.redirect(`/notifications?message=${encodeURIComponent(result.message || "Notification marked as read.")}`);
   } catch (error) {
     return next(error);
@@ -30,11 +30,11 @@ function markNotificationRead(req, res, next) {
 }
 
 // Persist channel, type, enablement, and frequency preferences from the settings form.
-function updateNotificationPreferences(req, res, next) {
+async function updateNotificationPreferences(req, res, next) {
   try {
     const channels = Array.isArray(req.body.channels) ? req.body.channels : req.body.channels ? [req.body.channels] : [];
     const types = Array.isArray(req.body.types) ? req.body.types : req.body.types ? [req.body.types] : [];
-    notificationModel.savePreferences(req.session.user.id, {
+    await notificationModel.savePreferences(req.session.user.id, {
       enabled: req.body.enabled === "true",
       channels,
       types,

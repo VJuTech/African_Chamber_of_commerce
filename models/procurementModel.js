@@ -1,15 +1,11 @@
 /*
  * procurementModel.js - ACC Chapter 22 procurement and B2B sourcing workflow.
- * This operational model follows the existing lightweight in-memory module pattern
+ * This operational model uses PostgreSQL as its authoritative persistence layer
  * while exposing audit, notification, payment, and logistics integration references.
  */
-const fs = require("fs");
-const path = require("path");
-
-// Keep procurement audit and notification records in the shared application log directory.
-const auditLogPath = path.join(__dirname, "..", "logs", "procurement-audit.log");
-const notificationLogPath = path.join(__dirname, "..", "logs", "procurement-notifications.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
+const postgresProcurementModel = require("./procurementModelPg");
+module.exports = postgresProcurementModel;
+/* Legacy implementation removed; PostgreSQL implementation is exported above.
 
 // Define the controlled vocabulary used by the procurement workflow and UI.
 const procurementVisibilities = ["open", "restricted"];
@@ -19,52 +15,34 @@ const quotationStatuses = ["pending", "accepted", "rejected"];
 // Store active workflow records and append-only operational records for this process.
 const rfqs = [];
 const quotations = [];
-const procurementOrders = [];
 const auditEntries = [];
-const notificationEntries = [];
-
 // Generate readable references that can be shared in buyer and supplier communication.
-function generateReference(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-}
 
-// Write an auditable event for every important procurement mutation.
-function logAudit(eventType, details = {}) {
-  const entry = { id: generateReference("AUD"), eventType, details, createdAt: new Date().toISOString() };
-  auditEntries.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
   return entry;
-}
 
 // Record notification intent for a future email, SMS, or push delivery service.
 function logNotification(type, recipientId, details = {}) {
-  const entry = { id: generateReference("NOT"), type, recipientId: Number(recipientId), details, createdAt: new Date().toISOString() };
   notificationEntries.push(entry);
   fs.appendFileSync(notificationLogPath, `${JSON.stringify(entry)}\n`);
   return entry;
 }
 
 // Normalize public records so templates and tests receive stable field types.
-function normalizeRFQ(record) {
   return { ...record, id: Number(record.id), buyerId: Number(record.buyerId), quantityRequired: Number(record.quantityRequired), budgetAmount: record.budgetAmount === null ? null : Number(record.budgetAmount), supplierIds: [...(record.supplierIds || [])].map(Number) };
 }
 
 // Normalize quotations and preserve the relationship to the parent request.
 function normalizeQuotation(record) {
   return { ...record, id: Number(record.id), rfqId: Number(record.rfqId), supplierId: Number(record.supplierId), quotedPrice: Number(record.quotedPrice) };
-}
 
 // Normalize awarded procurement orders and their payment/logistics hand-off references.
 function normalizeProcurementOrder(record) {
-  return { ...record, id: Number(record.id), buyerId: Number(record.buyerId), supplierId: Number(record.supplierId), quotationId: Number(record.quotationId), orderAmount: Number(record.orderAmount) };
 }
 
 // Validate the buyer payload before creating a request in draft state.
-async function createRFQ(buyerId, payload = {}) {
   const title = String(payload.title || "").trim();
   const description = String(payload.description || "").trim();
   const category = String(payload.category || "").trim();
-  const quantityRequired = Number(payload.quantityRequired || 0);
   const deadline = String(payload.deadline || "").trim();
   const visibility = String(payload.visibility || "open").trim().toLowerCase();
   const supplierIds = String(payload.supplierIds || "").split(",").map((value) => Number(value.trim())).filter(Boolean);
@@ -101,7 +79,6 @@ async function createRFQ(buyerId, payload = {}) {
 }
 
 // Publish a buyer-owned draft and make it eligible for supplier discovery.
-async function publishRFQ(buyerId, rfqId) {
   const rfq = rfqs.find((entry) => Number(entry.id) === Number(rfqId));
   if (!rfq) return { success: false, message: "Procurement request not found." };
   if (Number(rfq.buyerId) !== Number(buyerId)) return { success: false, message: "Only the buyer can publish this request." };
@@ -113,15 +90,12 @@ async function publishRFQ(buyerId, rfqId) {
   return { success: true, rfq: normalizeRFQ(rfq), message: "Procurement request published successfully." };
 }
 
-// Return only open requests a supplier is allowed to see.
 async function getAvailableRFQs(supplierId) {
   return rfqs.filter((rfq) => ["open", "under_evaluation"].includes(rfq.status) && (rfq.visibility === "open" || rfq.supplierIds.includes(Number(supplierId)))).map(normalizeRFQ);
 }
-
 // Return all requests owned by a buyer for dashboard management.
 async function getBuyerRFQs(buyerId) {
   return rfqs.filter((rfq) => Number(rfq.buyerId) === Number(buyerId)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(normalizeRFQ);
-}
 
 // Resolve a request and enforce visibility for non-owner viewers.
 async function getRFQById(rfqId, viewerId) {
@@ -130,7 +104,6 @@ async function getRFQById(rfqId, viewerId) {
   const isBuyer = Number(rfq.buyerId) === Number(viewerId);
   const canView = isBuyer || (["open", "under_evaluation"].includes(rfq.status) && (rfq.visibility === "open" || rfq.supplierIds.includes(Number(viewerId))));
   if (!canView) return null;
-  return normalizeRFQ(rfq);
 }
 
 // Submit one supplier quotation while the request is open and before its deadline.
@@ -149,17 +122,14 @@ async function submitQuotation(supplierId, rfqId, payload = {}) {
   quotations.push(quotation);
   rfq.status = "under_evaluation";
   rfq.updatedAt = new Date().toISOString();
-  logAudit("bid_submitted", { rfqId: rfq.id, quotationId: quotation.id, supplierId, outcome: "success" });
   logNotification("bid_submitted", rfq.buyerId, { rfqId: rfq.id, quotationId: quotation.id, supplierId });
   return { success: true, quotation: normalizeQuotation(quotation), message: "Quotation submitted successfully." };
 }
 
 // Return the quotations for an authorized buyer or an individual supplier.
-async function getQuotationsForRFQ(rfqId, viewerId) {
   const rfq = rfqs.find((entry) => Number(entry.id) === Number(rfqId));
   if (!rfq || Number(rfq.buyerId) !== Number(viewerId)) return [];
   return quotations.filter((quote) => Number(quote.rfqId) === Number(rfqId)).map(normalizeQuotation);
-}
 
 // Return a supplier's submitted bids for dashboard visibility.
 async function getSupplierQuotations(supplierId) {
@@ -180,7 +150,6 @@ async function awardQuotation(buyerId, rfqId, quotationId) {
     entry.status = "rejected";
     logNotification("bid_rejected", entry.supplierId, { rfqId: rfq.id, quotationId: entry.id });
   });
-  rfq.status = "awarded";
   rfq.updatedAt = new Date().toISOString();
   const procurementOrder = { id: procurementOrders.length + 1, reference: generateReference("PO"), rfqId: rfq.id, quotationId: quotation.id, buyerId: rfq.buyerId, supplierId: quotation.supplierId, orderAmount: quotation.quotedPrice, currency: quotation.currency, paymentStatus: "pending", deliveryStatus: "pending", status: "confirmed", createdAt: new Date().toISOString(), paymentPath: `/payments?procurementOrderId=${procurementOrders.length + 1}`, logisticsPath: `/logistics?procurementOrderId=${procurementOrders.length + 1}`, contractPath: `/contracts/create?procurementOrderId=${procurementOrders.length + 1}` };
   procurementOrders.push(procurementOrder);
@@ -192,11 +161,8 @@ async function awardQuotation(buyerId, rfqId, quotationId) {
 // Close an active request and make all future bids fail validation.
 async function closeRFQ(buyerId, rfqId) {
   const rfq = rfqs.find((entry) => Number(entry.id) === Number(rfqId));
-  if (!rfq) return { success: false, message: "Procurement request not found." };
-  if (Number(rfq.buyerId) !== Number(buyerId)) return { success: false, message: "Only the buyer can close this request." };
-  if (!["open", "under_evaluation"].includes(rfq.status)) return { success: false, message: "This request cannot be closed in its current state." };
   rfq.status = "closed";
-  rfq.updatedAt = new Date().toISOString();
+module.exports = require("./procurementModelPg");
   logAudit("request_closed", { rfqId: rfq.id, buyerId, outcome: "success" });
   logNotification("request_closed", rfq.buyerId, { rfqId: rfq.id });
   return { success: true, rfq: normalizeRFQ(rfq), message: "Procurement request closed successfully." };
@@ -208,4 +174,4 @@ async function getNotificationLog() { return [...notificationEntries]; }
 async function getProcurementOrdersForUser(userId) { return procurementOrders.filter((order) => Number(order.buyerId) === Number(userId) || Number(order.supplierId) === Number(userId)).map(normalizeProcurementOrder); }
 
 // Export the complete Chapter 22 service surface for controllers and tests.
-module.exports = { procurementVisibilities, procurementStatuses, quotationStatuses, createRFQ, publishRFQ, getAvailableRFQs, getBuyerRFQs, getRFQById, submitQuotation, getQuotationsForRFQ, getSupplierQuotations, awardQuotation, closeRFQ, getAuditLog, getNotificationLog, getProcurementOrdersForUser, rfqs, quotations, procurementOrders };
+*/

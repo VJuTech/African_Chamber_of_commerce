@@ -1,58 +1,13 @@
-/* ******************************************
- * orderModel.js - Order lifecycle, status tracking, cancellation, refunds, disputes, and audit logging for ACC Chapter 18.
- * Keeps the order engine lightweight and in-memory while still supporting transactional flow and audit history.
- *******************************************/
-const fs = require("fs");
-const path = require("path");
+/* PostgreSQL-backed order lifecycle for ACC Chapter 18. */
+const pool = require("../database/connection");
 const notificationModel = require("./notificationModel");
 
-const auditLogPath = path.join(__dirname, "..", "logs", "orders-audit.log");
-const notificationLogPath = path.join(__dirname, "..", "logs", "orders-notifications.log");
-const disputeLogPath = path.join(__dirname, "..", "logs", "orders-disputes.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(notificationLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(disputeLogPath), { recursive: true });
+const statusValues = ["pending", "confirmed", "processing", "shipped", "delivered", "completed", "cancelled"];
+const orderColumns = `id, buyer_id AS "buyerId", seller_id AS "sellerId", listing_id AS "listingId", listing_title AS "listingTitle", quantity, unit_price AS "unitPrice", total_price AS "totalPrice", currency, payment_method AS "paymentMethod", payment_status AS "paymentStatus", status, delivery_method AS "deliveryMethod", shipping_address AS "shippingAddress", tracking_details AS "trackingDetails", notes, created_at AS "createdAt", updated_at AS "updatedAt", cancelled_at AS "cancelledAt", refunded_at AS "refundedAt", dispute_id AS "disputeId"`;
 
-const fallbackOrders = [
-  {
-    id: 1,
-    buyerId: 10,
-    sellerId: 2,
-    listingId: 1,
-    listingTitle: "Organic Coffee Beans",
-    quantity: 1,
-    unitPrice: 24.5,
-    totalPrice: 24.5,
-    currency: "USD",
-    paymentMethod: "card",
-    paymentStatus: "paid",
-    status: "completed",
-    deliveryMethod: "Courier",
-    shippingAddress: "12 Brook Road, Nairobi",
-    trackingDetails: "Delivered to destination",
-    notes: "Sample completed order",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    cancelledAt: null,
-    refundedAt: null,
-    disputeId: null,
-  },
-];
-
-const fallbackDisputes = [];
-const fallbackAuditLog = [];
-
-function logOrderAudit(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fallbackAuditLog.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function recordAudit(client, orderId, userId, eventType, details = {}, outcome = "success") {
+  const result = await client.query("INSERT INTO order_audit_logs (order_id, user_id, event_type, outcome, details) VALUES ($1, $2, $3, $4, $5) RETURNING id, event_type AS \"eventType\", outcome, details, created_at AS \"createdAt\"", [orderId || null, userId || null, eventType, outcome, details]);
+  return result.rows[0];
 }
 
 function logOrderNotification(type, payload = {}) {
@@ -63,8 +18,6 @@ function logOrderNotification(type, payload = {}) {
     payload,
   };
 
-  fs.appendFileSync(notificationLogPath, `${JSON.stringify(entry)}\n`);
-  // Forward existing order events to the shared Chapter 25 notification service.
   notificationModel.generateFromEvent(type, payload);
   return entry;
 }
@@ -103,245 +56,35 @@ function calculateTotal(quantity, unitPrice) {
   return Number(quantity || 0) * Number(unitPrice || 0);
 }
 
+async function dbOrder(id) { const result = await pool.query(`SELECT ${orderColumns} FROM orders WHERE id = $1`, [id]); return result.rows[0] ? normalizeOrder(result.rows[0]) : null; }
+async function dbAudit(client, orderId, userId, eventType, details = {}) { return recordAudit(client, orderId, userId, eventType, details); }
+async function dbMutate(actorId, orderId, values, eventType, message, notificationType, details = {}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query(`SELECT ${orderColumns} FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
+    if (!current.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Order not found." }; }
+    const set = Object.keys(values).map((key, index) => `${key} = $${index + 2}`).join(", ");
+    const result = await client.query(`UPDATE orders SET ${set}, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING ${orderColumns}`, [orderId, ...Object.values(values)]);
+    const order = normalizeOrder(result.rows[0]); await dbAudit(client, order.id, actorId, eventType, { orderId: order.id, actorId, status: order.status, ...details }); await client.query("COMMIT");
+    if (notificationType) notificationModel.generateFromEvent(notificationType, { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId }); return { success: true, order, message };
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+}
 async function createOrder(buyerId, payload = {}) {
-  if (!buyerId) {
-    return { success: false, message: "Buyer authentication is required to place an order." };
-  }
-
-  const sellerId = Number(payload.sellerId || 0);
-  const listingId = Number(payload.listingId || 0);
-  const listingTitle = String(payload.listingTitle || "").trim();
-  const quantity = Number(payload.quantity || 0);
-  const unitPrice = Number(payload.unitPrice || 0);
-  const currency = String(payload.currency || "USD").trim().toUpperCase();
-  const paymentMethod = String(payload.paymentMethod || "card").trim().toLowerCase();
-  const shippingAddress = String(payload.shippingAddress || "").trim();
-  const deliveryMethod = String(payload.deliveryMethod || "standard").trim();
-
-  if (!sellerId || !listingId || !listingTitle || !quantity || quantity <= 0 || !unitPrice || !shippingAddress) {
-    return { success: false, message: "Order details are incomplete. Please provide a valid listing, quantity, price, seller, and delivery address." };
-  }
-
-  const order = {
-    id: fallbackOrders.length + 1,
-    buyerId: Number(buyerId),
-    sellerId,
-    listingId,
-    listingTitle,
-    quantity,
-    unitPrice,
-    totalPrice: calculateTotal(quantity, unitPrice),
-    currency,
-    paymentMethod,
-    paymentStatus: "pending",
-    status: "pending",
-    deliveryMethod,
-    shippingAddress,
-    trackingDetails: "Order created and awaiting confirmation.",
-    notes: String(payload.notes || "").trim(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    cancelledAt: null,
-    refundedAt: null,
-    disputeId: null,
-  };
-
-  fallbackOrders.push(order);
-  logOrderAudit("order_created", { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId, status: order.status, outcome: "success" });
-  logOrderNotification("order_placed", { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId, title: order.listingTitle });
-
-  return { success: true, order: normalizeOrder(order), message: "Order placed successfully." };
+  if (!buyerId) return { success: false, message: "Buyer authentication is required to place an order." }; const sellerId = Number(payload.sellerId || 0), listingId = Number(payload.listingId || 0), quantity = Number(payload.quantity || 0), unitPrice = Number(payload.unitPrice || 0), title = String(payload.listingTitle || "").trim(), address = String(payload.shippingAddress || "").trim();
+  if (!sellerId || !listingId || !title || quantity <= 0 || unitPrice <= 0 || !address) return { success: false, message: "Order details are incomplete. Please provide a valid listing, quantity, price, seller, and delivery address." }; const client = await pool.connect();
+  try { await client.query("BEGIN"); const result = await client.query(`INSERT INTO orders (buyer_id,seller_id,listing_id,listing_title,quantity,unit_price,total_price,currency,payment_method,delivery_method,shipping_address,tracking_details,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING ${orderColumns}`, [buyerId, sellerId, listingId, title, quantity, unitPrice, quantity * unitPrice, String(payload.currency || "USD").toUpperCase(), String(payload.paymentMethod || "card").toLowerCase(), String(payload.deliveryMethod || "standard"), address, "Order created and awaiting confirmation.", String(payload.notes || "")]); const order = normalizeOrder(result.rows[0]); await dbAudit(client, order.id, buyerId, "order_created", { orderId: order.id, buyerId, sellerId }); await client.query("COMMIT"); notificationModel.generateFromEvent("order_placed", { orderId: order.id, buyerId, sellerId, title }); return { success: true, order, message: "Order placed successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
-
-async function confirmOrder(sellerId, orderId) {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  if (Number(order.sellerId) !== Number(sellerId)) {
-    return { success: false, message: "You are not the assigned seller for this order." };
-  }
-
-  if (order.status === "cancelled") {
-    return { success: false, message: "Cancelled orders cannot be confirmed." };
-  }
-
-  order.status = "confirmed";
-  order.paymentStatus = "paid";
-  order.trackingDetails = "Order confirmed and being prepared for fulfillment.";
-  order.updatedAt = new Date().toISOString();
-
-  logOrderAudit("order_confirmed", { orderId: order.id, sellerId, status: order.status, outcome: "success" });
-  logOrderNotification("order_confirmed", { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId });
-
-  return { success: true, order: normalizeOrder(order), message: "Order confirmed successfully." };
-}
-
-async function updateOrderStatus(actorId, orderId, nextStatus, details = "") {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  const normalizedStatus = String(nextStatus || "").trim().toLowerCase();
-  if (!statusOptions().includes(normalizedStatus)) {
-    return { success: false, message: "Unsupported order status." };
-  }
-
-  const isSeller = Number(order.sellerId) === Number(actorId);
-  const isBuyer = Number(order.buyerId) === Number(actorId);
-  if (!isSeller && !isBuyer) {
-    return { success: false, message: "You do not have permission to update this order." };
-  }
-
-  if (normalizedStatus === "cancelled") {
-    if (order.status === "completed" || order.status === "delivered") {
-      return { success: false, message: "Completed or delivered orders cannot be cancelled." };
-    }
-    order.status = "cancelled";
-    order.cancelledAt = new Date().toISOString();
-    order.paymentStatus = "refund_pending";
-  } else {
-    if (order.status === "cancelled") {
-      return { success: false, message: "Cancelled orders cannot be reactivated." };
-    }
-    order.status = normalizedStatus;
-    if (normalizedStatus === "delivered") {
-      order.paymentStatus = "paid";
-    }
-    if (normalizedStatus === "completed") {
-      order.paymentStatus = "paid";
-    }
-  }
-
-  order.trackingDetails = details || `Status updated to ${normalizedStatus}.`;
-  order.updatedAt = new Date().toISOString();
-
-  logOrderAudit("order_status_updated", { orderId: order.id, actorId, status: order.status, outcome: "success" });
-  logOrderNotification(order.status === "cancelled" ? "order_cancelled" : `order_${order.status}`, { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId });
-
-  return { success: true, order: normalizeOrder(order), message: "Order status updated successfully." };
-}
-
-async function cancelOrder(buyerId, orderId, reason = "") {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  if (Number(order.buyerId) !== Number(buyerId)) {
-    return { success: false, message: "You can only cancel your own orders." };
-  }
-
-  if (order.status === "completed" || order.status === "delivered") {
-    return { success: false, message: "Completed or delivered orders cannot be cancelled." };
-  }
-
-  if (order.status === "cancelled") {
-    return { success: false, message: "This order has already been cancelled." };
-  }
-
-  order.status = "cancelled";
-  order.cancelledAt = new Date().toISOString();
-  order.paymentStatus = "refund_pending";
-  order.trackingDetails = reason ? `Cancelled by buyer: ${reason}` : "Cancelled by buyer.";
-  order.updatedAt = new Date().toISOString();
-
-  logOrderAudit("order_cancelled", { orderId: order.id, buyerId, reason, outcome: "success" });
-  logOrderNotification("order_cancelled", { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId, reason });
-
-  return { success: true, order: normalizeOrder(order), message: "Order cancelled successfully." };
-}
-
-async function processRefund(adminUserId, orderId, reason = "") {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  if (order.status !== "cancelled") {
-    return { success: false, message: "Refunds are available only for cancelled orders." };
-  }
-
-  order.paymentStatus = "refunded";
-  order.refundedAt = new Date().toISOString();
-  order.updatedAt = new Date().toISOString();
-  order.trackingDetails = reason ? `Refund processed: ${reason}` : "Refund processed for cancelled order.";
-
-  logOrderAudit("refund_processed", { orderId: order.id, adminUserId, reason, outcome: "success" });
-  logOrderNotification("refund_processed", { orderId: order.id, buyerId: order.buyerId, sellerId: order.sellerId, amount: order.totalPrice });
-
-  return { success: true, order: normalizeOrder(order), message: "Refund processed successfully." };
-}
-
-async function getOrderHistory(userId) {
-  return fallbackOrders
-    .filter((entry) => Number(entry.buyerId) === Number(userId) || Number(entry.sellerId) === Number(userId))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .map((entry) => normalizeOrder(entry));
-}
-
-async function getSellerOrders(sellerId) {
-  return fallbackOrders
-    .filter((entry) => Number(entry.sellerId) === Number(sellerId))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .map((entry) => normalizeOrder(entry));
-}
-
-async function getOrderById(orderId) {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-  return order ? normalizeOrder(order) : null;
-}
-
-// Persist a buyer's selected delivery method on the existing order lifecycle.
-async function updateDeliveryMethod(buyerId, orderId, deliveryMethod) {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-  if (!order) return { success: false, message: "Order not found." };
-  if (Number(order.buyerId) !== Number(buyerId)) return { success: false, message: "You can only select delivery for your own order." };
-
-  order.deliveryMethod = deliveryMethod;
-  order.updatedAt = new Date().toISOString();
-  logOrderAudit("delivery_method_selected", { orderId: order.id, buyerId, deliveryMethod, outcome: "success" });
-  return { success: true, order: normalizeOrder(order), message: "Delivery method saved successfully." };
-}
-
-async function raiseDispute(buyerId, orderId, reason = "") {
-  const order = fallbackOrders.find((entry) => Number(entry.id) === Number(orderId));
-
-  if (!order) {
-    return { success: false, message: "Order not found." };
-  }
-
-  if (Number(order.buyerId) !== Number(buyerId)) {
-    return { success: false, message: "You can only raise a dispute for your own order." };
-  }
-
-  const dispute = {
-    id: fallbackDisputes.length + 1,
-    orderId: Number(orderId),
-    buyerId: Number(buyerId),
-    sellerId: Number(order.sellerId),
-    reason: String(reason || "").trim() || "Order issue reported by buyer.",
-    status: "open",
-    createdAt: new Date().toISOString(),
-  };
-
-  fallbackDisputes.push(dispute);
-  order.disputeId = dispute.id;
-  logOrderAudit("dispute_raised", { orderId: dispute.orderId, buyerId, sellerId: dispute.sellerId, reason: dispute.reason, outcome: "success" });
-  fs.appendFileSync(disputeLogPath, `${JSON.stringify(dispute)}\n`);
-
-  return { success: true, dispute, message: "Dispute submitted successfully." };
-}
-
-async function getOrderAuditLog() {
-  return [...fallbackAuditLog];
-}
+async function confirmOrder(sellerId, orderId) { const order = await dbOrder(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.sellerId !== Number(sellerId)) return { success: false, message: "You are not the assigned seller for this order." }; if (order.status === "cancelled") return { success: false, message: "Cancelled orders cannot be confirmed." }; return dbMutate(sellerId, orderId, { status: "confirmed", payment_status: "paid", tracking_details: "Order confirmed and being prepared for fulfillment." }, "order_confirmed", "Order confirmed successfully.", "order_confirmed"); }
+async function updateOrderStatus(actorId, orderId, nextStatus, details = "") { const status = String(nextStatus || "").toLowerCase(); if (!statusValues.includes(status)) return { success: false, message: "Unsupported order status." }; const order = await dbOrder(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.buyerId !== Number(actorId) && order.sellerId !== Number(actorId)) return { success: false, message: "You do not have permission to update this order." }; if (status === "cancelled" && ["completed", "delivered"].includes(order.status)) return { success: false, message: "Completed or delivered orders cannot be cancelled." }; if (status !== "cancelled" && order.status === "cancelled") return { success: false, message: "Cancelled orders cannot be reactivated." }; const values = { status, tracking_details: details || `Status updated to ${status}.` }; if (status === "cancelled") Object.assign(values, { cancelled_at: new Date(), payment_status: "refund_pending" }); if (["delivered", "completed"].includes(status)) values.payment_status = "paid"; return dbMutate(actorId, orderId, values, "order_status_updated", "Order status updated successfully.", status === "cancelled" ? "order_cancelled" : `order_${status}`); }
+async function cancelOrder(buyerId, orderId, reason = "") { const order = await dbOrder(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.buyerId !== Number(buyerId)) return { success: false, message: "You can only cancel your own orders." }; if (["completed", "delivered"].includes(order.status)) return { success: false, message: "Completed or delivered orders cannot be cancelled." }; if (order.status === "cancelled") return { success: false, message: "This order has already been cancelled." }; return dbMutate(buyerId, orderId, { status: "cancelled", cancelled_at: new Date(), payment_status: "refund_pending", tracking_details: reason ? `Cancelled by buyer: ${reason}` : "Cancelled by buyer." }, "order_cancelled", "Order cancelled successfully.", "order_cancelled", { reason }); }
+async function processRefund(adminUserId, orderId, reason = "") { const order = await dbOrder(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.status !== "cancelled") return { success: false, message: "Refunds are available only for cancelled orders." }; return dbMutate(adminUserId, orderId, { payment_status: "refunded", refunded_at: new Date(), tracking_details: reason ? `Refund processed: ${reason}` : "Refund processed for cancelled order." }, "refund_processed", "Refund processed successfully.", "refund_processed", { reason, adminUserId }); }
+async function getOrderHistory(userId) { const result = await pool.query(`SELECT ${orderColumns} FROM orders WHERE buyer_id = $1 OR seller_id = $1 ORDER BY created_at DESC`, [userId]); return result.rows.map(normalizeOrder); }
+async function getSellerOrders(sellerId) { const result = await pool.query(`SELECT ${orderColumns} FROM orders WHERE seller_id = $1 ORDER BY created_at DESC`, [sellerId]); return result.rows.map(normalizeOrder); }
+async function getOrderById(orderId) { return dbOrder(orderId); }
+async function updateDeliveryMethod(buyerId, orderId, deliveryMethod) { const order = await dbOrder(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.buyerId !== Number(buyerId)) return { success: false, message: "You can only select delivery for your own order." }; return dbMutate(buyerId, orderId, { delivery_method: deliveryMethod }, "delivery_method_selected", "Delivery method saved successfully.", null, { deliveryMethod }); }
+async function raiseDispute(buyerId, orderId, reason = "") { const client = await pool.connect(); try { await client.query("BEGIN"); const order = await client.query("SELECT id,buyer_id,seller_id FROM orders WHERE id=$1 FOR UPDATE", [orderId]); if (!order.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Order not found." }; } if (Number(order.rows[0].buyer_id) !== Number(buyerId)) { await client.query("ROLLBACK"); return { success: false, message: "You can only raise a dispute for your own order." }; } const dispute = await client.query("INSERT INTO order_disputes (order_id,buyer_id,seller_id,reason) VALUES ($1,$2,$3,$4) RETURNING id,order_id AS \"orderId\",buyer_id AS \"buyerId\",seller_id AS \"sellerId\",reason,status,created_at AS \"createdAt\"", [orderId, buyerId, order.rows[0].seller_id, String(reason || "").trim() || "Order issue reported by buyer."]); await client.query("UPDATE orders SET dispute_id=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2", [dispute.rows[0].id, orderId]); await dbAudit(client, orderId, buyerId, "dispute_raised", { orderId, buyerId, sellerId: order.rows[0].seller_id, reason: dispute.rows[0].reason }); await client.query("COMMIT"); return { success: true, dispute: dispute.rows[0], message: "Dispute submitted successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function getOrderAuditLog() { const result = await pool.query("SELECT id,order_id AS \"orderId\",user_id AS \"userId\",event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\" FROM order_audit_logs ORDER BY created_at,id"); return result.rows; }
 
 module.exports = {
   createOrder,
@@ -355,5 +98,4 @@ module.exports = {
   updateDeliveryMethod,
   raiseDispute,
   getOrderAuditLog,
-  fallbackOrders,
 };

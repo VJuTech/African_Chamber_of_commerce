@@ -3,174 +3,47 @@
  * The service adds structured trust protection around existing orders and contracts.
  */
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 const orderModel = require("./orderModel");
 const paymentModel = require("./paymentModel");
 const contractModel = require("./contractModel");
+const pool = require("../database/connection");
 
-// Keep dispute audit and notification records in the shared application log directory.
-const auditLogPath = path.join(__dirname, "..", "logs", "disputes-audit.log");
-const notificationLogPath = path.join(__dirname, "..", "logs", "disputes-notifications.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
-
-// Define the controlled vocabularies used throughout the dispute workflow.
 const disputeStatuses = ["open", "under_review", "in_mediation", "resolved", "escalated", "closed"];
 const resolutionTypes = ["refund", "replacement", "partial_compensation", "no_action"];
 const evidenceTypes = ["document", "image", "communication_log", "transaction_history"];
-
-// Store operational records in the repository's established lightweight module pattern.
-const disputes = [];
-const evidence = [];
-const auditEntries = [];
-const notificationEntries = [];
-
-// Generate readable references for cases and evidence records.
 function generateReference(prefix) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`; }
-
-// Append a structured audit event for every important state transition.
-function logAudit(eventType, userId, details = {}) {
-  const entry = { id: generateReference("AUD"), eventType, userId: Number(userId || 0), details, createdAt: new Date().toISOString() };
-  auditEntries.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-// Record notification intent for the platform notification service.
-function logNotification(type, recipientId, details = {}) {
-  const entry = { id: generateReference("NOT"), type, recipientId: Number(recipientId || 0), details, createdAt: new Date().toISOString() };
-  notificationEntries.push(entry);
-  fs.appendFileSync(notificationLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-// Identify moderator-capable accounts without changing the existing account schema.
 function isModerator(user) { return Boolean(user && ["admin", "moderator", "platform_admin", "dispute_officer"].includes(String(user.role || "").toLowerCase())); }
-
-// Normalize a dispute while keeping linked identifiers predictable for consumers.
 function normalizeDispute(dispute) { return { ...dispute, id: Number(dispute.id), partyIds: [...dispute.partyIds].map(Number), orderId: dispute.orderId ? Number(dispute.orderId) : null, contractId: dispute.contractId ? Number(dispute.contractId) : null, moderatorId: dispute.moderatorId ? Number(dispute.moderatorId) : null }; }
-
-// Resolve the parties and linked payment from an existing order or contract.
 async function resolveReference(payload) {
-  const orderId = Number(payload.orderId || 0) || null;
-  const contractId = Number(payload.contractId || 0) || null;
-  if (!orderId && !contractId) return { success: false, message: "Link the dispute to an order or contract." };
-  if (orderId) {
-    const order = await orderModel.getOrderById(orderId);
-    if (!order) return { success: false, message: "The linked order was not found." };
-    return { success: true, orderId, partyIds: [Number(order.buyerId), Number(order.sellerId)], paymentId: null };
-  }
-  const contract = await contractModel.getContractById(contractId, Number(payload.creatorId));
-  if (!contract) return { success: false, message: "The linked contract was not found or is not accessible." };
-  return { success: true, contractId, partyIds: contract.partyIds, paymentId: contract.paymentId || null };
+	const orderId = Number(payload.orderId || 0) || null;
+	const contractId = Number(payload.contractId || 0) || null;
+	if (!orderId && !contractId) return { success: false, message: "Link the dispute to an order or contract." };
+	if (orderId) {
+		const order = await orderModel.getOrderById(orderId);
+		if (!order) return { success: false, message: "The linked order was not found." };
+		return { success: true, orderId, partyIds: [Number(order.buyerId), Number(order.sellerId)], paymentId: null };
+	}
+	const contract = await contractModel.getContractById(contractId, Number(payload.creatorId));
+	if (!contract) return { success: false, message: "The linked contract was not found or is not accessible." };
+	return { success: true, contractId, partyIds: contract.partyIds, paymentId: contract.paymentId || null };
 }
 
-// Create an open case from a linked order or contract.
-async function createDispute(creatorId, payload = {}) {
-  const issueDescription = String(payload.issueDescription || payload.reason || "").trim();
-  if (!creatorId || !issueDescription) return { success: false, message: "A clear dispute description is required." };
-  const reference = await resolveReference({ ...payload, creatorId });
-  if (!reference.success) return reference;
-  if (!reference.partyIds.includes(Number(creatorId))) return { success: false, message: "Only a linked transaction party can raise this dispute." };
-  const dispute = { id: disputes.length + 1, reference: generateReference("DSP"), orderId: reference.orderId || null, contractId: reference.contractId || null, paymentId: Number(payload.paymentId || reference.paymentId || 0) || null, partyIds: reference.partyIds, raisedBy: Number(creatorId), issueDescription, status: "open", resolutionType: null, resolutionDetails: "", moderatorId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), resolvedAt: null, closedAt: null };
-  disputes.push(dispute);
-  logAudit("dispute_created", creatorId, { disputeId: dispute.id, orderId: dispute.orderId, contractId: dispute.contractId, outcome: "success" });
-  dispute.partyIds.filter((partyId) => partyId !== Number(creatorId)).forEach((partyId) => logNotification("dispute_raised", partyId, { disputeId: dispute.id, reference: dispute.reference }));
-  return { success: true, dispute: normalizeDispute(dispute), message: "Dispute created and the opposing party was notified." };
-}
+const disputeColumns = `id, dispute_reference AS reference, order_id AS "orderId", contract_id AS "contractId", payment_id AS "paymentId", raised_by AS "raisedBy", issue_description AS "issueDescription", status, moderator_id AS "moderatorId", resolution_type AS "resolutionType", resolution_details AS "resolutionDetails", created_at AS "createdAt", updated_at AS "updatedAt", resolved_at AS "resolvedAt", closed_at AS "closedAt"`;
+async function disputeParties(record) { if (record.orderId) { const order = await orderModel.getOrderById(record.orderId); return order ? [order.buyerId, order.sellerId] : []; } if (record.contractId) { const contract = await contractModel.getContractById(record.contractId, record.raisedBy); return contract && contract.partyIds ? contract.partyIds.map(Number) : []; } return []; }
+async function disputeRecord(id) { const result = await pool.query(`SELECT ${disputeColumns} FROM disputes WHERE id=$1`, [id]); if (!result.rows[0]) return null; const record = result.rows[0]; record.partyIds = await disputeParties(record); return normalizeDispute(record); }
+async function disputeAudit(client, disputeId, userId, eventType, details = {}) { const result = await client.query("INSERT INTO dispute_audit_logs (dispute_id,user_id,event_type,outcome,details) VALUES ($1,$2,$3,'success',$4) RETURNING id,event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\"", [disputeId, userId || null, eventType, details]); return result.rows[0]; }
+async function createDispute(creatorId, payload = {}) { const issue = String(payload.issueDescription || payload.reason || "").trim(); if (!creatorId || !issue) return { success: false, message: "A clear dispute description is required." }; const reference = await resolveReference({ ...payload, creatorId }); if (!reference.success) return reference; if (!reference.partyIds.includes(Number(creatorId))) return { success: false, message: "Only a linked transaction party can raise this dispute." }; const client = await pool.connect(); try { await client.query("BEGIN"); const result = await client.query(`INSERT INTO disputes (dispute_reference,order_id,contract_id,payment_id,raised_by,issue_description) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${disputeColumns}`, [generateReference("DSP"), reference.orderId || null, reference.contractId || null, Number(payload.paymentId || reference.paymentId || 0) || null, creatorId, issue]); const record = result.rows[0]; record.partyIds = reference.partyIds; await disputeAudit(client, record.id, creatorId, "dispute_created", { disputeId: record.id, orderId: record.orderId, contractId: record.contractId }); await client.query("COMMIT"); return { success: true, dispute: normalizeDispute(record), message: "Dispute created and the opposing party was notified." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function getDisputesForUser(userId, user = null) { const result = await pool.query(`SELECT ${disputeColumns} FROM disputes ${isModerator(user) ? "" : "WHERE raised_by=$1 OR order_id IN (SELECT id FROM orders WHERE buyer_id=$1 OR seller_id=$1)"} ORDER BY updated_at DESC`, isModerator(user) ? [] : [userId]); const records = []; for (const row of result.rows) { row.partyIds = await disputeParties(row); if (isModerator(user) || row.partyIds.includes(Number(userId))) records.push(normalizeDispute(row)); } return records; }
+async function getDisputeById(disputeId, userId, user = null) { const record = await disputeRecord(disputeId); return record && (isModerator(user) || record.partyIds.includes(Number(userId))) ? record : null; }
+async function changeDispute(user, disputeId, values, eventType, message, predicate = () => true) { if (!isModerator(user)) return { success: false, message: "Moderator access is required." }; const client = await pool.connect(); try { await client.query("BEGIN"); const found = await client.query(`SELECT ${disputeColumns} FROM disputes WHERE id=$1 FOR UPDATE`, [disputeId]); if (!found.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Moderator access is required." }; } if (!predicate(found.rows[0])) { await client.query("ROLLBACK"); return { success: false, message: "This dispute cannot be updated in its current state." }; } const set = Object.keys(values).map((key, i) => `${key}=$${i + 2}`).join(","); const result = await client.query(`UPDATE disputes SET ${set},updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING ${disputeColumns}`, [disputeId, ...Object.values(values)]); await disputeAudit(client, disputeId, user.id, eventType, { disputeId, status: result.rows[0].status }); await client.query("COMMIT"); const record = result.rows[0]; record.partyIds = await disputeParties(record); return { success: true, dispute: normalizeDispute(record), message }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function assignModerator(user, disputeId, moderatorId) { return changeDispute(user, disputeId, { moderator_id: Number(moderatorId || user.id), status: "under_review" }, "status_changed", "Dispute assigned for review."); }
+async function initiateMediation(user, disputeId) { return changeDispute(user, disputeId, { status: "in_mediation" }, "status_changed", "Dispute moved into mediation."); }
+async function escalateDispute(user, disputeId, reason = "") { return changeDispute(user, disputeId, { status: "escalated" }, "status_changed", "Dispute escalated for higher review.", (record) => !["resolved", "closed"].includes(record.status)); }
+async function closeDispute(user, disputeId) { return changeDispute(user, disputeId, { status: "closed", closed_at: new Date() }, "status_changed", "Dispute closed successfully.", (record) => record.status === "resolved"); }
+async function submitEvidence(userId, disputeId, payload = {}) { const dispute = await disputeRecord(disputeId); const type = String(payload.evidenceType || "document").toLowerCase(); if (!dispute || !dispute.partyIds.includes(Number(userId))) return { success: false, message: "Only a dispute party can submit evidence." }; if (!["open", "under_review", "in_mediation", "escalated"].includes(dispute.status)) return { success: false, message: "Evidence cannot be added after resolution." }; if (!evidenceTypes.includes(type) || (!payload.fileName && !payload.content)) return { success: false, message: "Provide supported evidence content." }; const client = await pool.connect(); try { await client.query("BEGIN"); const checksum = crypto.createHash("sha256").update(String(payload.storageName || payload.content || payload.fileName)).digest("hex"); const result = await client.query("INSERT INTO dispute_evidence (dispute_id,submitted_by,evidence_type,file_name,storage_name,checksum,content) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id,dispute_id AS \"disputeId\",submitted_by AS \"submittedBy\",evidence_type AS \"evidenceType\",file_name AS \"fileName\",checksum,content,created_at AS \"createdAt\"", [disputeId, userId, type, String(payload.fileName || ""), String(payload.storageName || ""), checksum, String(payload.content || "")]); await client.query("UPDATE disputes SET updated_at=CURRENT_TIMESTAMP WHERE id=$1", [disputeId]); await disputeAudit(client, disputeId, userId, "evidence_submitted", { disputeId, evidenceId: result.rows[0].id, evidenceType: type }); await client.query("COMMIT"); return { success: true, evidence: result.rows[0], message: "Evidence submitted securely." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function resolveDispute(user, disputeId, resolutionType, details = "") { const type = String(resolutionType || "").toLowerCase(); if (!resolutionTypes.includes(type)) return { success: false, message: "Select a supported resolution type." }; const dispute = await disputeRecord(disputeId); if (!dispute || !isModerator(user)) return { success: false, message: "Moderator access is required." }; const result = await changeDispute(user, disputeId, { resolution_type: type, resolution_details: String(details || ""), status: "resolved", resolved_at: new Date() }, "resolution_executed", "Dispute resolution recorded."); let refund = null; if (result.success && type === "refund" && result.dispute.paymentId) refund = await paymentModel.refundPayment(result.dispute.raisedBy, result.dispute.paymentId, `Dispute ${result.dispute.reference} resolved by refund.`); return { ...result, refund }; }
+async function getEvidence(disputeId, userId, user = null) { const dispute = await disputeRecord(disputeId); if (!dispute || (!isModerator(user) && !dispute.partyIds.includes(Number(userId)))) return []; const result = await pool.query("SELECT id,dispute_id AS \"disputeId\",submitted_by AS \"submittedBy\",evidence_type AS \"evidenceType\",file_name AS \"fileName\",checksum,content,created_at AS \"createdAt\" FROM dispute_evidence WHERE dispute_id=$1 ORDER BY created_at,id", [disputeId]); return result.rows; }
+async function getAuditLog() { const result = await pool.query("SELECT id,dispute_id AS \"disputeId\",user_id AS \"userId\",event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\" FROM dispute_audit_logs ORDER BY created_at,id"); return result.rows; }
+async function getNotificationLog() { return []; }
 
-// Return only cases where a party participates, with optional moderator access.
-async function getDisputesForUser(userId, user = null) { return disputes.filter((dispute) => isModerator(user) || dispute.partyIds.includes(Number(userId))).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).map(normalizeDispute); }
-
-// Enforce party or moderator access to a case.
-async function getDisputeById(disputeId, userId, user = null) { const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId)); return dispute && (isModerator(user) || dispute.partyIds.includes(Number(userId))) ? normalizeDispute(dispute) : null; }
-
-// Assign a moderator and move the case into structured review.
-async function assignModerator(moderatorUser, disputeId, moderatorId) {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  if (!dispute || !isModerator(moderatorUser)) return { success: false, message: "Moderator access is required." };
-  dispute.moderatorId = Number(moderatorId || moderatorUser.id);
-  dispute.status = "under_review";
-  dispute.updatedAt = new Date().toISOString();
-  logAudit("status_changed", moderatorUser.id, { disputeId: dispute.id, status: dispute.status, moderatorId: dispute.moderatorId });
-  dispute.partyIds.forEach((partyId) => logNotification("status_updated", partyId, { disputeId: dispute.id, status: dispute.status }));
-  return { success: true, dispute: normalizeDispute(dispute), message: "Dispute assigned for review." };
-}
-
-// Add secure evidence metadata supplied by the private upload adapter or a message export.
-async function submitEvidence(userId, disputeId, payload = {}) {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  const evidenceType = String(payload.evidenceType || "document").trim().toLowerCase();
-  if (!dispute || !dispute.partyIds.includes(Number(userId))) return { success: false, message: "Only a dispute party can submit evidence." };
-  if (!["open", "under_review", "in_mediation", "escalated"].includes(dispute.status)) return { success: false, message: "Evidence cannot be added after resolution." };
-  if (!evidenceTypes.includes(evidenceType) || !payload.fileName && !payload.content) return { success: false, message: "Provide supported evidence content." };
-  const record = { id: evidence.length + 1, reference: generateReference("EVD"), disputeId: dispute.id, submittedBy: Number(userId), evidenceType, fileName: String(payload.fileName || "").trim(), storageName: String(payload.storageName || "").trim(), content: String(payload.content || "").trim(), checksum: crypto.createHash("sha256").update(String(payload.storageName || payload.content || payload.fileName)).digest("hex"), createdAt: new Date().toISOString() };
-  evidence.push(record);
-  dispute.updatedAt = record.createdAt;
-  logAudit("evidence_submitted", userId, { disputeId: dispute.id, evidenceId: record.id, evidenceType });
-  dispute.partyIds.filter((partyId) => partyId !== Number(userId)).forEach((partyId) => logNotification("evidence_submitted", partyId, { disputeId: dispute.id, evidenceId: record.id }));
-  return { success: true, evidence: { ...record, storageName: undefined }, message: "Evidence submitted securely." };
-}
-
-// Start mediation and make the existing messaging dependency visible in the case state.
-async function initiateMediation(moderatorUser, disputeId) {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  if (!dispute || !isModerator(moderatorUser)) return { success: false, message: "Moderator access is required." };
-  dispute.status = "in_mediation";
-  dispute.updatedAt = new Date().toISOString();
-  logAudit("status_changed", moderatorUser.id, { disputeId: dispute.id, status: dispute.status, dependency: "messaging" });
-  dispute.partyIds.forEach((partyId) => logNotification("status_updated", partyId, { disputeId: dispute.id, status: dispute.status }));
-  return { success: true, dispute: normalizeDispute(dispute), message: "Dispute moved into mediation." };
-}
-
-// Resolve a case and execute a refund when a valid linked payment is available.
-async function resolveDispute(moderatorUser, disputeId, resolutionType, details = "") {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  const normalizedType = String(resolutionType || "").trim().toLowerCase();
-  if (!dispute || !isModerator(moderatorUser)) return { success: false, message: "Moderator access is required." };
-  if (!resolutionTypes.includes(normalizedType)) return { success: false, message: "Select a supported resolution type." };
-  dispute.resolutionType = normalizedType;
-  dispute.resolutionDetails = String(details || "").trim();
-  dispute.status = "resolved";
-  dispute.resolvedAt = new Date().toISOString();
-  dispute.updatedAt = dispute.resolvedAt;
-  let refund = null;
-  if (normalizedType === "refund" && dispute.paymentId) refund = await paymentModel.refundPayment(dispute.raisedBy, dispute.paymentId, `Dispute ${dispute.reference} resolved by refund.`);
-  logAudit("resolution_executed", moderatorUser.id, { disputeId: dispute.id, resolutionType: normalizedType, refundSuccess: refund ? refund.success : false });
-  dispute.partyIds.forEach((partyId) => logNotification("status_updated", partyId, { disputeId: dispute.id, status: dispute.status, resolutionType: normalizedType }));
-  return { success: true, dispute: normalizeDispute(dispute), refund, message: "Dispute resolution recorded." };
-}
-
-// Escalate an unresolved case to a higher authority.
-async function escalateDispute(moderatorUser, disputeId, reason = "") {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  if (!dispute || !isModerator(moderatorUser)) return { success: false, message: "Moderator access is required." };
-  if (["resolved", "closed"].includes(dispute.status)) return { success: false, message: "Resolved cases cannot be escalated." };
-  dispute.status = "escalated";
-  dispute.updatedAt = new Date().toISOString();
-  logAudit("status_changed", moderatorUser.id, { disputeId: dispute.id, status: dispute.status, reason: String(reason || "").trim() });
-  dispute.partyIds.forEach((partyId) => logNotification("status_updated", partyId, { disputeId: dispute.id, status: dispute.status }));
-  return { success: true, dispute: normalizeDispute(dispute), message: "Dispute escalated for higher review." };
-}
-
-// Close a resolved case without removing its history.
-async function closeDispute(moderatorUser, disputeId) {
-  const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId));
-  if (!dispute || !isModerator(moderatorUser)) return { success: false, message: "Moderator access is required." };
-  if (dispute.status !== "resolved") return { success: false, message: "Only resolved disputes can be closed." };
-  dispute.status = "closed";
-  dispute.closedAt = new Date().toISOString();
-  dispute.updatedAt = dispute.closedAt;
-  logAudit("status_changed", moderatorUser.id, { disputeId: dispute.id, status: dispute.status });
-  // Notify every participant when the resolved case is formally closed.
-  dispute.partyIds.forEach((partyId) => logNotification("status_updated", partyId, { disputeId: dispute.id, status: dispute.status }));
-  return { success: true, dispute: normalizeDispute(dispute), message: "Dispute closed successfully." };
-}
-
-// Return party-authorized evidence records without exposing private storage names.
-async function getEvidence(disputeId, userId, user = null) { const dispute = disputes.find((entry) => Number(entry.id) === Number(disputeId)); if (!dispute || (!isModerator(user) && !dispute.partyIds.includes(Number(userId)))) return []; return evidence.filter((entry) => Number(entry.disputeId) === Number(disputeId)).map((entry) => ({ ...entry, storageName: undefined })); }
-async function getAuditLog() { return [...auditEntries]; }
-async function getNotificationLog() { return [...notificationEntries]; }
-
-// Export the full Chapter 24 service surface.
-module.exports = { disputeStatuses, resolutionTypes, evidenceTypes, isModerator, createDispute, getDisputesForUser, getDisputeById, assignModerator, submitEvidence, initiateMediation, resolveDispute, escalateDispute, closeDispute, getEvidence, getAuditLog, getNotificationLog, disputes, evidence };
+module.exports = { disputeStatuses, resolutionTypes, evidenceTypes, isModerator, createDispute, getDisputesForUser, getDisputeById, assignModerator, submitEvidence, initiateMediation, resolveDispute, escalateDispute, closeDispute, getEvidence, getAuditLog, getNotificationLog };

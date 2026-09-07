@@ -218,7 +218,7 @@ async function exportAttendeeCsv(req, res, next) {
       return res.redirect(`/events/${eventId}?message=${encodeURIComponent("You do not have permission to export attendees.")}`);
     }
 
-    const csv = eventsModel.exportAttendeeCsv(eventId);
+    const csv = await eventsModel.exportAttendeeCsv(eventId);
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename="${event.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-attendees.csv"`);
     return res.send(csv);

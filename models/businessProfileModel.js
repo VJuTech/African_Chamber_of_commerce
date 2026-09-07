@@ -3,51 +3,15 @@ const path = require("path");
 const pool = require("../database/connection");
 const { validateEmail, validatePhone } = require("../utility/account-validation");
 
-const profileAuditLogPath = path.join(__dirname, "..", "logs", "business-profile-audit.log");
 const profileUploadDirectory = path.join(__dirname, "..", "public", "uploads", "businesses");
 fs.mkdirSync(profileUploadDirectory, { recursive: true });
-fs.mkdirSync(path.dirname(profileAuditLogPath), { recursive: true });
 
-const fallbackProfiles = [
-  {
-    id: 1,
-    businessId: 1,
-    businessName: "ACC Demo Holding",
-    businessType: "Limited Liability Company (LLC)",
-    industryCategory: "Trade Facilitation",
-    businessDescription: "ACC Demo Holding supports trade facilitation and cross-border commercial operations across African markets.",
-    emailAddress: "hello@accdemo.com",
-    phoneNumber: "+2348000001000",
-    website: "https://accdemo.com",
-    physicalAddress: "Plot 18, Lekki Phase 1, Lagos, Nigeria",
-    logoPath: "",
-    coverBanner: "",
-    visibility: "public",
-    verificationStatus: "verified",
-    yearEstablished: 2024,
-    numberOfEmployees: 32,
-    operatingHours: "Mon-Fri 8am-6pm",
-    serviceAreas: ["West Africa", "East Africa", "Regional Trade"],
-    socialLinks: {
-      facebook: "https://facebook.com/accdemo",
-      linkedIn: "https://linkedin.com/company/accdemo",
-      twitter: "https://x.com/accdemo",
-      instagram: "https://instagram.com/accdemo",
-    },
-    active: true,
-  },
-];
-
-function auditProfileEvent(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(profileAuditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function auditProfileEvent(eventType, { businessId, userId = null, outcome = "success", ...details } = {}) {
+  await pool.query(
+    `INSERT INTO business_profile_audit_logs (business_id, user_id, event_type, outcome, details)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [businessId, userId, eventType, outcome, JSON.stringify(details)]
+  );
 }
 
 function normalizeProfile(profile = {}) {
@@ -77,17 +41,12 @@ function normalizeProfile(profile = {}) {
 }
 
 async function getBusinessProfile(businessId) {
-  try {
-    const result = await pool.query("SELECT * FROM business_profiles WHERE business_id = $1 LIMIT 1", [businessId]);
-    if (result.rows.length > 0) {
-      return normalizeProfile(result.rows[0]);
-    }
-  } catch (error) {
-    // Fallback to local data when Postgres is not available.
+  const result = await pool.query("SELECT bp.*, ba.business_name AS account_business_name, ba.business_type AS account_business_type, ba.industry_category AS account_industry_category, ba.business_address AS account_business_address FROM business_profiles bp JOIN business_accounts ba ON ba.id = bp.business_id WHERE bp.business_id = $1 LIMIT 1", [businessId]);
+  if (result.rows.length > 0) {
+    return normalizeProfile(result.rows[0]);
   }
 
-  const fallbackProfile = fallbackProfiles.find((item) => Number(item.businessId) === Number(businessId));
-  return fallbackProfile ? normalizeProfile(fallbackProfile) : null;
+  return null;
 }
 
 async function updateBusinessProfile(businessId, userId, payload = {}) {
@@ -181,31 +140,10 @@ async function updateBusinessProfile(businessId, userId, payload = {}) {
     );
 
     const updated = normalizeProfile(result.rows[0]);
-    auditProfileEvent("profile_updated", { businessId, userId, outcome: "success" });
+    await auditProfileEvent("profile_updated", { businessId, userId });
     return { success: true, profile: updated, message: "Business profile updated successfully." };
   } catch (error) {
-    const fallbackProfile = fallbackProfiles.find((profile) => Number(profile.businessId) === Number(businessId));
-    const merged = fallbackProfile || fallbackProfiles[0];
-    const nextProfile = {
-      ...merged,
-      businessName: updates.businessName || merged.businessName,
-      businessType: updates.businessType || merged.businessType,
-      industryCategory: updates.industryCategory || merged.industryCategory,
-      businessDescription: updates.businessDescription || merged.businessDescription,
-      emailAddress: updates.emailAddress || merged.emailAddress,
-      phoneNumber: updates.phoneNumber || merged.phoneNumber,
-      website: updates.website || merged.website,
-      physicalAddress: updates.physicalAddress || merged.physicalAddress,
-      yearEstablished: updates.yearEstablished || merged.yearEstablished,
-      numberOfEmployees: updates.numberOfEmployees || merged.numberOfEmployees,
-      operatingHours: updates.operatingHours || merged.operatingHours,
-      serviceAreas: updates.serviceAreas || merged.serviceAreas,
-      socialLinks: updates.socialLinks || merged.socialLinks,
-      verificationStatus: "pending",
-    };
-
-    auditProfileEvent("profile_updated", { businessId, userId, outcome: "fallback" });
-    return { success: true, profile: normalizeProfile(nextProfile), message: "Business profile updated successfully in fallback mode." };
+    return { success: false, message: "Failed to persist business profile." };
   }
 }
 
@@ -226,12 +164,28 @@ async function uploadBusinessLogo(businessId, file) {
 
   const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const targetPath = path.join(profileUploadDirectory, fileName);
-  fs.writeFileSync(targetPath, file.buffer);
 
-  const publicUrl = `/uploads/businesses/${fileName}`;
-  auditProfileEvent("logo_upload", { businessId, outcome: "success", fileName });
+  try {
+    fs.writeFileSync(targetPath, file.buffer);
+    const publicUrl = `/uploads/businesses/${fileName}`;
+    const result = await pool.query(
+      `INSERT INTO business_profiles (business_id, business_name, business_type, industry_category, physical_address, logo_path, updated_at)
+       SELECT id, business_name, business_type, industry_category, business_address, $2, CURRENT_TIMESTAMP
+       FROM business_accounts WHERE id = $1
+       ON CONFLICT (business_id) DO UPDATE SET logo_path = EXCLUDED.logo_path, updated_at = CURRENT_TIMESTAMP
+       RETURNING logo_path`,
+      [businessId, publicUrl]
+    );
 
-  return { success: true, logoPath: publicUrl, message: "Business logo uploaded successfully." };
+    if (result.rows.length === 0) {
+      return { success: false, message: "Failed to persist business logo." };
+    }
+
+    await auditProfileEvent("logo_upload", { businessId, fileName });
+    return { success: true, logoPath: publicUrl, message: "Business logo uploaded successfully." };
+  } catch (error) {
+    return { success: false, message: "Failed to persist business logo." };
+  }
 }
 
 async function setBusinessVisibility(businessId, visibility) {
@@ -242,41 +196,31 @@ async function setBusinessVisibility(businessId, visibility) {
 
   try {
     const result = await pool.query(
-      `INSERT INTO business_profiles (business_id, visibility, updated_at)
-       VALUES ($1, $2, CURRENT_TIMESTAMP)
+      `INSERT INTO business_profiles (business_id, business_name, business_type, industry_category, physical_address, visibility, updated_at)
+       SELECT id, business_name, business_type, industry_category, business_address, $2, CURRENT_TIMESTAMP FROM business_accounts WHERE id = $1
        ON CONFLICT (business_id) DO UPDATE SET visibility = EXCLUDED.visibility, updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [businessId, visibility]
     );
 
-    auditProfileEvent("visibility_change", { businessId, visibility, outcome: "success" });
+    if (result.rows.length === 0) {
+      return { success: false, message: "Failed to update visibility." };
+    }
+
+    await auditProfileEvent("visibility_change", { businessId, visibility });
     return { success: true, profile: normalizeProfile(result.rows[0]), message: "Visibility updated successfully." };
   } catch (error) {
-    const profile = fallbackProfiles.find((item) => Number(item.businessId) === Number(businessId));
-    if (profile) {
-      profile.visibility = visibility;
-    }
-    auditProfileEvent("visibility_change", { businessId, visibility, outcome: "fallback" });
-    return { success: true, profile: normalizeProfile(profile || fallbackProfiles[0]), message: "Visibility updated successfully." };
+    return { success: false, message: "Failed to update visibility." };
   }
 }
 
 async function getBusinessProfileAuditLogs(businessId) {
-  try {
-    const result = await pool.query(
-      `SELECT * FROM business_profile_audit_logs WHERE business_id = $1 ORDER BY created_at DESC LIMIT 50`,
-      [businessId]
-    );
+  const result = await pool.query(
+    `SELECT * FROM business_profile_audit_logs WHERE business_id = $1 ORDER BY created_at DESC LIMIT 50`,
+    [businessId]
+  );
 
-    return result.rows;
-  } catch (error) {
-    const lines = fs.existsSync(profileAuditLogPath) ? fs.readFileSync(profileAuditLogPath, "utf8") : "";
-    return lines
-      .split("\n")
-      .filter(Boolean)
-      .slice(0, 50)
-      .map((line) => JSON.parse(line));
-  }
+  return result.rows;
 }
 
 module.exports = {

@@ -1,108 +1,17 @@
 /* ******************************************
  * eventsModel.js - Event lifecycle, registration, feedback, and audit support for ACC Chapter 15.
- * Stores event data in a lightweight in-memory fallback model while preserving audit logging.
+ * Stores event data in PostgreSQL while preserving the controller-facing event API.
  *******************************************/
-const fs = require("fs");
-const path = require("path");
 const notificationModel = require("./notificationModel");
 const pool = require("../database/connection");
 
-const auditLogPath = path.join(__dirname, "..", "logs", "events-audit.log");
-const notificationLogPath = path.join(__dirname, "..", "logs", "events-notifications.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(notificationLogPath), { recursive: true });
-
-const fallbackEvents = [
-  {
-    id: 1,
-    title: "Pan-African Business Summit",
-    description: "A flagship gathering of leaders, buyers, and innovators sharing investment opportunities across the continent.",
-    organizer: "African Chamber of Commerce",
-    eventType: "physical",
-    eventFormat: "physical",
-    startDate: "2026-09-05T09:00:00.000Z",
-    endDate: "2026-09-06T17:00:00.000Z",
-    location: "Johannesburg Convention Centre, South Africa",
-    visibility: "public",
-    status: "published",
-    capacity: 180,
-    ticketType: "paid",
-    price: 120,
-    createdBy: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: "Export Readiness Clinic",
-    description: "A practical webinar for SMEs preparing to sell across regional and international markets.",
-    organizer: "Growth Advisory Desk",
-    eventType: "virtual",
-    eventFormat: "virtual",
-    startDate: "2026-08-28T14:00:00.000Z",
-    endDate: "2026-08-28T16:00:00.000Z",
-    location: "https://zoom.us/acc-export-clinic",
-    visibility: "public",
-    status: "published",
-    capacity: 80,
-    ticketType: "free",
-    price: 0,
-    createdBy: 2,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-  },
-];
-
-const fallbackRegistrations = [
-  {
-    id: 1,
-    eventId: 1,
-    userId: 2,
-    name: "Nia Mensah",
-    email: "nia@example.com",
-    ticketType: "standard",
-    paymentStatus: "paid",
-    registeredAt: new Date().toISOString(),
-  },
-];
-
-const fallbackFeedback = [
-  {
-    id: 1,
-    eventId: 1,
-    userId: 2,
-    rating: 5,
-    comments: "Very productive and well organized.",
-    createdAt: new Date().toISOString(),
-  },
-];
-
-function logEventAudit(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function logEventAudit(eventType, details = {}) {
+  const result = await pool.query(`INSERT INTO event_audit_logs (event_id, user_id, event_type, outcome, details) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [details.eventId || null, details.userId || details.createdBy || null, eventType, details.outcome || "success", details]);
+  return result.rows[0];
 }
 
 function logEventNotification(type, payload = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    type,
-    timestamp: new Date().toISOString(),
-    payload,
-  };
-
-  fs.appendFileSync(notificationLogPath, `${JSON.stringify(entry)}\n`);
-  // Forward event activity to the shared Chapter 25 notification service.
-  notificationModel.generateFromEvent(type, payload);
-  return entry;
+  return notificationModel.generateFromEvent(type, payload);
 }
 
 function normalizeEvent(record = {}) {
@@ -130,8 +39,17 @@ function normalizeEvent(record = {}) {
   };
 }
 
-function getEventRegistrationCount(eventId) {
-  return fallbackRegistrations.filter((entry) => Number(entry.eventId) === Number(eventId)).length;
+function normalizeRegistration(record = {}) {
+  return {
+    id: Number(record.id),
+    eventId: Number(record.event_id || record.eventId),
+    userId: Number(record.user_id || record.userId),
+    name: record.registration_name || record.name || "",
+    email: record.email || "",
+    ticketType: record.ticket_type || record.ticketType || "standard",
+    paymentStatus: record.payment_status || record.paymentStatus || "pending",
+    registeredAt: record.registered_at || record.registeredAt || null,
+  };
 }
 
 async function createEvent(payload = {}) {
@@ -153,31 +71,7 @@ async function createEvent(payload = {}) {
     return { success: false, message: "Event title, description, and start date are required." };
   }
 
-  const record = {
-    id: fallbackEvents.length + 1,
-    title,
-    description,
-    organizer,
-    eventType,
-    eventFormat,
-    startDate,
-    endDate,
-    location: location || "TBD",
-    visibility,
-    status: "draft",
-    capacity,
-    ticketType,
-    price,
-    flyerPath,
-    createdBy: payload.createdBy || null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    publishedAt: null,
-    registrationCount: 0,
-  };
-
-  try {
-    const result = await pool.query(
+  const result = await pool.query(
       `INSERT INTO event_records (
         title, description, organizer, event_type, event_format, start_date, end_date,
         location, visibility, status, capacity, ticket_type, price, flyer_path, created_by,
@@ -187,66 +81,23 @@ async function createEvent(payload = {}) {
       [title, description, organizer, eventType, eventFormat, startDate, endDate, location || "TBD",
         visibility, capacity, ticketType, price, flyerPath, payload.createdBy || null]
     );
-    const createdEvent = normalizeEvent(result.rows[0]);
-    logEventAudit("event_created", { eventId: createdEvent.id, createdBy: payload.createdBy || null, eventType, outcome: "success" });
-    return { success: true, event: createdEvent, ...createdEvent, message: "Event created successfully." };
-  } catch (error) {
-    // Preserve the local event engine for development environments without PostgreSQL.
-  }
-
-  fallbackEvents.push(record);
-  logEventAudit("event_created", {
-    eventId: record.id,
-    createdBy: payload.createdBy || null,
-    eventType: record.eventType,
-    outcome: "success",
-  });
-
-  const createdEvent = normalizeEvent(record);
-  return {
-    success: true,
-    event: createdEvent,
-    ...createdEvent,
-    message: "Event created successfully.",
-  };
+  const createdEvent = normalizeEvent(result.rows[0]);
+  await logEventAudit("event_created", { eventId: createdEvent.id, createdBy: payload.createdBy || null, eventType, outcome: "success" });
+  return { success: true, event: createdEvent, ...createdEvent, message: "Event created successfully." };
 }
 
 async function publishEvent(eventId, userId = null) {
-  try {
-    const result = await pool.query(
+  const result = await pool.query(
       `UPDATE event_records SET status = 'published', published_at = CURRENT_TIMESTAMP,
        updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND ($2::integer IS NULL OR created_by = $2)
        RETURNING *`,
       [eventId, userId]
     );
-    if (result.rows.length > 0) {
-      const event = normalizeEvent(result.rows[0]);
-      logEventAudit("event_published", { eventId: event.id, userId, outcome: "success" });
-      logEventNotification("event_published", { eventId: event.id, title: event.title, organizer: event.organizer });
-      return { success: true, event, message: "Event published successfully." };
-    }
-  } catch (error) {
-    // Preserve the local event engine for development environments without PostgreSQL.
-  }
-
-  const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
-
-  if (!event) {
-    return { success: false, message: "Event not found." };
-  }
-
-  if (event.status === "published") {
-    return { success: true, event: normalizeEvent(event), message: "Event is already published." };
-  }
-
-  event.status = "published";
-  event.publishedAt = new Date().toISOString();
-  event.updatedAt = new Date().toISOString();
-
-  logEventAudit("event_published", { eventId: event.id, userId, outcome: "success" });
+  if (!result.rows.length) return { success: false, message: "Event not found." };
+  const event = normalizeEvent(result.rows[0]);
+  await logEventAudit("event_published", { eventId: event.id, userId, outcome: "success" });
   logEventNotification("event_published", { eventId: event.id, title: event.title, organizer: event.organizer });
-
-  return { success: true, event: normalizeEvent(event), message: "Event published successfully." };
+  return { success: true, event, message: "Event published successfully." };
 }
 
 async function getEvents(filters = {}) {
@@ -283,119 +134,39 @@ async function getEvents(filters = {}) {
        GROUP BY e.id ORDER BY e.start_date ASC LIMIT $${values.length - 1} OFFSET $${values.length}`,
       values
     );
-    if (total > 0) {
-      return { events: result.rows.map(normalizeEvent), total, page: safePage, limit, totalPages };
-    }
+    return { events: result.rows.map(normalizeEvent), total, page: safePage, limit, totalPages };
   } catch (error) {
-    // Preserve the local event engine for development environments without PostgreSQL.
+    throw error;
   }
-
-  let records = fallbackEvents.filter((entry) => entry.status === "published");
-
-  if (visibility && visibility !== "all") {
-    records = records.filter((entry) => (entry.visibility || "public").toLowerCase() === visibility);
-  }
-
-  if (eventType && eventType !== "all") {
-    records = records.filter((entry) => (entry.eventType || "physical").toLowerCase() === eventType);
-  }
-
-  if (keyword) {
-    records = records.filter((entry) => {
-      const haystack = `${entry.title} ${entry.description} ${entry.organizer} ${entry.location}`.toLowerCase();
-      return haystack.includes(keyword);
-    });
-  }
-
-  records = records.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-
-  const total = records.length;
-  const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
-  const safePage = Math.min(Math.max(page, 1), totalPages);
-  const startIndex = (safePage - 1) * limit;
-  const paginated = records.slice(startIndex, startIndex + limit).map((record) => {
-    const normalized = normalizeEvent(record);
-    normalized.registrationCount = getEventRegistrationCount(record.id);
-    return normalized;
-  });
-
-  return {
-    events: paginated,
-    total,
-    page: safePage,
-    limit,
-    totalPages,
-  };
 }
 
 async function getEventById(eventId) {
-  try {
-    const result = await pool.query(
+  const result = await pool.query(
       `SELECT e.*, COUNT(r.id)::int AS registration_count FROM event_records e
        LEFT JOIN event_registrations r ON r.event_id = e.id
        WHERE e.id = $1 GROUP BY e.id LIMIT 1`,
       [eventId]
     );
-    if (result.rows.length > 0) return normalizeEvent(result.rows[0]);
-  } catch (error) {
-    // Preserve the local event engine for development environments without PostgreSQL.
-  }
-
-  const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
-  if (!event) return null;
-
-  const normalized = normalizeEvent(event);
-  normalized.registrationCount = getEventRegistrationCount(event.id);
-  return normalized;
+  return result.rows.length ? normalizeEvent(result.rows[0]) : null;
 }
 
 async function registerForEvent(userId, eventId, payload = {}) {
   if (!userId || !eventId) {
     return { success: false, message: "User and event are required for registration." };
   }
-
-  const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
-  if (!event) {
-    return { success: false, message: "The event you selected could not be found." };
-  }
-
-  if (event.status !== "published") {
-    return { success: false, message: "This event is not open for registration yet." };
-  }
-
-  const duplicate = fallbackRegistrations.find(
-    (item) => Number(item.eventId) === Number(eventId) && Number(item.userId) === Number(userId)
+  const eventResult = await pool.query(`SELECT * FROM event_records WHERE id = $1 LIMIT 1`, [eventId]);
+  if (!eventResult.rows.length) return { success: false, message: "The event you selected could not be found." };
+  const event = normalizeEvent(eventResult.rows[0]);
+  if (event.status !== "published") return { success: false, message: "This event is not open for registration yet." };
+  const attendeeCountResult = await pool.query(`SELECT COUNT(*)::int AS total FROM event_registrations WHERE event_id = $1`, [eventId]);
+  if (event.capacity > 0 && attendeeCountResult.rows[0].total >= event.capacity) return { success: false, message: "This event is full and registration is closed." };
+  const registrationResult = await pool.query(
+    `INSERT INTO event_registrations (event_id, user_id, registration_name, email, ticket_type, payment_status)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [eventId, userId, String(payload.name || "").trim() || `User ${userId}`, String(payload.email || "").trim() || `${userId}@acc.local`, String(payload.ticketType || event.ticketType || "standard").trim().toLowerCase(), event.ticketType === "paid" || Number(event.price) > 0 ? "payment_required" : "not_required"]
   );
-
-  if (duplicate) {
-    return { success: false, message: "You are already registered for this event." };
-  }
-
-  const attendeeCount = fallbackRegistrations.filter((item) => Number(item.eventId) === Number(eventId)).length;
-  const capacity = Number(event.capacity || 0);
-
-  if (capacity > 0 && attendeeCount >= capacity) {
-    return { success: false, message: "This event is full and registration is closed." };
-  }
-
-  const registration = {
-    id: fallbackRegistrations.length + 1,
-    eventId: Number(eventId),
-    userId: Number(userId),
-    name: String(payload.name || "").trim() || `User ${userId}`,
-    email: String(payload.email || "").trim() || `${userId}@acc.local`,
-    ticketType: String(payload.ticketType || event.ticketType || "standard").trim().toLowerCase(),
-    paymentStatus: event.ticketType === "paid" || Number(event.price) > 0 ? "payment_required" : "not_required",
-    registeredAt: new Date().toISOString(),
-  };
-
-  fallbackRegistrations.push(registration);
-  logEventAudit("event_registration", {
-    eventId: registration.eventId,
-    userId: registration.userId,
-    ticketType: registration.ticketType,
-    outcome: "success",
-  });
+  const registration = normalizeRegistration(registrationResult.rows[0]);
+  await logEventAudit("event_registration", { eventId: registration.eventId, userId: registration.userId, ticketType: registration.ticketType, outcome: "success" });
   logEventNotification("event_registration", {
     eventId: registration.eventId,
     userId: registration.userId,
@@ -414,97 +185,40 @@ async function registerForEvent(userId, eventId, payload = {}) {
 }
 
 async function getAttendees(eventId) {
-  return fallbackRegistrations
-    .filter((entry) => Number(entry.eventId) === Number(eventId))
-    .map((entry) => ({
-      id: entry.id,
-      userId: entry.userId,
-      name: entry.name,
-      email: entry.email,
-      ticketType: entry.ticketType,
-      paymentStatus: entry.paymentStatus,
-      registeredAt: entry.registeredAt,
-    }));
+  const result = await pool.query(`SELECT id, user_id, registration_name, email, ticket_type, payment_status, registered_at FROM event_registrations WHERE event_id = $1 ORDER BY registered_at ASC`, [eventId]);
+  return result.rows.map(normalizeRegistration);
 }
 
 async function submitEventFeedback(userId, eventId, payload = {}) {
-  const event = fallbackEvents.find((item) => Number(item.id) === Number(eventId));
-
-  if (!event) {
-    return { success: false, message: "Event not found." };
-  }
-
-  const hasRegistration = fallbackRegistrations.some(
-    (entry) => Number(entry.eventId) === Number(eventId) && Number(entry.userId) === Number(userId)
-  );
-
-  if (!hasRegistration) {
-    return { success: false, message: "You must register for the event before submitting feedback." };
-  }
-
+  const eventResult = await pool.query(`SELECT id FROM event_records WHERE id = $1`, [eventId]);
+  if (!eventResult.rows.length) return { success: false, message: "Event not found." };
+  const registration = await pool.query(`SELECT 1 FROM event_registrations WHERE event_id = $1 AND user_id = $2`, [eventId, userId]);
+  if (!registration.rows.length) return { success: false, message: "You must register for the event before submitting feedback." };
   const rating = Number(payload.rating || 0);
   const comments = String(payload.comments || "").trim();
-
-  if (!rating || rating < 1 || rating > 5) {
-    return { success: false, message: "A rating between 1 and 5 is required." };
-  }
-
-  const record = {
-    id: fallbackFeedback.length + 1,
-    eventId: Number(eventId),
-    userId: Number(userId),
-    rating,
-    comments,
-    createdAt: new Date().toISOString(),
-  };
-
-  fallbackFeedback.push(record);
-  logEventAudit("event_feedback_submitted", { eventId: record.eventId, userId: record.userId, rating, outcome: "success" });
-
+  if (!rating || rating < 1 || rating > 5) return { success: false, message: "A rating between 1 and 5 is required." };
+  const result = await pool.query(`INSERT INTO event_feedback (event_id, user_id, rating, comments) VALUES ($1, $2, $3, $4) RETURNING *`, [eventId, userId, rating, comments]);
+  const record = { id: result.rows[0].id, eventId: Number(result.rows[0].event_id), userId: Number(result.rows[0].user_id), rating: result.rows[0].rating, comments: result.rows[0].comments || "", createdAt: result.rows[0].created_at };
+  await logEventAudit("event_feedback_submitted", { eventId: record.eventId, userId: record.userId, rating, outcome: "success" });
   return { success: true, feedback: record, message: "Feedback submitted successfully." };
 }
 
 async function getEventFeedback(eventId) {
-  return fallbackFeedback
-    .filter((entry) => Number(entry.eventId) === Number(eventId))
-    .map((entry) => ({
-      id: entry.id,
-      userId: entry.userId,
-      rating: entry.rating,
-      comments: entry.comments,
-      createdAt: entry.createdAt,
-    }));
+  const result = await pool.query(`SELECT id, user_id, rating, comments, created_at FROM event_feedback WHERE event_id = $1 ORDER BY created_at DESC`, [eventId]);
+  return result.rows.map((row) => ({ id: row.id, userId: Number(row.user_id), rating: row.rating, comments: row.comments || "", createdAt: row.created_at }));
 }
 
 async function getEventAuditLog(eventId, limit = 20) {
-  const lines = fs.existsSync(auditLogPath)
-    ? fs.readFileSync(auditLogPath, "utf8").trim().split(/\n+/).filter(Boolean)
-    : [];
-
-  const entries = lines
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        return null;
-      }
-    })
-    .filter(Boolean)
-    .filter((entry) => {
-      const eventDetails = entry.details || {};
-      return Number(eventDetails.eventId || 0) === Number(eventId);
-    })
-    .slice(-limit);
-
-  return entries;
+  const result = await pool.query(`SELECT * FROM event_audit_logs WHERE event_id = $1 ORDER BY created_at DESC LIMIT $2`, [eventId, limit]);
+  return result.rows;
 }
 
 function escapeCsv(value) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
-function exportAttendeeCsv(eventId) {
-  const attendees = getAttendees(eventId);
+async function exportAttendeeCsv(eventId) {
+  const attendees = await getAttendees(eventId);
   const rows = [
     ["userId", "name", "email", "ticketType", "paymentStatus", "registeredAt"],
     ...attendees.map((entry) => [
@@ -525,14 +239,8 @@ function exportAttendeeCsv(eventId) {
 }
 
 async function getOrganizerEvents(createdBy) {
-  return fallbackEvents
-    .filter((entry) => Number(entry.createdBy) === Number(createdBy))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .map((record) => {
-      const normalized = normalizeEvent(record);
-      normalized.registrationCount = getEventRegistrationCount(record.id);
-      return normalized;
-    });
+  const result = await pool.query(`SELECT e.*, COUNT(r.id)::int AS registration_count FROM event_records e LEFT JOIN event_registrations r ON r.event_id = e.id WHERE e.created_by = $1 GROUP BY e.id ORDER BY e.created_at DESC`, [createdBy]);
+  return result.rows.map(normalizeEvent);
 }
 
 module.exports = {

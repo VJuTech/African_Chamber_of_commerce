@@ -1,6 +1,4 @@
-const bcrypt = require("bcryptjs");
-const fs = require("fs");
-const path = require("path");
+﻿const bcrypt = require("bcryptjs");
 const pool = require("../database/connection");
 const { validatePassword } = require("../utility/account-validation");
 const {
@@ -9,72 +7,27 @@ const {
   generateVerificationCode,
 } = require("../utility/emailService");
 
-const auditEntries = [];
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 10 * 60 * 1000;
-const auditLogPath = path.join(__dirname, "..", "logs", "auth-audit.log");
 
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
+async function logEvent(eventType, details = {}) {
+  if (!pool) {
+    console.error("Database not available for logging event:", eventType);
+    return null;
+  }
 
-// Use the shared PostgreSQL pool from database/connection.js.
-let dbAvailable = Boolean(process.env.DATABASE_URL || process.env.PGHOST);
-
-function fileLogEvent(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${auditEntries.length + 1}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  auditEntries.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-async function dbLogEvent(eventType, details = {}) {
-  if (!pool || !dbAvailable) return fileLogEvent(eventType, details);
   const { userId, outcome } = details || {};
   const text = `INSERT INTO audit_logs(event_type, user_id, outcome, details) VALUES($1,$2,$3,$4) RETURNING *`;
   const vals = [eventType, userId || null, outcome || null, details];
+
   try {
     const res = await pool.query(text, vals);
     return res.rows[0];
   } catch (err) {
-    return fileLogEvent(eventType, details);
+    console.error("Failed to log audit event:", err && err.message ? err.message : err);
+    return null;
   }
 }
-
-async function logEvent(eventType, details = {}) {
-  return pool && dbAvailable ? dbLogEvent(eventType, details) : fileLogEvent(eventType, details);
-}
-
-// In-memory fallback storage for environments without a DB configured.
-const users = [];
-function seedDemoUser() {
-  if (users.some((user) => user.email === "admin@acc.com")) return;
-  const adminPasswordHash = bcrypt.hashSync("Admin123!", 10);
-  users.push({
-    id: 1,
-    firstName: "System",
-    lastName: "Admin",
-    name: "System Admin",
-    email: "admin@acc.com",
-    phone: "2348000000000",
-    country: "Nigeria",
-    passwordHash: adminPasswordHash,
-    role: "admin",
-    status: "active",
-    failedAttempts: 0,
-    lastLoginAt: null,
-    lockedUntil: null,
-    emailVerified: true,
-    phoneVerified: true,
-    registrationState: "active",
-  });
-}
-
-seedDemoUser();
 
 function normalizePhone(value) {
   return String(value || "").replace(/\s+/g, "").trim();
@@ -85,7 +38,7 @@ function buildFullName(firstName, lastName, middleName) {
   return parts.join(" ") || "Member";
 }
 
-async function createUser(userData) {
+async function createUser(userData = {}) {
   const firstName = String(userData.firstName || userData.first_name || userData.name || "").trim();
   const lastName = String(userData.lastName || userData.last_name || "").trim();
   const middleName = String(userData.middleName || userData.middle_name || "").trim();
@@ -117,79 +70,16 @@ async function createUser(userData) {
     return { success: false, message: "You must accept the Privacy Policy." };
   }
 
-  if (!pool || !dbAvailable) {
-    const existingUser = users.find(
-      (user) => user.email.toLowerCase() === email || (phone && user.phone === phone)
-    );
-    if (existingUser) {
-      await logEvent("duplicate_registration_attempt", {
-        email,
-        phone,
-        outcome: "duplicate_identity",
-      });
-      return { success: false, message: "A user with that email or mobile number already exists." };
-    }
-
-    const passwordHash = bcrypt.hashSync(password, 10);
-    const name = buildFullName(firstName, lastName, middleName);
-    const newUser = {
-      id: users.length + 1,
-      firstName,
-      lastName,
-      middleName: middleName || null,
-      name,
-      email,
-      phone,
-      country,
-      preferredLanguage: preferredLanguage || null,
-      referralCode: referralCode || null,
-      organizationName: organizationName || null,
-      passwordHash,
-      role: userData.role || "member",
-      status: "pending_verification",
-      registrationState: "pending_verification",
-      emailVerified: false,
-      phoneVerified: false,
-      consentTerms: true,
-      consentPrivacy: true,
-      termsVersion: userData.termsVersion || "v1",
-      privacyVersion: userData.privacyVersion || "v1",
-      failedAttempts: 0,
-      lastLoginAt: null,
-      lockedUntil: null,
-    };
-    const verificationCode = generateVerificationCode();
-    const verificationDelivery = await Promise.all([
-      sendAccountVerificationEmail({
-        to: email,
-        firstName,
-        verificationCode,
-        phone,
-      }),
-      sendAccountVerificationSms({
-        to: phone,
-        firstName,
-        verificationCode,
-      }),
-    ]);
-    users.push({ ...newUser, verificationCode, verificationDelivery });
-    await logEvent("registration_started", { userId: newUser.id, outcome: "submitted" });
-    await logEvent("registration_completed", { userId: newUser.id, outcome: "pending_verification" });
-    await logEvent("consent_recorded", { userId: newUser.id, outcome: "success" });
-    return {
-      success: true,
-      user: { ...newUser, passwordHash: undefined },
-      verification: verificationDelivery,
-    };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
 
   let client;
   try {
     client = await pool.connect();
   } catch (connErr) {
-    console.error("Postgres connection failed, falling back to in-memory users:", connErr && connErr.message ? connErr.message : connErr);
-    dbAvailable = false;
-    return createUser(userData);
+    console.error("Postgres connection failed during registration:", connErr && connErr.message ? connErr.message : connErr);
+    return { success: false, message: "Database connection failed. Please try again later." };
   }
 
   try {
@@ -253,6 +143,11 @@ async function createUser(userData) {
     const insertRes = await client.query(insertText, vals);
     const created = insertRes.rows[0];
     const verificationCode = generateVerificationCode();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+    await client.query(
+      `INSERT INTO account_verification_codes(user_id, code, expires_at) VALUES($1, $2, $3)`,
+      [created.id, verificationCode, expiresAt]
+    );
     const verificationDelivery = await Promise.all([
       sendAccountVerificationEmail({
         to: created.email,
@@ -294,63 +189,15 @@ async function createUser(userData) {
 
 async function authenticateUser(identifier, password) {
   const normalizedIdentifier = String(identifier).trim().toLowerCase();
-  if (!pool || !dbAvailable) {
-    const user = users.find(
-      (candidate) => candidate.email.toLowerCase() === normalizedIdentifier || candidate.phone === normalizedIdentifier
-    );
-    if (!user) {
-      await logEvent("login_failure", { identifier: normalizedIdentifier, outcome: "invalid_user" });
-      return { success: false, message: "Invalid credentials." };
-    }
-
-    if (user.status === "locked" && user.lockedUntil && Date.now() < user.lockedUntil) {
-      await logEvent("login_failure", { userId: user.id, outcome: "account_locked" });
-      return { success: false, message: "Account temporarily locked due to repeated failed attempts." };
-    }
-
-    if (user.status === "locked" && user.lockedUntil && Date.now() >= user.lockedUntil) {
-      user.status = "active";
-      user.lockedUntil = null;
-      user.failedAttempts = 0;
-    }
-
-    if (user.status === "pending_verification") {
-      await logEvent("login_failure", { userId: user.id, outcome: "pending_verification" });
-      return { success: false, message: "Account is pending verification. Please verify your email or mobile number to activate it." };
-    }
-
-    if (user.status !== "active") {
-      await logEvent("login_failure", { userId: user.id, outcome: user.status });
-      return { success: false, message: `Account is currently ${user.status}.` };
-    }
-
-    const isValidPassword = bcrypt.compareSync(password, user.passwordHash);
-    if (!isValidPassword) {
-      user.failedAttempts = (user.failedAttempts || 0) + 1;
-      if (user.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-        user.status = "locked";
-        user.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
-        await logEvent("account_lockout", { userId: user.id, outcome: "locked" });
-        return { success: false, message: "Account temporarily locked after repeated failed attempts." };
-      }
-      await logEvent("login_failure", { userId: user.id, outcome: "invalid_password", failedAttempts: user.failedAttempts });
-      return { success: false, message: "Invalid credentials." };
-    }
-
-    user.failedAttempts = 0;
-    user.lastLoginAt = new Date().toISOString();
-    user.lockedUntil = null;
-    await logEvent("login_success", { userId: user.id, outcome: "success" });
-    return { success: true, user };
+  if (!pool) {
+    return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
   }
-
   let client;
   try {
     client = await pool.connect();
   } catch (connErr) {
-    console.error("Postgres connection failed during auth, falling back to in-memory:", connErr && connErr.message ? connErr.message : connErr);
-    dbAvailable = false;
-    return authenticateUser(identifier, password);
+    console.error("Postgres connection failed during authentication:", connErr && connErr.message ? connErr.message : connErr);
+    return { success: false, message: "Database connection failed. Please try again later." };
   }
   try {
     const text = `SELECT * FROM users WHERE lower(email)=lower($1) OR phone=$2 LIMIT 1`;
@@ -417,7 +264,7 @@ async function authenticateUser(identifier, password) {
 }
 
 function getAuditEntries() {
-  return auditEntries;
+  return [];
 }
 
 module.exports = {

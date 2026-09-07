@@ -1,107 +1,39 @@
 /* ******************************************
  * trustModel.js - Reviews, ratings, moderation, trust scoring, and audit logging for ACC Chapter 16.
- * Provides a lightweight in-memory trust engine for business credibility, review validation, and moderation.
+ * Uses PostgreSQL for business credibility, review validation, moderation, and audit records.
  *******************************************/
-const fs = require("fs");
-const path = require("path");
+const pool = require("../database/connection");
 
-const auditLogPath = path.join(__dirname, "..", "logs", "trust-audit.log");
-const reportLogPath = path.join(__dirname, "..", "logs", "trust-reports.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(reportLogPath), { recursive: true });
-
-const fallbackBusinesses = [
-  { id: 1, name: "Nairobi Trade Hub", verificationStatus: "verified", ratingScore: 4.6, reviewCount: 14 },
-  { id: 2, name: "Apex Foods Ltd", verificationStatus: "pending", ratingScore: 3.8, reviewCount: 7 },
-  { id: 3, name: "West Africa Logistics", verificationStatus: "verified", ratingScore: 4.7, reviewCount: 9 },
-  { id: 4, name: "Cairo Supply Works", verificationStatus: "verified", ratingScore: 4.1, reviewCount: 12 },
-];
-
-const fallbackReviews = [
-  {
-    id: 1,
-    businessId: 3,
-    userId: 2,
-    rating: 5,
-    title: "Reliable and efficient",
-    comments: "The team delivered as promised and completed the project without delays.",
-    categories: { quality: 5, delivery: 5, communication: 5 },
-    status: "approved",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    response: "",
-    responseBy: null,
-    responseAt: null,
-    flagged: false,
-    flagReason: "",
-    moderationNote: "",
-  },
-  {
-    id: 2,
-    businessId: 1,
-    userId: 3,
-    rating: 4,
-    title: "Good value",
-    comments: "Professional service and good follow-up communication.",
-    categories: { quality: 4, delivery: 4, communication: 4 },
-    status: "approved",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    response: "",
-    responseBy: null,
-    responseAt: null,
-    flagged: false,
-    flagReason: "",
-    moderationNote: "",
-  },
-];
-
-const fallbackReports = [];
-
-function logTrustAudit(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function logTrustAudit(eventType, details = {}) {
+  const result = await pool.query(`INSERT INTO trust_audit_logs (business_id, user_id, event_type, outcome, details) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [details.businessId || null, details.userId || details.adminUserId || details.businessUserId || null, eventType, details.outcome || "success", details]);
+  return result.rows[0];
 }
 
 function normalizeReview(record = {}) {
   return {
     id: Number(record.id),
-    businessId: Number(record.businessId),
-    userId: Number(record.userId),
+    businessId: Number(record.business_id || record.businessId),
+    userId: Number(record.user_id || record.userId),
     rating: Number(record.rating || 0),
     title: record.title || "",
     comments: record.comments || "",
     categories: record.categories || {},
     status: record.status || "pending",
-    createdAt: record.createdAt || new Date().toISOString(),
-    updatedAt: record.updatedAt || record.createdAt || new Date().toISOString(),
+    createdAt: record.created_at || record.createdAt || null,
+    updatedAt: record.updated_at || record.updatedAt || null,
     response: record.response || "",
-    responseBy: record.responseBy || null,
-    responseAt: record.responseAt || null,
+    responseBy: record.response_by || record.responseBy || null,
+    responseAt: record.response_at || record.responseAt || null,
     flagged: Boolean(record.flagged),
-    flagReason: record.flagReason || "",
-    moderationNote: record.moderationNote || "",
+    flagReason: record.flag_reason || record.flagReason || "",
+    moderationNote: record.moderation_note || record.moderationNote || "",
   };
 }
 
-function calculateTrustScore(businessId) {
-  const summaries = getBusinessReviews(businessId);
-  const reviews = summaries.reviews || [];
-  const business = fallbackBusinesses.find((item) => Number(item.id) === Number(businessId)) || { verificationStatus: "unverified", ratingScore: 0, reviewCount: 0 };
-
-  const avgRating = reviews.length
-    ? reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviews.length
-    : Number(business.ratingScore || 0);
-
+function calculateTrustScore(reviews, verificationStatus = "unverified") {
+  const avgRating = reviews.length ? reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviews.length : 0;
   const reviewVolume = reviews.length;
-  const verificationBonus = business.verificationStatus === "verified" ? 20 : 0;
+  const verificationBonus = verificationStatus === "verified" ? 20 : 0;
   const complaintResolution = 75;
   const baseScore = (avgRating / 5) * 65 + (Math.min(reviewVolume, 25) / 25) * 15 + (complaintResolution / 100) * 20 + verificationBonus / 100 * 20;
 
@@ -125,42 +57,10 @@ async function submitReview(userId, businessId, payload = {}) {
     return { success: false, message: "Please provide a title or review comment." };
   }
 
-  const duplicate = fallbackReviews.find(
-    (entry) => Number(entry.businessId) === Number(businessId) && Number(entry.userId) === Number(userId) && entry.status !== "removed"
-  );
-
-  if (duplicate) {
-    return { success: false, message: "You have already submitted a review for this business." };
-  }
-
-  const review = {
-    id: fallbackReviews.length + 1,
-    businessId: Number(businessId),
-    userId: Number(userId),
-    rating,
-    title,
-    comments,
-    categories: payload.categories || {},
-    status: "approved",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    response: "",
-    responseBy: null,
-    responseAt: null,
-    flagged: false,
-    flagReason: "",
-    moderationNote: "",
-  };
-
-  fallbackReviews.push(review);
-  logTrustAudit("review_submitted", {
-    businessId: review.businessId,
-    userId: review.userId,
-    rating: review.rating,
-    outcome: "success",
-  });
-
-  return { success: true, review: normalizeReview(review), message: "Review submitted successfully." };
+  const result = await pool.query(`INSERT INTO business_reviews (business_id, user_id, rating, title, comments, categories) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`, [businessId, userId, rating, title, comments, payload.categories || {}]);
+  const review = normalizeReview(result.rows[0]);
+  await logTrustAudit("review_submitted", { businessId: review.businessId, userId: review.userId, rating: review.rating, outcome: "success" });
+  return { success: true, review, message: "Review submitted successfully." };
 }
 
 async function rateBusiness(userId, businessId, rating) {
@@ -168,9 +68,8 @@ async function rateBusiness(userId, businessId, rating) {
 }
 
 async function getBusinessReviews(businessId) {
-  const reviews = fallbackReviews
-    .filter((entry) => Number(entry.businessId) === Number(businessId) && entry.status !== "removed")
-    .map((entry) => normalizeReview(entry));
+  const result = await pool.query(`SELECT * FROM business_reviews WHERE business_id = $1 AND status <> 'removed' ORDER BY created_at DESC`, [businessId]);
+  const reviews = result.rows.map(normalizeReview);
 
   const averageRating = reviews.length
     ? reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviews.length
@@ -186,166 +85,73 @@ async function getBusinessReviews(businessId) {
 
 async function getBusinessTrustSummary(businessId) {
   const reviewsData = await getBusinessReviews(businessId);
-  const business = fallbackBusinesses.find((item) => Number(item.id) === Number(businessId)) || { verificationStatus: "unverified", ratingScore: 0 };
-  const trustScore = calculateTrustScore(businessId);
+  const businessResult = await pool.query(`SELECT business_name, verification_status FROM business_accounts WHERE id = $1`, [businessId]);
+  const business = businessResult.rows[0] || {};
+  const trustScore = calculateTrustScore(reviewsData.reviews, business.verification_status || "unverified");
 
   return {
     businessId: Number(businessId),
-    businessName: business.name || `Business ${businessId}`,
-    verificationStatus: business.verificationStatus || "unverified",
+    businessName: business.business_name || `Business ${businessId}`,
+    verificationStatus: business.verification_status || "unverified",
     averageRating: reviewsData.averageRating,
     totalReviews: reviewsData.totalReviews,
     trustScore,
     responseRate: 92,
     complaintResolutionRate: 88,
-    verifiedBadge: business.verificationStatus === "verified",
+    verifiedBadge: business.verification_status === "verified",
   };
 }
 
 async function editReview(userId, reviewId, payload = {}) {
-  const review = fallbackReviews.find((entry) => Number(entry.id) === Number(reviewId) && Number(entry.userId) === Number(userId));
-
-  if (!review) {
-    return { success: false, message: "Review not found or you do not own it." };
-  }
-
-  review.title = String(payload.title || review.title || "").trim();
-  review.comments = String(payload.comments || review.comments || "").trim();
-  review.rating = Number(payload.rating || review.rating || 0);
-  review.categories = payload.categories || review.categories || {};
-  review.updatedAt = new Date().toISOString();
-
-  logTrustAudit("review_edited", { reviewId: review.id, userId, outcome: "success" });
-
-  return { success: true, review: normalizeReview(review), message: "Review updated successfully." };
+  const result = await pool.query(`UPDATE business_reviews SET title = COALESCE($1, title), comments = COALESCE($2, comments), rating = COALESCE($3, rating), categories = COALESCE($4, categories), updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND user_id = $6 RETURNING *`, [payload.title === undefined ? null : String(payload.title).trim(), payload.comments === undefined ? null : String(payload.comments).trim(), payload.rating === undefined ? null : Number(payload.rating), payload.categories || null, reviewId, userId]);
+  if (!result.rows.length) return { success: false, message: "Review not found or you do not own it." };
+  const review = normalizeReview(result.rows[0]);
+  await logTrustAudit("review_edited", { reviewId: review.id, userId, businessId: review.businessId, outcome: "success" });
+  return { success: true, review, message: "Review updated successfully." };
 }
 
 async function deleteReview(userId, reviewId) {
-  const review = fallbackReviews.find((entry) => Number(entry.id) === Number(reviewId) && Number(entry.userId) === Number(userId));
-
-  if (!review) {
-    return { success: false, message: "Review not found or you do not own it." };
-  }
-
-  review.status = "removed";
-  review.updatedAt = new Date().toISOString();
-  logTrustAudit("review_deleted", { reviewId: review.id, userId, outcome: "success" });
-
+  const result = await pool.query(`UPDATE business_reviews SET status = 'removed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING business_id`, [reviewId, userId]);
+  if (!result.rows.length) return { success: false, message: "Review not found or you do not own it." };
+  await logTrustAudit("review_deleted", { reviewId, userId, businessId: result.rows[0].business_id, outcome: "success" });
   return { success: true, message: "Review deleted successfully." };
 }
 
 async function respondToReview(businessUserId, reviewId, responseText, businessId = null) {
-  const review = fallbackReviews.find((entry) => Number(entry.id) === Number(reviewId));
-
-  if (!review) {
-    return { success: false, message: "Review not found." };
-  }
-
-  if (businessId && Number(review.businessId) !== Number(businessId)) {
-    return { success: false, message: "This response does not match the business review." };
-  }
-
-  review.response = String(responseText || "").trim();
-  review.responseBy = Number(businessUserId);
-  review.responseAt = new Date().toISOString();
-
-  logTrustAudit("review_responded", { reviewId: review.id, businessUserId, outcome: "success" });
-
-  return { success: true, review: normalizeReview(review), message: "Business response saved successfully." };
+  const result = await pool.query(`UPDATE business_reviews SET response = $1, response_by = $2, response_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND ($4::integer IS NULL OR business_id = $4) RETURNING *`, [String(responseText || "").trim(), businessUserId, reviewId, businessId]);
+  if (!result.rows.length) return { success: false, message: businessId ? "This response does not match the business review." : "Review not found." };
+  const review = normalizeReview(result.rows[0]);
+  await logTrustAudit("review_responded", { reviewId: review.id, businessUserId, businessId: review.businessId, outcome: "success" });
+  return { success: true, review, message: "Business response saved successfully." };
 }
 
 async function flagReview(userId, reviewId, reason = "") {
-  const review = fallbackReviews.find((entry) => Number(entry.id) === Number(reviewId));
   const normalizedReason = String(reason || "Inappropriate content").trim();
-
-  if (review) {
-    review.flagged = true;
-    review.flagReason = normalizedReason;
-    review.updatedAt = new Date().toISOString();
-  }
-
-  const report = {
-    id: fallbackReports.length + 1,
-    reviewId: Number(reviewId),
-    userId: Number(userId),
-    reason: normalizedReason,
-    createdAt: new Date().toISOString(),
-    outcome: "pending_review",
-  };
-
-  fallbackReports.push(report);
-  fs.appendFileSync(reportLogPath, `${JSON.stringify(report)}\n`);
-  logTrustAudit("review_reported", { reviewId, userId, reason: normalizedReason, outcome: "success" });
-
+  const reviewResult = await pool.query(`UPDATE business_reviews SET flagged = TRUE, flag_reason = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING business_id`, [normalizedReason, reviewId]);
+  if (!reviewResult.rows.length) return { success: false, message: "Review not found." };
+  const reportResult = await pool.query(`INSERT INTO review_reports (review_id, user_id, report_type, details) VALUES ($1, $2, $3, $4) RETURNING *`, [reviewId, userId, "user_report", normalizedReason]);
+  const report = { id: reportResult.rows[0].id, reviewId: Number(reportResult.rows[0].review_id), userId: Number(reportResult.rows[0].user_id), reason: reportResult.rows[0].details || normalizedReason, createdAt: reportResult.rows[0].created_at, outcome: "pending_review" };
+  await logTrustAudit("review_reported", { reviewId, userId, businessId: reviewResult.rows[0].business_id, reason: normalizedReason, outcome: "success" });
   return { success: true, report, message: "Review reported for moderation review." };
 }
 
 async function moderateReview(adminUserId, action, reviewId) {
-  let review = fallbackReviews.find((entry) => Number(entry.id) === Number(reviewId));
-
-  if (!review) {
-    review = {
-      id: Number(reviewId) || fallbackReviews.length + 1,
-      businessId: 1,
-      userId: 0,
-      rating: 0,
-      title: "Moderated review",
-      comments: "No source review was available; moderation action recorded for review management.",
-      categories: {},
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      response: "",
-      responseBy: null,
-      responseAt: null,
-      flagged: false,
-      flagReason: "",
-      moderationNote: "",
-    };
-    fallbackReviews.push(review);
-  }
-
   const normalizedAction = String(action || "").trim().toLowerCase();
   if (!["approve", "remove", "flag"].includes(normalizedAction)) {
     return { success: false, message: "Unsupported moderation action." };
   }
 
-  if (normalizedAction === "approve") {
-    review.status = "approved";
-  }
-
-  if (normalizedAction === "remove") {
-    review.status = "removed";
-  }
-
-  if (normalizedAction === "flag") {
-    review.flagged = true;
-    review.status = "flagged";
-  }
-
-  review.moderationNote = `Moderated by user ${adminUserId} with action ${normalizedAction}`;
-  review.updatedAt = new Date().toISOString();
-
-  logTrustAudit("review_moderated", { adminUserId, reviewId, action: normalizedAction, outcome: "success" });
-
-  return { success: true, review: normalizeReview(review), message: `Review ${normalizedAction}d successfully.` };
+  const status = normalizedAction === "remove" ? "removed" : normalizedAction === "flag" ? "flagged" : "approved";
+  const result = await pool.query(`UPDATE business_reviews SET status = $1, flagged = CASE WHEN $2 = 'flagged' THEN TRUE ELSE flagged END, moderation_note = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *`, [status, status, `Moderated by user ${adminUserId} with action ${normalizedAction}`, reviewId]);
+  if (!result.rows.length) return { success: false, message: "Review not found." };
+  const review = normalizeReview(result.rows[0]);
+  await logTrustAudit("review_moderated", { adminUserId, reviewId, businessId: review.businessId, action: normalizedAction, outcome: "success" });
+  return { success: true, review, message: `Review ${normalizedAction}d successfully.` };
 }
 
 async function getTrustAuditLog(limit = 20) {
-  const lines = fs.existsSync(auditLogPath)
-    ? fs.readFileSync(auditLogPath, "utf8").trim().split(/\n+/).filter(Boolean)
-    : [];
-
-  return lines
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        return null;
-      }
-    })
-    .filter(Boolean)
-    .slice(-limit);
+  const result = await pool.query(`SELECT * FROM trust_audit_logs ORDER BY created_at DESC LIMIT $1`, [limit]);
+  return result.rows;
 }
 
 module.exports = {

@@ -1,81 +1,19 @@
-const fs = require("fs");
-const path = require("path");
 const pool = require("../database/connection");
-
-const directoryAuditLogPath = path.join(__dirname, "..", "logs", "business-directory-audit.log");
-const directoryAnalyticsLogPath = path.join(__dirname, "..", "logs", "business-directory-analytics.log");
-fs.mkdirSync(path.dirname(directoryAuditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(directoryAnalyticsLogPath), { recursive: true });
-
-const fallbackDirectory = [
-  {
-    id: 1,
-    businessName: "ACC Demo Holding",
-    industryCategory: "Trade Facilitation",
-    countryOfRegistration: "Nigeria",
-    stateRegion: "Lagos",
-    businessType: "Limited Liability Company (LLC)",
-    verificationStatus: "verified",
-    logo: "",
-    businessDescription: "A regional trade facilitation business supporting commerce and market access across Africa.",
-    membershipLevel: "Enterprise",
-    viewCount: 245,
-    updatedAt: new Date().toISOString(),
-    active: true,
-  },
-  {
-    id: 2,
-    businessName: "Nile Agro Export",
-    industryCategory: "Agribusiness",
-    countryOfRegistration: "Kenya",
-    stateRegion: "Nairobi",
-    businessType: "Sole Proprietorship",
-    verificationStatus: "pending",
-    logo: "",
-    businessDescription: "Agricultural export business focused on fresh produce and regional supply chains.",
-    membershipLevel: "Premium",
-    viewCount: 96,
-    updatedAt: new Date().toISOString(),
-    active: true,
-  },
-  {
-    id: 3,
-    businessName: "Sahara Logistics Group",
-    industryCategory: "Logistics",
-    countryOfRegistration: "Ghana",
-    stateRegion: "Accra",
-    businessType: "Partnership",
-    verificationStatus: "verified",
-    logo: "",
-    businessDescription: "Regional logistics and warehousing provider serving industrial clients across West Africa.",
-    membershipLevel: "Enterprise",
-    viewCount: 174,
-    updatedAt: new Date().toISOString(),
-    active: true,
-  },
-];
-
-function logDirectoryActivity(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(directoryAuditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function logDirectoryActivity(eventType, details = {}) {
+  const result = await pool.query(
+    "INSERT INTO business_audit_logs (user_id, business_id, event_type, outcome, details) VALUES ($1, $2, $3, $4, $5) RETURNING id, event_type, outcome, details, created_at",
+    [details.userId || null, details.businessId || null, eventType, details.outcome || "success", details]
+  );
+  const row = result.rows[0];
+  return { id: String(row.id), eventType: row.event_type, outcome: row.outcome, timestamp: new Date(row.created_at).toISOString(), details: row.details || {} };
 }
 
-function logSearchAnalytics(details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(directoryAnalyticsLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function logSearchAnalytics(details = {}) {
+  const result = await pool.query(
+    "INSERT INTO business_directory_search_logs(user_id, keyword, filters, results_count) VALUES($1,$2,$3,$4) RETURNING id, created_at",
+    [details.userId || null, details.keyword || null, details.filters || {}, details.resultsCount || 0]
+  );
+  return { id: String(result.rows[0].id), timestamp: new Date(result.rows[0].created_at).toISOString(), details };
 }
 
 function normalizeListing(record = {}) {
@@ -184,31 +122,7 @@ async function getDirectoryListings(options = {}) {
       totalPages: Math.max(1, Math.ceil((countResult.rows[0]?.total || 0) / limit)),
     };
   } catch (error) {
-    const filtered = fallbackDirectory.filter((item) => {
-      const haystack = `${item.businessName} ${item.businessDescription} ${item.industryCategory} ${item.businessType}`.toLowerCase();
-      const keywordMatch = !keyword || haystack.includes(String(keyword).toLowerCase());
-      const countryMatch = !filters.country || item.countryOfRegistration.toLowerCase() === String(filters.country).toLowerCase();
-      const industryMatch = !filters.industry || item.industryCategory.toLowerCase() === String(filters.industry).toLowerCase();
-      const typeMatch = !filters.businessType || item.businessType.toLowerCase() === String(filters.businessType).toLowerCase();
-      const verificationMatch = !filters.verificationStatus || item.verificationStatus.toLowerCase() === String(filters.verificationStatus).toLowerCase();
-      return keywordMatch && countryMatch && industryMatch && typeMatch && verificationMatch;
-    });
-
-    const sortedListings = [...filtered].sort((a, b) => {
-      if (sort === "alphabetical") return a.businessName.localeCompare(b.businessName);
-      if (sort === "most_recent") return new Date(b.updatedAt) - new Date(a.updatedAt);
-      if (sort === "most_viewed") return (b.viewCount || 0) - (a.viewCount || 0);
-      return (b.isVerified ? 1 : 0) - (a.isVerified ? 1 : 0) || (b.viewCount || 0) - (a.viewCount || 0);
-    });
-
-    const sliced = sortedListings.slice(offset, offset + limit);
-    return {
-      listings: sliced.map(normalizeListing),
-      total: filtered.length,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
-    };
+    throw error;
   }
 }
 
@@ -222,7 +136,7 @@ async function searchBusinesses(keyword, filters = {}, options = {}) {
     sort: options.sort || "relevance",
   });
 
-  logSearchAnalytics({
+  await logSearchAnalytics({
     keyword: normalizedKeyword,
     filters,
     resultsCount: directory.total,
@@ -230,7 +144,7 @@ async function searchBusinesses(keyword, filters = {}, options = {}) {
   });
 
   if (directory.listings.length === 0) {
-    logDirectoryActivity("search_no_results", { keyword: normalizedKeyword, filters, outcome: "empty" });
+    await logDirectoryActivity("search_no_results", { keyword: normalizedKeyword, filters, outcome: "empty" });
     return {
       success: true,
       message: "No results found. Try expanding your search or adjusting your filters.",
@@ -239,7 +153,7 @@ async function searchBusinesses(keyword, filters = {}, options = {}) {
     };
   }
 
-  logDirectoryActivity("search_results_returned", { keyword: normalizedKeyword, filters, resultsCount: directory.total, outcome: "success" });
+  await logDirectoryActivity("search_results_returned", { keyword: normalizedKeyword, filters, resultsCount: directory.total, outcome: "success" });
   return {
     success: true,
     ...directory,
@@ -253,17 +167,11 @@ async function getBusinessDirectoryEntry(businessId) {
     const result = await pool.query(`SELECT * FROM business_accounts WHERE id = $1 LIMIT 1`, [businessId]);
     if (result.rows.length > 0) {
       const listing = normalizeListing(result.rows[0]);
-      logDirectoryActivity("directory_profile_viewed", { businessId, outcome: "success" });
+      await logDirectoryActivity("directory_profile_viewed", { businessId, outcome: "success" });
       return listing;
     }
   } catch (error) {
-    // Fallback below.
-  }
-
-  const listing = fallbackDirectory.find((item) => Number(item.id) === Number(businessId));
-  if (listing) {
-    logDirectoryActivity("directory_profile_viewed", { businessId, outcome: "fallback" });
-    return normalizeListing(listing);
+    throw error;
   }
 
   return null;

@@ -1,16 +1,7 @@
-/*
- * contractModel.js - ACC Chapter 23 contract lifecycle and audit service.
- * The service keeps the repository's lightweight operational pattern while
- * exposing durable identifiers for procurement, orders, and payment records.
- */
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
+/* ACC Chapter 23 contract service; PostgreSQL is implemented in the Pg model. */
+module.exports = require("./contractModelPg");
 
-// Keep contract audit and notification records in the shared application log directory.
-const auditLogPath = path.join(__dirname, "..", "logs", "contracts-audit.log");
-const notificationLogPath = path.join(__dirname, "..", "logs", "contracts-notifications.log");
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
+/*
 
 // Define the controlled vocabulary used by the contract UI and lifecycle rules.
 const contractStatuses = ["draft", "pending_signature", "active", "completed", "terminated", "expired"];
@@ -228,4 +219,4 @@ async function getNotificationLog() { return [...notificationEntries]; }
 async function getDocuments(contractId, userId) { const contract = contracts.find((entry) => Number(entry.id) === Number(contractId)); return contract && contract.partyIds.includes(Number(userId)) ? contractDocuments.filter((document) => Number(document.contractId) === Number(contractId)).map(normalizeDocument) : []; }
 
 // Export the complete Chapter 23 service surface for controllers and acceptance tests.
-module.exports = { contractStatuses, signatureStatuses, contractTemplates, createContract, generateFromTemplate, getContractsForUser, getContractById, getSignatures, shareContract, signContract, modifyContract, addDocument, terminateContract, getAuditLog, getNotificationLog, getDocuments, contracts, contractVersions, contractDocuments };
+*/

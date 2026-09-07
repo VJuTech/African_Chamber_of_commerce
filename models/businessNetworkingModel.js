@@ -1,60 +1,17 @@
-const fs = require("fs");
-const path = require("path");
 const pool = require("../database/connection");
+const notificationModel = require("./notificationModel");
 
-const networkingAuditLogPath = path.join(__dirname, "..", "logs", "business-networking-audit.log");
-const networkingNotificationLogPath = path.join(__dirname, "..", "logs", "business-networking-notifications.log");
-const networkingReportsLogPath = path.join(__dirname, "..", "logs", "business-networking-reports.log");
-fs.mkdirSync(path.dirname(networkingAuditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(networkingNotificationLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(networkingReportsLogPath), { recursive: true });
-
-const fallbackConnections = [
-  {
-    id: 1,
-    senderId: 1,
-    receiverId: 2,
-    status: "accepted",
-    createdAt: new Date().toISOString(),
-    message: "Interested in exploring trade partnership opportunities.",
-    targetType: "user",
-  },
-  {
-    id: 2,
-    senderId: 3,
-    receiverId: 1,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    message: "Would like to connect for procurement collaboration.",
-    targetType: "business",
-  },
-];
-
-const fallbackBlocks = [];
-const fallbackReports = [];
-
-function logNetworkingAudit(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fs.appendFileSync(networkingAuditLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+async function logNetworkingAudit(eventType, details = {}) {
+  const result = await pool.query(
+    `INSERT INTO audit_logs (event_type, user_id, outcome, details)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [eventType, details.userId || details.senderId || details.receiverId || null, details.outcome || "success", details]
+  );
+  return result.rows[0];
 }
 
 function logNetworkingNotification(type, payload = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    type,
-    timestamp: new Date().toISOString(),
-    payload,
-  };
-
-  fs.appendFileSync(networkingNotificationLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
+  return notificationModel.generateFromEvent(type, payload);
 }
 
 function normalizeConnection(record = {}) {
@@ -65,9 +22,17 @@ function normalizeConnection(record = {}) {
     status: record.status || "pending",
     message: record.message || "",
     targetType: record.target_type || record.targetType || "user",
-    createdAt: record.created_at || record.createdAt || new Date().toISOString(),
-    updatedAt: record.updated_at || record.updatedAt || new Date().toISOString(),
+    createdAt: record.created_at || record.createdAt || null,
+    updatedAt: record.updated_at || record.updatedAt || null,
   };
+}
+
+function normalizeBlock(record = {}) {
+  return { id: record.id, userId: record.user_id, targetId: record.target_id, reason: record.reason || "", createdAt: record.created_at || null };
+}
+
+function normalizeReport(record = {}) {
+  return { id: record.id, userId: record.user_id, targetId: record.target_id, reportType: record.report_type, details: record.details || "", createdAt: record.created_at || null };
 }
 
 async function sendConnectionRequest(senderId, targetId, payload = {}) {
@@ -76,160 +41,70 @@ async function sendConnectionRequest(senderId, targetId, payload = {}) {
   }
 
   const targetType = payload.targetType || "user";
-  const message = (payload.message || "").trim();
-
-  if (fallbackBlocks.some((entry) => Number(entry.userId) === Number(senderId) && Number(entry.targetId) === Number(targetId))) {
-    return { success: false, message: "This connection request cannot be sent because the target is blocked." };
-  }
-
-  try {
-    const existing = await pool.query(
-      `SELECT * FROM business_connections WHERE sender_id = $1 AND receiver_id = $2 LIMIT 1`,
-      [senderId, targetId]
-    );
-
-    if (existing.rows.length > 0) {
-      return { success: false, message: "A duplicate connection request already exists." };
-    }
-  } catch (error) {
-    const duplicate = fallbackConnections.find(
-      (entry) => Number(entry.senderId) === Number(senderId) && Number(entry.receiverId) === Number(targetId) && entry.status !== "rejected"
-    );
-
-    if (duplicate) {
-      return { success: false, message: "A duplicate connection request already exists." };
-    }
-  }
-
-  const record = {
-    id: fallbackConnections.length + 1,
-    senderId,
-    receiverId: targetId,
-    status: "pending",
-    message,
-    targetType,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  fallbackConnections.push(record);
-  logNetworkingAudit("connection_request_sent", { senderId, targetId, targetType, outcome: "success" });
+  const message = String(payload.message || "").trim();
+  const blocked = await pool.query(`SELECT 1 FROM business_connection_blocks WHERE user_id = $1 AND target_id = $2 LIMIT 1`, [senderId, targetId]);
+  if (blocked.rows.length) return { success: false, message: "This connection request cannot be sent because the target is blocked." };
+  const existing = await pool.query(`SELECT 1 FROM business_connections WHERE sender_id = $1 AND receiver_id = $2 AND status <> 'rejected' LIMIT 1`, [senderId, targetId]);
+  if (existing.rows.length) return { success: false, message: "A duplicate connection request already exists." };
+  const result = await pool.query(
+    `INSERT INTO business_connections (sender_id, receiver_id, target_type, status, message) VALUES ($1, $2, $3, 'pending', $4) RETURNING *`,
+    [senderId, targetId, targetType, message]
+  );
+  const connection = normalizeConnection(result.rows[0]);
+  await logNetworkingAudit("connection_request_sent", { senderId, targetId, targetType, outcome: "success" });
   logNetworkingNotification("new_connection_request", { senderId, targetId, targetType, message });
-
-  return { success: true, connection: normalizeConnection(record), message: "Connection request sent successfully." };
+  return { success: true, connection, message: "Connection request sent successfully." };
 }
 
 async function acceptConnectionRequest(receiverId, connectionId) {
-  const entry = fallbackConnections.find((item) => Number(item.id) === Number(connectionId) && Number(item.receiverId) === Number(receiverId));
-
-  if (!entry) {
-    return { success: false, message: "Connection request not found or you do not have permission to accept it." };
-  }
-
-  entry.status = "accepted";
-  entry.updatedAt = new Date().toISOString();
-  logNetworkingAudit("connection_request_accepted", { receiverId, connectionId, outcome: "success" });
-  logNetworkingNotification("request_accepted", { receiverId, connectionId });
-
-  return { success: true, connection: normalizeConnection(entry), message: "Connection request accepted." };
+  const result = await pool.query(`UPDATE business_connections SET status = 'accepted', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND receiver_id = $2 AND status = 'pending' RETURNING *`, [connectionId, receiverId]);
+  if (!result.rows.length) return { success: false, message: "Connection request not found or you do not have permission to accept it." };
+  const connection = normalizeConnection(result.rows[0]);
+  await logNetworkingAudit("connection_request_accepted", { receiverId, connectionId, outcome: "success" });
+  logNetworkingNotification("request_accepted", { receiverId, connectionId, senderId: connection.senderId });
+  return { success: true, connection, message: "Connection request accepted." };
 }
 
 async function rejectConnectionRequest(receiverId, connectionId) {
-  const entry = fallbackConnections.find((item) => Number(item.id) === Number(connectionId) && Number(item.receiverId) === Number(receiverId));
-
-  if (!entry) {
-    return { success: false, message: "Connection request not found or you do not have permission to reject it." };
-  }
-
-  entry.status = "rejected";
-  entry.updatedAt = new Date().toISOString();
-  logNetworkingAudit("connection_request_rejected", { receiverId, connectionId, outcome: "success" });
-  logNetworkingNotification("request_rejected", { receiverId, connectionId });
-
-  return { success: true, connection: normalizeConnection(entry), message: "Connection request rejected." };
+  const result = await pool.query(`UPDATE business_connections SET status = 'rejected', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND receiver_id = $2 AND status = 'pending' RETURNING *`, [connectionId, receiverId]);
+  if (!result.rows.length) return { success: false, message: "Connection request not found or you do not have permission to reject it." };
+  const connection = normalizeConnection(result.rows[0]);
+  await logNetworkingAudit("connection_request_rejected", { receiverId, connectionId, outcome: "success" });
+  logNetworkingNotification("request_rejected", { receiverId, connectionId, senderId: connection.senderId });
+  return { success: true, connection, message: "Connection request rejected." };
 }
 
 async function getConnectionRequests(userId) {
-  const incoming = fallbackConnections.filter((item) => Number(item.receiverId) === Number(userId) && item.status === "pending");
-  const outgoing = fallbackConnections.filter((item) => Number(item.senderId) === Number(userId) && item.status === "pending");
-
+  const result = await pool.query(`SELECT * FROM business_connections WHERE (receiver_id = $1 OR sender_id = $1) AND status = 'pending' ORDER BY created_at DESC`, [userId]);
   return {
-    incoming: incoming.map(normalizeConnection),
-    outgoing: outgoing.map(normalizeConnection),
+    incoming: result.rows.filter((row) => Number(row.receiver_id) === Number(userId)).map(normalizeConnection),
+    outgoing: result.rows.filter((row) => Number(row.sender_id) === Number(userId)).map(normalizeConnection),
   };
 }
 
 async function getConnections(userId) {
-  const records = fallbackConnections.filter((item) => {
-    const isSender = Number(item.senderId) === Number(userId);
-    const isReceiver = Number(item.receiverId) === Number(userId);
-    return (isSender || isReceiver) && item.status === "accepted";
-  });
-
-  return records.map(normalizeConnection);
+  const result = await pool.query(`SELECT * FROM business_connections WHERE (sender_id = $1 OR receiver_id = $1) AND status = 'accepted' ORDER BY updated_at DESC`, [userId]);
+  return result.rows.map(normalizeConnection);
 }
 
 async function blockConnectionTarget(userId, targetId, reason = "") {
-  const alreadyBlocked = fallbackBlocks.some((entry) => Number(entry.userId) === Number(userId) && Number(entry.targetId) === Number(targetId));
-  if (alreadyBlocked) {
-    return { success: false, message: "This target is already blocked." };
-  }
-
-  const blockEntry = {
-    id: fallbackBlocks.length + 1,
-    userId,
-    targetId,
-    reason,
-    createdAt: new Date().toISOString(),
-  };
-
-  fallbackBlocks.push(blockEntry);
-  logNetworkingAudit("connection_blocked", { userId, targetId, reason, outcome: "success" });
-
-  return { success: true, block: blockEntry, message: "Target blocked successfully." };
+  const result = await pool.query(`INSERT INTO business_connection_blocks (user_id, target_id, reason) VALUES ($1, $2, $3) ON CONFLICT (user_id, target_id) DO NOTHING RETURNING *`, [userId, targetId, String(reason || "").trim()]);
+  if (!result.rows.length) return { success: false, message: "This target is already blocked." };
+  const block = normalizeBlock(result.rows[0]);
+  await logNetworkingAudit("connection_blocked", { userId, targetId, reason, outcome: "success" });
+  return { success: true, block, message: "Target blocked successfully." };
 }
 
 async function reportConnectionIssue(userId, targetId, reportType, details) {
-  const record = {
-    id: fallbackReports.length + 1,
-    userId,
-    targetId,
-    reportType,
-    details,
-    createdAt: new Date().toISOString(),
-  };
-
-  fallbackReports.push(record);
-  fs.appendFileSync(networkingReportsLogPath, `${JSON.stringify(record)}\n`);
-  logNetworkingAudit("connection_report_submitted", { userId, targetId, reportType, outcome: "success" });
-
-  return { success: true, report: record, message: "Abuse report recorded and sent for review." };
+  const result = await pool.query(`INSERT INTO business_connection_reports (user_id, target_id, report_type, details) VALUES ($1, $2, $3, $4) RETURNING *`, [userId, targetId, String(reportType || "misconduct").trim(), String(details || "").trim()]);
+  const report = normalizeReport(result.rows[0]);
+  await logNetworkingAudit("connection_report_submitted", { userId, targetId, reportType, outcome: "success" });
+  return { success: true, report, message: "Abuse report recorded and sent for review." };
 }
 
 async function getConnectionSuggestions(userId) {
-  const current = fallbackConnections.filter((item) => Number(item.senderId) === Number(userId) || Number(item.receiverId) === Number(userId));
-  const relatedIds = new Set();
-
-  current.forEach((item) => {
-    relatedIds.add(Number(item.senderId));
-    relatedIds.add(Number(item.receiverId));
-  });
-
-  const suggestions = fallbackConnections
-    .filter((item) => {
-      const isSender = Number(item.senderId) === Number(userId);
-      const isReceiver = Number(item.receiverId) === Number(userId);
-      return !(isSender || isReceiver) && !relatedIds.has(Number(item.senderId)) && !relatedIds.has(Number(item.receiverId));
-    })
-    .slice(0, 5)
-    .map((item) => ({
-      id: item.id,
-      name: `Suggested connection ${item.id}`,
-      reason: "Shared industry or location interest",
-      targetId: item.senderId,
-    }));
-
-  return suggestions;
+  const result = await pool.query(`SELECT u.id, u.name FROM users u WHERE u.id <> $1 AND NOT EXISTS (SELECT 1 FROM business_connections c WHERE (c.sender_id = $1 AND c.receiver_id = u.id) OR (c.receiver_id = $1 AND c.sender_id = u.id)) AND NOT EXISTS (SELECT 1 FROM business_connection_blocks b WHERE b.user_id = $1 AND b.target_id = u.id) ORDER BY u.name ASC LIMIT 5`, [userId]);
+  return result.rows.map((row) => ({ id: row.id, name: row.name || `Suggested connection ${row.id}`, reason: "Shared industry or location interest", targetId: row.id }));
 }
 
 module.exports = {

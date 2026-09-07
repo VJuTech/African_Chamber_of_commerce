@@ -10,24 +10,14 @@ const { validateEmail, validatePassword, validatePhone } = require("../utility/a
 // without additional controller logic.
 const profileUploadDirectory = path.join(__dirname, "..", "public", "uploads", "profiles");
 
-// Keep lightweight in-memory state for environments that do not have Postgres configured.
-const localProfileStore = new Map();
-const localContactRequests = new Map();
-
 fs.mkdirSync(profileUploadDirectory, { recursive: true });
 
-function hasDatabaseConfiguration() {
-  return Boolean(process.env.DATABASE_URL || process.env.PGHOST);
-}
-
-// Borrow a database client when Postgres is configured and reachable.
+// Borrow a database client; profile data must remain database-backed.
 async function getClient() {
-  if (!hasDatabaseConfiguration()) return null;
-
   try {
     return await pool.connect();
   } catch (error) {
-    return null;
+    throw new Error("Database connection is not available. Please ensure PostgreSQL is configured.", { cause: error });
   }
 }
 
@@ -134,52 +124,6 @@ function mapUserToProfile(userRecord = {}) {
   };
 }
 
-// Preserve profile functionality when the application is running without Postgres.
-function getLocalProfile(userId, sessionUser = {}) {
-  if (!localProfileStore.has(userId)) {
-    localProfileStore.set(userId, mapUserToProfile(sessionUser));
-  }
-
-  const existing = localProfileStore.get(userId);
-  return {
-    ...mapUserToProfile(sessionUser),
-    ...existing,
-    preferences: normalizePreferences(existing.preferences || sessionUser.preferences || {}),
-  };
-}
-
-// Expose at least the current session when DB-backed session queries are unavailable.
-function buildFallbackSession(currentSessionId, sessionMeta = {}) {
-  return [
-    {
-      sid: currentSessionId,
-      current: true,
-      device: sessionMeta.device || "Current device",
-      browser: sessionMeta.browser || "Web Browser",
-      operatingSystem: sessionMeta.operatingSystem || "Unknown OS",
-      location: sessionMeta.ipAddress || "Approximate location unavailable",
-      loginTime: sessionMeta.loginAt || null,
-      lastActivity: sessionMeta.lastActivityAt || null,
-      expiresAt: null,
-    },
-  ];
-}
-
-// Reuse file or DB audit entries as a recent activity timeline.
-function buildFallbackActivity(userId) {
-  return authModel
-    .getAuditEntries()
-    .filter((entry) => entry.details && Number(entry.details.userId) === Number(userId))
-    .slice(-12)
-    .reverse()
-    .map((entry) => ({
-      eventType: entry.eventType,
-      timestamp: entry.timestamp,
-      outcome: entry.details ? entry.details.outcome : "success",
-      details: entry.details || {},
-    }));
-}
-
 // Limit the verification request fields shown back to the profile page.
 function buildPendingRequestSummary(request) {
   return {
@@ -198,23 +142,9 @@ function buildPendingRequestSummary(request) {
 async function getProfileDashboard(userId, currentSessionId, sessionUser = {}, sessionMeta = {}) {
   const client = await getClient();
 
-  if (!client) {
-    const profile = getLocalProfile(userId, sessionUser);
-    const requests = Array.from(localContactRequests.values())
-      .filter((request) => Number(request.userId) === Number(userId) && request.status === "pending")
-      .map(buildPendingRequestSummary);
-
-    return {
-      profile,
-      sessions: buildFallbackSession(currentSessionId, sessionMeta),
-      activity: buildFallbackActivity(userId),
-      pendingContactChanges: requests,
-    };
-  }
-
   try {
     const userResult = await client.query("SELECT * FROM users WHERE id = $1 LIMIT 1", [userId]);
-    const userRecord = userResult.rows[0] || sessionUser;
+    const userRecord = userResult.rows[0] || {};
     const profile = mapUserToProfile(userRecord);
 
     const requestResult = await client.query(
@@ -225,14 +155,20 @@ async function getProfileDashboard(userId, currentSessionId, sessionUser = {}, s
       [userId]
     );
 
-    const activityResult = await client.query(
-      `SELECT event_type, outcome, created_at, details
-       FROM audit_logs
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 12`,
-      [userId]
-    );
+    let activityRows = [];
+    try {
+      const activityResult = await client.query(
+        `SELECT event_type, outcome, created_at, details
+         FROM audit_logs
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 12`,
+        [userId]
+      );
+      activityRows = activityResult.rows;
+    } catch (error) {
+      if (!error || error.code !== "42P01") throw error;
+    }
 
     const sessionResult = await client.query(
       `SELECT sid, sess, expire
@@ -263,7 +199,7 @@ async function getProfileDashboard(userId, currentSessionId, sessionUser = {}, s
     return {
       profile,
       sessions,
-      activity: activityResult.rows.map((row) => ({
+      activity: activityRows.map((row) => ({
         eventType: row.event_type,
         timestamp: row.created_at,
         outcome: row.outcome,
@@ -310,26 +246,6 @@ async function updateProfileData(userId, profileData = {}, context = {}) {
   }
 
   const client = await getClient();
-
-  if (!client) {
-    const existing = getLocalProfile(userId, context.currentUser || {});
-    const updated = {
-      ...existing,
-      ...payload,
-      linkedOrganizations: payload.organizationName ? [payload.organizationName] : existing.linkedOrganizations,
-    };
-
-    localProfileStore.set(userId, updated);
-    await authModel.logEvent("profile_updated", {
-      userId,
-      outcome: "success",
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-      profile: payload,
-    });
-
-    return { success: true, message: "Profile updated successfully.", profile: updated };
-  }
 
   try {
     const result = await client.query(
@@ -419,22 +335,6 @@ async function updatePasswordData(userId, currentPassword, newPassword, confirmN
 
   const client = await getClient();
 
-  if (!client) {
-    if (!context.currentPasswordHash || !bcrypt.compareSync(currentPassword, context.currentPasswordHash)) {
-      return { success: false, message: "Current password is incorrect." };
-    }
-
-    const passwordHash = bcrypt.hashSync(newPassword, 10);
-    await authModel.logEvent("password_changed", {
-      userId,
-      outcome: "success",
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-    });
-
-    return { success: true, message: "Password updated successfully.", passwordHash };
-  }
-
   try {
     const currentResult = await client.query("SELECT password_hash FROM users WHERE id = $1 LIMIT 1", [userId]);
     const currentRecord = currentResult.rows[0];
@@ -469,25 +369,6 @@ async function updatePasswordData(userId, currentPassword, newPassword, confirmN
 async function updatePreferencesData(userId, preferences, context = {}) {
   const normalized = normalizePreferences(preferences);
   const client = await getClient();
-
-  if (!client) {
-    const existing = getLocalProfile(userId, context.currentUser || {});
-    const updated = {
-      ...existing,
-      preferences: normalized,
-    };
-    localProfileStore.set(userId, updated);
-
-    await authModel.logEvent("communication_preferences_updated", {
-      userId,
-      outcome: "success",
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-      preferences: normalized,
-    });
-
-    return { success: true, message: "Communication preferences updated.", data: normalized };
-  }
 
   try {
     await client.query(
@@ -529,42 +410,6 @@ async function createContactChangeRequest(userId, requestData = {}, context = {}
   const client = await getClient();
   const verificationToken = crypto.randomBytes(8).toString("hex").toUpperCase();
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
-
-  if (!client) {
-    const currentProfile = getLocalProfile(userId, context.currentUser || {});
-    const currentValue = contactType === "email" ? currentProfile.email : currentProfile.phone;
-
-    if (String(currentValue || "").toLowerCase() === pendingValue.toLowerCase()) {
-      return { success: false, message: `That ${contactType} is already on your profile.` };
-    }
-
-    const request = {
-      id: `${userId}-${Date.now()}`,
-      userId,
-      contactType,
-      currentValue,
-      pendingValue,
-      verificationToken,
-      status: "pending",
-      requestedAt: new Date().toISOString(),
-      expiresAt: expiresAt.toISOString(),
-    };
-    localContactRequests.set(request.id, request);
-
-    await authModel.logEvent("verified_contact_change_requested", {
-      userId,
-      outcome: "pending_verification",
-      contactType,
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-    });
-
-    return {
-      success: true,
-      message: `${contactType === "email" ? "Email address" : "Mobile number"} change request created. Verify it to replace the current verified contact.`,
-      request: buildPendingRequestSummary(request),
-    };
-  }
 
   try {
     const userResult = await client.query("SELECT email, phone FROM users WHERE id = $1 LIMIT 1", [userId]);
@@ -648,43 +493,6 @@ async function confirmContactChange(userId, verificationToken, context = {}) {
 
   const client = await getClient();
 
-  if (!client) {
-    const request = Array.from(localContactRequests.values()).find(
-      (entry) => Number(entry.userId) === Number(userId) && entry.verificationToken === token && entry.status === "pending"
-    );
-
-    if (!request) {
-      return { success: false, message: "Verification code is invalid or expired." };
-    }
-
-    if (new Date(request.expiresAt).getTime() < Date.now()) {
-      request.status = "expired";
-      return { success: false, message: "Verification code is invalid or expired." };
-    }
-
-    const profile = getLocalProfile(userId, context.currentUser || {});
-    if (request.contactType === "email") {
-      profile.email = request.pendingValue;
-      profile.emailVerified = true;
-    } else {
-      profile.phone = request.pendingValue;
-      profile.phoneVerified = true;
-    }
-    request.status = "verified";
-    request.verifiedAt = new Date().toISOString();
-    localProfileStore.set(userId, profile);
-
-    await authModel.logEvent("verified_contact_change_completed", {
-      userId,
-      outcome: "success",
-      contactType: request.contactType,
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-    });
-
-    return { success: true, message: `${request.contactType === "email" ? "Email address" : "Mobile number"} updated successfully.`, profile };
-  }
-
   try {
     const requestResult = await client.query(
       `SELECT *
@@ -749,26 +557,6 @@ async function confirmContactChange(userId, verificationToken, context = {}) {
 async function updateProfilePhotoData(userId, photoInfo, context = {}) {
   const client = await getClient();
 
-  if (!client) {
-    const existing = getLocalProfile(userId, context.currentUser || {});
-    const updated = {
-      ...existing,
-      profilePhotoUrl: photoInfo.publicPath,
-      profilePhotoMimeType: photoInfo.mimeType,
-    };
-    localProfileStore.set(userId, updated);
-
-    await authModel.logEvent("profile_photo_changed", {
-      userId,
-      outcome: "success",
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-      fileName: photoInfo.fileName,
-    });
-
-    return { success: true, profile: updated };
-  }
-
   try {
     const previousResult = await client.query("SELECT profile_photo_path FROM users WHERE id = $1 LIMIT 1", [userId]);
     const previousPath = previousResult.rows[0] ? previousResult.rows[0].profile_photo_path : null;
@@ -807,28 +595,6 @@ async function updateProfilePhotoData(userId, photoInfo, context = {}) {
 // Remove the current profile photo from both storage and the user record.
 async function removeProfilePhotoData(userId, context = {}) {
   const client = await getClient();
-
-  if (!client) {
-    const existing = getLocalProfile(userId, context.currentUser || {});
-    if (existing.profilePhotoUrl) {
-      const diskPath = path.join(__dirname, "..", "public", existing.profilePhotoUrl.replace(/^\//, ""));
-      if (fs.existsSync(diskPath)) {
-        fs.unlinkSync(diskPath);
-      }
-    }
-    existing.profilePhotoUrl = "";
-    existing.profilePhotoMimeType = "";
-    localProfileStore.set(userId, existing);
-
-    await authModel.logEvent("profile_photo_removed", {
-      userId,
-      outcome: "success",
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-    });
-
-    return { success: true, profile: existing };
-  }
 
   try {
     const existingResult = await client.query("SELECT profile_photo_path FROM users WHERE id = $1 LIMIT 1", [userId]);
@@ -876,10 +642,6 @@ async function terminateSessionById(userId, sessionId, currentSessionId, context
 
   const client = await getClient();
 
-  if (!client) {
-    return { success: false, message: "Session management requires database-backed sessions." };
-  }
-
   try {
     const result = await client.query(
       `DELETE FROM session
@@ -909,10 +671,6 @@ async function terminateSessionById(userId, sessionId, currentSessionId, context
 // Delete every session except the current one for the user.
 async function terminateOtherSessions(userId, currentSessionId, context = {}) {
   const client = await getClient();
-
-  if (!client) {
-    return { success: false, message: "Session management requires database-backed sessions." };
-  }
 
   try {
     const result = await client.query(

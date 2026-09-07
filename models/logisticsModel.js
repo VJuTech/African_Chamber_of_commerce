@@ -2,145 +2,24 @@
  * logisticsModel.js - ACC Chapter 21 shipment lifecycle and delivery audit model.
  * Keeps shipment state linked to the existing Chapter 18 order model.
  *******************************************/
-const fs = require("fs");
-const path = require("path");
 const orderModel = require("./orderModel");
+const pool = require("../database/connection");
 
-// Keep operational audit and notification records in the existing application log directory.
-const logisticsAuditPath = path.join(__dirname, "..", "logs", "logistics-audit.log");
-const logisticsNotificationPath = path.join(__dirname, "..", "logs", "logistics-notifications.log");
-fs.mkdirSync(path.dirname(logisticsAuditPath), { recursive: true });
-
-// Define the delivery methods and statuses supported by Chapter 21.
 const deliveryMethods = ["standard", "express", "pickup", "third_party"];
 const deliveryStatuses = ["pending", "dispatched", "in_transit", "out_for_delivery", "delivered", "failed_delivery"];
 const logisticsProviders = ["Seller-managed delivery", "DHL", "Local courier", "ACC pickup point"];
-const shipments = [];
-const auditEntries = [];
-const notificationEntries = [];
+function normalizeShipment(shipment) { return { ...shipment, orderId: Number(shipment.orderId), sellerId: Number(shipment.sellerId), buyerId: Number(shipment.buyerId) }; }
 
-// Write a structured audit entry for every logistics mutation.
-function logAudit(eventType, details = {}) {
-  const entry = { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, eventType, details, createdAt: new Date().toISOString() };
-  auditEntries.push(entry);
-  fs.appendFileSync(logisticsAuditPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
+const shipmentColumns = `shipment_reference AS id, shipment_reference AS "shipmentReference", order_id AS "orderId", buyer_id AS "buyerId", seller_id AS "sellerId", delivery_method AS "deliveryMethod", carrier, tracking_number AS "trackingNumber", estimated_delivery_date AS "estimatedDeliveryDate", status, delivery_address AS "deliveryAddress", status_details AS "statusDetails", delivered_at AS "deliveredAt", delivery_confirmed_at AS "deliveryConfirmedAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
+async function logisticsAudit(client, shipmentId, orderId, userId, eventType, details = {}) { const result = await client.query("INSERT INTO logistics_audit_logs (shipment_id,order_id,user_id,event_type,outcome,details) SELECT id,$2,$3,$4,'success',$5 FROM shipments WHERE shipment_reference=$1 RETURNING id,event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\"", [shipmentId, orderId || null, userId || null, eventType, details]); return result.rows[0]; }
+async function logisticsNotification(client, shipmentId, orderId, type) { await client.query("INSERT INTO logistics_notifications (shipment_id,order_id,notification_type) SELECT id,$2,$3 FROM shipments WHERE shipment_reference=$1", [shipmentId, orderId, type]); }
+async function selectDeliveryMethod(buyerId, orderId, deliveryMethod) { const result = await orderModel.updateDeliveryMethod(buyerId, orderId, deliveryMethod); if (!result.success) return result; return result; }
+async function createShipment(sellerId, orderId, payload = {}) { const order = await orderModel.getOrderById(orderId); if (!order) return { success: false, message: "Order not found." }; if (order.sellerId !== Number(sellerId)) return { success: false, message: "You are not the assigned seller for this order." }; if (order.status === "cancelled") return { success: false, message: "Cancelled orders cannot be shipped." }; const deliveryMethod = String(payload.deliveryMethod || order.deliveryMethod || "standard").toLowerCase(), carrier = String(payload.carrier || "Seller-managed delivery").trim(); if (!deliveryMethods.includes(deliveryMethod)) return { success: false, message: "Select a supported delivery method." }; if (!carrier) return { success: false, message: "A logistics provider is required." }; const shipmentReference = `SHP-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, trackingNumber = String(payload.trackingNumber || `TRK-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`); const client = await pool.connect(); try { await client.query("BEGIN"); const result = await client.query(`INSERT INTO shipments (shipment_reference,order_id,buyer_id,seller_id,delivery_method,carrier,tracking_number,estimated_delivery_date,status,delivery_address) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING ${shipmentColumns}`, [shipmentReference, order.id, order.buyerId, order.sellerId, deliveryMethod, carrier, trackingNumber, payload.estimatedDeliveryDate || null, order.shippingAddress]); const shipment = normalizeShipment(result.rows[0]); await logisticsAudit(client, shipment.id, order.id, sellerId, "shipment_created", { shipmentId: shipment.id, orderId: order.id }); await logisticsNotification(client, shipment.id, order.id, "shipment_created"); await client.query("COMMIT"); return { success: true, shipment, message: "Shipment created successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function getShipmentByOrderId(orderId) { const result = await pool.query(`SELECT ${shipmentColumns} FROM shipments WHERE order_id=$1`, [orderId]); return result.rows[0] ? normalizeShipment(result.rows[0]) : null; }
+async function getShipmentsForUser(userId) { const result = await pool.query(`SELECT ${shipmentColumns} FROM shipments WHERE buyer_id=$1 OR seller_id=$1 ORDER BY created_at DESC`, [userId]); return result.rows.map(normalizeShipment); }
+async function updateDeliveryStatus(actorId, shipmentId, status, details = "") { const normalized = String(status || "").toLowerCase(); if (!deliveryStatuses.includes(normalized)) return { success: false, message: "Unsupported delivery status." }; const client = await pool.connect(); try { await client.query("BEGIN"); const found = await client.query(`SELECT ${shipmentColumns}, seller_id AS "sellerId" FROM shipments WHERE shipment_reference=$1 FOR UPDATE`, [shipmentId]); if (!found.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Shipment not found." }; } const current = found.rows[0]; if (Number(current.sellerId) !== Number(actorId)) { await client.query("ROLLBACK"); return { success: false, message: "Only the seller or logistics provider can update shipment status." }; } const result = await client.query(`UPDATE shipments SET status=$2,status_details=$3,delivered_at=CASE WHEN $2='delivered' THEN CURRENT_TIMESTAMP ELSE delivered_at END,updated_at=CURRENT_TIMESTAMP WHERE shipment_reference=$1 RETURNING ${shipmentColumns}`, [shipmentId, normalized, String(details || "").trim()]); const shipment = normalizeShipment(result.rows[0]); await logisticsAudit(client, shipment.id, shipment.orderId, actorId, normalized === "failed_delivery" ? "delivery_failed" : "shipment_status_updated", { shipmentId: shipment.id, orderId: shipment.orderId, status: normalized, details }); await logisticsNotification(client, shipment.id, shipment.orderId, normalized); await client.query("COMMIT"); if (normalized === "delivered") await orderModel.updateOrderStatus(actorId, shipment.orderId, "delivered", "Shipment delivered successfully."); return { success: true, shipment, message: "Delivery status updated successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function confirmDelivery(buyerId, shipmentId) { const client = await pool.connect(); try { await client.query("BEGIN"); const found = await client.query(`SELECT ${shipmentColumns} FROM shipments WHERE shipment_reference=$1 FOR UPDATE`, [shipmentId]); if (!found.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Shipment not found." }; } const current = normalizeShipment(found.rows[0]); if (current.buyerId !== Number(buyerId)) { await client.query("ROLLBACK"); return { success: false, message: "You can only confirm your own delivery." }; } if (current.status !== "delivered") { await client.query("ROLLBACK"); return { success: false, message: "Delivery can be confirmed after it is marked delivered." }; } const result = await client.query(`UPDATE shipments SET delivery_confirmed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE shipment_reference=$1 RETURNING ${shipmentColumns}`, [shipmentId]); const shipment = normalizeShipment(result.rows[0]); await logisticsAudit(client, shipment.id, shipment.orderId, buyerId, "delivery_completed", { shipmentId: shipment.id, orderId: shipment.orderId, buyerId }); await logisticsNotification(client, shipment.id, shipment.orderId, "delivery_confirmed"); await client.query("COMMIT"); return { success: true, shipment, message: "Delivery confirmed successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function getAuditLog() { const result = await pool.query("SELECT id,shipment_id AS \"shipmentId\",order_id AS \"orderId\",user_id AS \"userId\",event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\" FROM logistics_audit_logs ORDER BY created_at,id"); return result.rows; }
+async function getNotificationLog() { const result = await pool.query("SELECT id,shipment_id AS \"shipmentId\",order_id AS \"orderId\",notification_type AS type,created_at AS \"createdAt\" FROM logistics_notifications ORDER BY created_at,id"); return result.rows; }
 
-// Record notification events for downstream email, SMS, or push delivery services.
-function logNotification(type, shipment) {
-  const entry = { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, type, shipmentId: shipment.id, orderId: shipment.orderId, createdAt: new Date().toISOString() };
-  notificationEntries.push(entry);
-  fs.appendFileSync(logisticsNotificationPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-// Generate stable human-readable identifiers for shipments and tracking references.
-function generateIdentifier(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-}
-
-// Normalize records before they are returned to controllers or views.
-function normalizeShipment(shipment) {
-  return { ...shipment, orderId: Number(shipment.orderId), sellerId: Number(shipment.sellerId), buyerId: Number(shipment.buyerId) };
-}
-
-// Ensure a buyer can select only one supported delivery method during checkout.
-async function selectDeliveryMethod(buyerId, orderId, deliveryMethod) {
-  const method = String(deliveryMethod || "").trim().toLowerCase();
-  if (!deliveryMethods.includes(method)) return { success: false, message: "Select a supported delivery method." };
-  const result = await orderModel.updateDeliveryMethod(buyerId, orderId, method);
-  if (!result.success) return result;
-  logAudit("delivery_method_selected", { orderId: result.order.id, buyerId, deliveryMethod: method, outcome: "success" });
-  return result;
-}
-
-// Create one shipment for a confirmed order and generate its tracking number.
-async function createShipment(sellerId, orderId, payload = {}) {
-  const order = await orderModel.getOrderById(orderId);
-  if (!order) return { success: false, message: "Order not found." };
-  if (Number(order.sellerId) !== Number(sellerId)) return { success: false, message: "You are not the assigned seller for this order." };
-  if (shipments.some((shipment) => Number(shipment.orderId) === Number(orderId))) return { success: false, message: "A shipment already exists for this order." };
-  if (order.status === "cancelled") return { success: false, message: "Cancelled orders cannot be shipped." };
-
-  const shipment = {
-    id: generateIdentifier("SHP"),
-    orderId: Number(order.id),
-    buyerId: Number(order.buyerId),
-    sellerId: Number(order.sellerId),
-    deliveryMethod: String(payload.deliveryMethod || order.deliveryMethod || "standard").trim().toLowerCase(),
-    carrier: String(payload.carrier || "Seller-managed delivery").trim(),
-    trackingNumber: String(payload.trackingNumber || generateIdentifier("TRK")).trim(),
-    estimatedDeliveryDate: payload.estimatedDeliveryDate || null,
-    status: "pending",
-    deliveryAddress: order.shippingAddress,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    deliveredAt: null,
-    deliveryConfirmedAt: null,
-  };
-
-  if (!deliveryMethods.includes(shipment.deliveryMethod)) return { success: false, message: "Select a supported delivery method." };
-  if (!logisticsProviders.includes(shipment.carrier) && !shipment.carrier) return { success: false, message: "A logistics provider is required." };
-  shipments.push(shipment);
-  logAudit("shipment_created", { shipmentId: shipment.id, orderId: shipment.orderId, sellerId, outcome: "success" });
-  logNotification("shipment_created", shipment);
-  return { success: true, shipment: normalizeShipment(shipment), message: "Shipment created successfully." };
-}
-
-// Return a shipment while enforcing the relationship to the requested order.
-async function getShipmentByOrderId(orderId) {
-  const shipment = shipments.find((entry) => Number(entry.orderId) === Number(orderId));
-  return shipment ? normalizeShipment(shipment) : null;
-}
-
-// Return shipments visible to a buyer or seller.
-async function getShipmentsForUser(userId) {
-  return shipments.filter((shipment) => Number(shipment.buyerId) === Number(userId) || Number(shipment.sellerId) === Number(userId)).map(normalizeShipment);
-}
-
-// Update a shipment status and emit the required notification event.
-async function updateDeliveryStatus(actorId, shipmentId, status, details = "") {
-  const shipment = shipments.find((entry) => String(entry.id) === String(shipmentId));
-  const normalizedStatus = String(status || "").trim().toLowerCase();
-  if (!shipment) return { success: false, message: "Shipment not found." };
-  if (Number(shipment.sellerId) !== Number(actorId)) return { success: false, message: "Only the seller or logistics provider can update shipment status." };
-  if (!deliveryStatuses.includes(normalizedStatus)) return { success: false, message: "Unsupported delivery status." };
-
-  shipment.status = normalizedStatus;
-  shipment.statusDetails = String(details || "").trim();
-  shipment.updatedAt = new Date().toISOString();
-  if (normalizedStatus === "delivered") shipment.deliveredAt = shipment.updatedAt;
-  if (normalizedStatus === "delivered") {
-    await orderModel.updateOrderStatus(actorId, shipment.orderId, "delivered", "Shipment delivered successfully.");
-  }
-  logAudit(normalizedStatus === "failed_delivery" ? "delivery_failed" : "shipment_status_updated", { shipmentId: shipment.id, orderId: shipment.orderId, actorId, status: normalizedStatus, details: shipment.statusDetails, outcome: "success" });
-  logNotification(normalizedStatus, shipment);
-  return { success: true, shipment: normalizeShipment(shipment), message: "Delivery status updated successfully." };
-}
-
-// Allow the buyer to record receipt after the shipment is delivered.
-async function confirmDelivery(buyerId, shipmentId) {
-  const shipment = shipments.find((entry) => String(entry.id) === String(shipmentId));
-  if (!shipment) return { success: false, message: "Shipment not found." };
-  if (Number(shipment.buyerId) !== Number(buyerId)) return { success: false, message: "You can only confirm your own delivery." };
-  if (shipment.status !== "delivered") return { success: false, message: "Delivery can be confirmed after it is marked delivered." };
-
-  shipment.deliveryConfirmedAt = new Date().toISOString();
-  shipment.updatedAt = shipment.deliveryConfirmedAt;
-  logAudit("delivery_completed", { shipmentId: shipment.id, orderId: shipment.orderId, buyerId, outcome: "success" });
-  logNotification("delivery_confirmed", shipment);
-  return { success: true, shipment: normalizeShipment(shipment), message: "Delivery confirmed successfully." };
-}
-
-// Expose audit records for operational review and automated tests.
-async function getAuditLog() {
-  return [...auditEntries];
-}
-
-// Expose notification records for integration with a future notification provider.
-async function getNotificationLog() {
-  return [...notificationEntries];
-}
-
-module.exports = { deliveryMethods, deliveryStatuses, logisticsProviders, selectDeliveryMethod, createShipment, getShipmentByOrderId, getShipmentsForUser, updateDeliveryStatus, confirmDelivery, getAuditLog, getNotificationLog, shipments };
+module.exports = { deliveryMethods, deliveryStatuses, logisticsProviders, selectDeliveryMethod, createShipment, getShipmentByOrderId, getShipmentsForUser, updateDeliveryStatus, confirmDelivery, getAuditLog, getNotificationLog };

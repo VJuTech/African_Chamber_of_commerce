@@ -2,43 +2,7 @@
  * paymentModel.js - Payment processing engine for ACC Chapter 19.
  * Supports initiation, gateway processing, order linkage, refunds, audit logging, and multi-currency tracking.
  *******************************************/
-const fs = require("fs");
-const path = require("path");
-const notificationModel = require("./notificationModel");
-
-const auditLogPath = path.join(__dirname, "..", "logs", "payments-audit.log");
-const gatewayLogPath = path.join(__dirname, "..", "logs", "payments-gateway.log");
-const refundLogPath = path.join(__dirname, "..", "logs", "payments-refunds.log");
-
-fs.mkdirSync(path.dirname(auditLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(gatewayLogPath), { recursive: true });
-fs.mkdirSync(path.dirname(refundLogPath), { recursive: true });
-
-const fallbackPayments = [
-  {
-    id: 1,
-    buyerId: 10,
-    sellerId: 2,
-    orderId: 1,
-    transactionId: "TXN-ACC-1001",
-    paymentReference: "ACC-REF-1001",
-    amount: 24.5,
-    currency: "USD",
-    paymentMethod: "card",
-    provider: "paystack",
-    status: "successful",
-    refundStatus: "not_requested",
-    gatewayResponse: "approved",
-    gatewayReference: "PS-90001",
-    initiatedAt: new Date().toISOString(),
-    processedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    failureReason: "",
-    notes: "Initial sample payment.",
-  },
-];
-
-const fallbackAuditLog = [];
+const pool = require("../database/connection");
 
 function normalizePayment(record = {}) {
   return {
@@ -64,235 +28,18 @@ function normalizePayment(record = {}) {
   };
 }
 
-function logPaymentAudit(eventType, details = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    eventType,
-    timestamp: new Date().toISOString(),
-    details,
-  };
-
-  fallbackAuditLog.push(entry);
-  fs.appendFileSync(auditLogPath, `${JSON.stringify(entry)}\n`);
-  // Forward completed payment events to the shared Chapter 25 notification service.
-  if (eventType === "payment_status_updated" && details.status === "successful") {
-    notificationModel.generateFromEvent("payment_completed", details);
-  }
-  return entry;
-}
-
-function logGatewayEvent(provider, payload = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    provider,
-    timestamp: new Date().toISOString(),
-    payload,
-  };
-
-  fs.appendFileSync(gatewayLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-function logRefundEvent(paymentId, payload = {}) {
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    paymentId,
-    timestamp: new Date().toISOString(),
-    payload,
-  };
-
-  fs.appendFileSync(refundLogPath, `${JSON.stringify(entry)}\n`);
-  return entry;
-}
-
-async function initiatePayment(buyerId, payload = {}) {
-  if (!buyerId) {
-    return { success: false, message: "Buyer authentication is required to initiate payment." };
-  }
-
-  const orderId = Number(payload.orderId || 0);
-  const amount = Number(payload.amount || 0);
-  const currency = String(payload.currency || "USD").trim().toUpperCase();
-  const paymentMethod = String(payload.paymentMethod || "card").trim().toLowerCase();
-  const provider = String(payload.provider || "paystack").trim().toLowerCase();
-  const paymentReference = String(payload.paymentReference || `ACC-${Date.now()}`).trim();
-  const orderNumber = String(payload.orderNumber || `ORD-${Date.now()}`).trim();
-
-  if (!orderId || !amount || amount <= 0) {
-    return { success: false, message: "A valid order and amount are required to initiate payment." };
-  }
-
-  const payment = {
-    id: fallbackPayments.length + 1,
-    buyerId: Number(buyerId),
-    sellerId: Number(payload.sellerId || 0),
-    orderId,
-    transactionId: `TXN-${Date.now()}`,
-    paymentReference,
-    amount,
-    currency,
-    paymentMethod,
-    provider,
-    status: "initiated",
-    refundStatus: "not_requested",
-    gatewayResponse: "initiated",
-    gatewayReference: "",
-    initiatedAt: new Date().toISOString(),
-    processedAt: null,
-    updatedAt: new Date().toISOString(),
-    failureReason: "",
-    notes: `Payment initiated for ${orderNumber}.`,
-  };
-
-  fallbackPayments.push(payment);
-  logPaymentAudit("payment_initiated", { paymentId: payment.id, buyerId, orderId, amount, currency, status: payment.status, outcome: "success" });
-  logGatewayEvent(provider, { paymentId: payment.id, paymentReference, orderId, amount, currency, paymentMethod, status: payment.status });
-
-  return {
-    success: true,
-    payment: normalizePayment(payment),
-    message: "Payment has been initiated successfully.",
-  };
-}
-
-async function processGatewayPayment(provider, paymentId, payload = {}) {
-  const payment = fallbackPayments.find((entry) => Number(entry.id) === Number(paymentId));
-
-  if (!payment) {
-    return { success: false, message: "Payment not found." };
-  }
-
-  const providerName = String(provider || payment.provider || "paystack").trim().toLowerCase();
-  const gatewayStatus = String(payload.status || "pending").trim().toLowerCase();
-  const gatewayReference = String(payload.gatewayReference || payload.reference || "").trim();
-
-  payment.provider = providerName;
-  payment.gatewayReference = gatewayReference || payment.gatewayReference;
-  payment.gatewayResponse = gatewayStatus;
-  payment.updatedAt = new Date().toISOString();
-
-  if (gatewayStatus === "success" || gatewayStatus === "successful") {
-    payment.status = "successful";
-    payment.processedAt = new Date().toISOString();
-    payment.notes = "Payment succeeded and order can proceed.";
-  } else if (gatewayStatus === "pending") {
-    payment.status = "pending";
-    payment.notes = "Payment is pending confirmation from the gateway.";
-  } else {
-    payment.status = "failed";
-    payment.failureReason = payload.reason || "Payment gateway declined the transaction.";
-    payment.notes = payment.failureReason;
-  }
-
-  logPaymentAudit("payment_status_updated", { paymentId: payment.id, provider: payment.provider, gatewayStatus, gatewayReference, outcome: payment.status === "successful" ? "success" : "warning" });
-  logGatewayEvent(payment.provider, { paymentId: payment.id, gatewayStatus, gatewayReference, amount: payment.amount, currency: payment.currency });
-
-  return {
-    success: true,
-    payment: normalizePayment(payment),
-    message: payment.status === "successful" ? "Payment processed successfully." : payment.status === "failed" ? "Payment failed." : "Payment is pending.",
-  };
-}
-
-async function updatePaymentStatus(paymentId, nextStatus, payload = {}) {
-  const payment = fallbackPayments.find((entry) => Number(entry.id) === Number(paymentId));
-
-  if (!payment) {
-    return { success: false, message: "Payment not found." };
-  }
-
-  const status = String(nextStatus || "").trim().toLowerCase();
-  const validStatuses = ["initiated", "pending", "successful", "failed", "refunded"];
-
-  if (!validStatuses.includes(status)) {
-    return { success: false, message: "Unsupported payment status." };
-  }
-
-  payment.status = status;
-  payment.gatewayResponse = status;
-  payment.updatedAt = new Date().toISOString();
-
-  if (status === "failed") {
-    payment.failureReason = payload.reason || "Transaction failed.";
-  }
-
-  if (status === "successful") {
-    payment.processedAt = payment.processedAt || new Date().toISOString();
-  }
-
-  if (status === "refunded") {
-    payment.refundStatus = "refunded";
-  }
-
-  logPaymentAudit("payment_status_updated", { paymentId: payment.id, status, failureReason: payment.failureReason, outcome: "success" });
-
-  return {
-    success: true,
-    payment: normalizePayment(payment),
-    message: "Payment status updated successfully.",
-  };
-}
-
-async function linkPaymentToOrder(paymentId, orderId) {
-  const payment = fallbackPayments.find((entry) => Number(entry.id) === Number(paymentId));
-
-  if (!payment) {
-    return { success: false, message: "Payment not found." };
-  }
-
-  payment.orderId = Number(orderId || payment.orderId || 0);
-  payment.updatedAt = new Date().toISOString();
-
-  logPaymentAudit("payment_linked_to_order", { paymentId: payment.id, orderId: payment.orderId, outcome: "success" });
-
-  return {
-    success: true,
-    payment: normalizePayment(payment),
-    message: "Payment linked to order successfully.",
-  };
-}
-
-async function refundPayment(userId, paymentId, reason = "") {
-  const payment = fallbackPayments.find((entry) => Number(entry.id) === Number(paymentId));
-
-  if (!payment) {
-    return { success: false, message: "Payment not found." };
-  }
-
-  if (Number(payment.buyerId) !== Number(userId)) {
-    return { success: false, message: "Only the buyer can request a refund for this payment." };
-  }
-
-  payment.status = "refunded";
-  payment.refundStatus = "refunded";
-  payment.updatedAt = new Date().toISOString();
-  payment.notes = reason ? `Refund processed: ${reason}` : "Refund processed.";
-
-  logPaymentAudit("payment_refunded", { paymentId: payment.id, buyerId: userId, reason, amount: payment.amount, outcome: "success" });
-  logRefundEvent(payment.id, { paymentId: payment.id, buyerId: userId, amount: payment.amount, reason });
-
-  return {
-    success: true,
-    payment: normalizePayment(payment),
-    message: "Refund processed successfully.",
-  };
-}
-
-async function getUserPayments(userId) {
-  return fallbackPayments
-    .filter((entry) => Number(entry.buyerId) === Number(userId) || Number(entry.sellerId) === Number(userId))
-    .sort((a, b) => new Date(b.initiatedAt) - new Date(a.initiatedAt))
-    .map((entry) => normalizePayment(entry));
-}
-
-async function getPaymentById(paymentId) {
-  const payment = fallbackPayments.find((entry) => Number(entry.id) === Number(paymentId));
-  return payment ? normalizePayment(payment) : null;
-}
-
-async function getPaymentAuditLog() {
-  return [...fallbackAuditLog];
-}
+const paymentColumns = `id, buyer_id AS "buyerId", seller_id AS "sellerId", order_id AS "orderId", transaction_id AS "transactionId", payment_reference AS "paymentReference", amount, currency, payment_method AS "paymentMethod", provider, status, refund_status AS "refundStatus", gateway_response AS "gatewayResponse", gateway_reference AS "gatewayReference", initiated_at AS "initiatedAt", processed_at AS "processedAt", updated_at AS "updatedAt", failure_reason AS "failureReason", notes`;
+async function paymentById(id, client = pool) { const result = await client.query(`SELECT ${paymentColumns} FROM payments WHERE id = $1`, [id]); return result.rows[0] ? normalizePayment(result.rows[0]) : null; }
+async function paymentAudit(client, paymentId, userId, eventType, details = {}, outcome = "success") { const result = await client.query("INSERT INTO payment_audit_logs (payment_id,user_id,event_type,outcome,details) VALUES ($1,$2,$3,$4,$5) RETURNING id,event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\"", [paymentId || null, userId || null, eventType, outcome, details]); return result.rows[0]; }
+async function initiatePayment(buyerId, payload = {}) { if (!buyerId) return { success: false, message: "Buyer authentication is required to initiate payment." }; const orderId = Number(payload.orderId || 0), amount = Number(payload.amount || 0); if (!orderId || amount <= 0) return { success: false, message: "A valid order and amount are required to initiate payment." }; const client = await pool.connect(); try { await client.query("BEGIN"); const payment = await client.query(`INSERT INTO payments (buyer_id,seller_id,order_id,transaction_id,payment_reference,amount,currency,payment_method,provider,status,refund_status,gateway_response,notes) VALUES ($1,COALESCE(NULLIF($2,0),(SELECT seller_id FROM orders WHERE id=$3)),$3,$4,$5,$6,$7,$8,$9,'initiated','not_requested','initiated',$10) RETURNING ${paymentColumns}`, [buyerId, Number(payload.sellerId || 0), orderId, `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, String(payload.paymentReference || `ACC-${Date.now()}`), amount, String(payload.currency || "USD").toUpperCase(), String(payload.paymentMethod || "card").toLowerCase(), String(payload.provider || "paystack").toLowerCase(), `Payment initiated for ${String(payload.orderNumber || `ORD-${Date.now()}`)}.`]); const record = normalizePayment(payment.rows[0]); await paymentAudit(client, record.id, buyerId, "payment_initiated", { paymentId: record.id, orderId, amount, currency: record.currency }); await client.query("INSERT INTO payment_gateway_events (payment_id,provider,status,reference,payload) VALUES ($1,$2,$3,$4,$5)", [record.id, record.provider, "initiated", record.paymentReference, { orderId, amount }]); await client.query("COMMIT"); return { success: true, payment: record, message: "Payment has been initiated successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function updatePayment(paymentId, values, eventType, userId, details = {}) { const client = await pool.connect(); try { await client.query("BEGIN"); const set = Object.keys(values).map((key, i) => `${key}=$${i + 2}`).join(","); const result = await client.query(`UPDATE payments SET ${set},updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING ${paymentColumns}`, [paymentId, ...Object.values(values)]); if (!result.rows[0]) { await client.query("ROLLBACK"); return { success: false, message: "Payment not found." }; } const record = normalizePayment(result.rows[0]); await paymentAudit(client, record.id, userId, eventType, { paymentId: record.id, ...details }); await client.query("COMMIT"); return { success: true, payment: record, message: "Payment status updated successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function processGatewayPayment(provider, paymentId, payload = {}) { const payment = await paymentById(paymentId); if (!payment) return { success: false, message: "Payment not found." }; const gatewayStatus = String(payload.status || "pending").toLowerCase(), status = ["success", "successful"].includes(gatewayStatus) ? "successful" : gatewayStatus === "pending" ? "pending" : "failed"; const values = { provider: String(provider || payment.provider).toLowerCase(), gateway_reference: String(payload.gatewayReference || payload.reference || payment.gatewayReference), gateway_response: gatewayStatus, status, processed_at: status === "successful" ? new Date() : payment.processedAt, failure_reason: status === "failed" ? (payload.reason || "Payment gateway declined the transaction.") : payment.failureReason }; const result = await updatePayment(paymentId, values, "payment_status_updated", null, { provider: values.provider, gatewayStatus, gatewayReference: values.gateway_reference }); const client = await pool.connect(); try { await client.query("INSERT INTO payment_gateway_events (payment_id,provider,status,reference,payload) VALUES ($1,$2,$3,$4,$5)", [paymentId, values.provider, gatewayStatus, values.gateway_reference, payload]); } finally { client.release(); } result.message = status === "successful" ? "Payment processed successfully." : status === "failed" ? "Payment failed." : "Payment is pending."; return result; }
+async function updatePaymentStatus(paymentId, nextStatus, payload = {}) { const status = String(nextStatus || "").toLowerCase(); if (!["initiated", "pending", "successful", "failed", "refunded"].includes(status)) return { success: false, message: "Unsupported payment status." }; return updatePayment(paymentId, { status, gateway_response: status, failure_reason: status === "failed" ? (payload.reason || "Transaction failed.") : null, processed_at: status === "successful" ? new Date() : null, refund_status: status === "refunded" ? "refunded" : "not_requested" }, "payment_status_updated", null, { status }); }
+async function linkPaymentToOrder(paymentId, orderId) { return updatePayment(paymentId, { order_id: Number(orderId) }, "payment_linked_to_order", null, { orderId: Number(orderId) }); }
+async function refundPayment(userId, paymentId, reason = "") { const payment = await paymentById(paymentId); if (!payment) return { success: false, message: "Payment not found." }; if (payment.buyerId !== Number(userId)) return { success: false, message: "Only the buyer can request a refund for this payment." }; const client = await pool.connect(); try { await client.query("BEGIN"); const result = await client.query(`UPDATE payments SET status='refunded',refund_status='refunded',notes=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING ${paymentColumns}`, [paymentId, reason ? `Refund processed: ${reason}` : "Refund processed."]); const record = normalizePayment(result.rows[0]); await client.query("INSERT INTO payment_refunds (payment_id,buyer_id,amount,reason,status,processed_at) VALUES ($1,$2,$3,$4,'processed',CURRENT_TIMESTAMP)", [paymentId, userId, record.amount, reason]); await paymentAudit(client, paymentId, userId, "payment_refunded", { paymentId, buyerId: userId, amount: record.amount, reason }); await client.query("COMMIT"); return { success: true, payment: record, message: "Refund processed successfully." }; } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); } }
+async function getUserPayments(userId) { const result = await pool.query(`SELECT ${paymentColumns} FROM payments WHERE buyer_id=$1 OR seller_id=$1 ORDER BY initiated_at DESC`, [userId]); return result.rows.map(normalizePayment); }
+async function getPaymentById(paymentId) { return paymentById(paymentId); }
+async function getPaymentAuditLog() { const result = await pool.query("SELECT id,payment_id AS \"paymentId\",user_id AS \"userId\",event_type AS \"eventType\",outcome,details,created_at AS \"createdAt\" FROM payment_audit_logs ORDER BY created_at,id"); return result.rows; }
 
 module.exports = {
   initiatePayment,
@@ -303,5 +50,4 @@ module.exports = {
   getUserPayments,
   getPaymentById,
   getPaymentAuditLog,
-  fallbackPayments,
 };

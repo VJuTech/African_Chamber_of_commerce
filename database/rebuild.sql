@@ -42,6 +42,13 @@ DROP TABLE IF EXISTS profile_contact_change_requests CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS messaging_notifications CASCADE;
+DROP TABLE IF EXISTS messaging_audit_logs CASCADE;
+DROP TABLE IF EXISTS message_deletions CASCADE;
+DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS conversation_participants CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
+DROP TABLE IF EXISTS messaging_blocks CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -986,6 +993,13 @@ CREATE TABLE IF NOT EXISTS procurement_quotations (
   UNIQUE (rfq_id, supplier_id)
 );
 
+CREATE TABLE IF NOT EXISTS procurement_rfq_suppliers (
+  rfq_id INTEGER NOT NULL REFERENCES procurement_rfqs(id) ON DELETE CASCADE,
+  supplier_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (rfq_id, supplier_id)
+);
+
 -- Awarded procurement orders provide explicit hand-off points to payment and logistics services.
 CREATE TABLE IF NOT EXISTS procurement_orders (
   id SERIAL PRIMARY KEY,
@@ -1053,6 +1067,23 @@ CREATE TABLE IF NOT EXISTS contracts (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   terminated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS contract_parties (
+  contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (contract_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS contract_versions (
+  id SERIAL PRIMARY KEY,
+  contract_id INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  content TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (contract_id, version)
 );
 
 -- Keep signer identity, version, timestamp, and signature evidence auditable.
@@ -1214,6 +1245,78 @@ CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
 CREATE INDEX IF NOT EXISTS idx_notification_deliveries_queue ON notification_deliveries(status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS idx_notification_audit_logs_user ON notification_audit_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_subscription_audit_logs_user_id ON subscription_audit_logs(user_id);
+
+-- ========================================
+-- CHAPTER 14: NORMALIZED MESSAGING SCHEMA
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id BIGSERIAL PRIMARY KEY,
+  type VARCHAR(50) NOT NULL DEFAULT 'user_to_user',
+  subject VARCHAR(255) NOT NULL DEFAULT 'Conversation',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL DEFAULT '',
+  attachments JSONB NOT NULL DEFAULT '[]'::jsonb,
+  type VARCHAR(30) NOT NULL DEFAULT 'text',
+  status VARCHAR(30) NOT NULL DEFAULT 'sent',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS message_deletions (
+  message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  deleted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (message_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS messaging_blocks (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, target_id),
+  CHECK (user_id <> target_id)
+);
+
+CREATE TABLE IF NOT EXISTS messaging_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  event_type VARCHAR(120) NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS messaging_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  notification_type VARCHAR(120) NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants(user_id, conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_status ON messages(receiver_id, status);
+CREATE INDEX IF NOT EXISTS idx_message_deletions_user ON message_deletions(user_id, message_id);
+CREATE INDEX IF NOT EXISTS idx_messaging_blocks_user_target ON messaging_blocks(user_id, target_id);
+CREATE INDEX IF NOT EXISTS idx_messaging_audit_created ON messaging_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messaging_notifications_user_created ON messaging_notifications(user_id, created_at DESC);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.
 INSERT INTO membership_tiers (tier_name, tier_level, description, pricing, billing_cycle)

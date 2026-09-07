@@ -92,8 +92,8 @@ async function downloadDocument(req, res, next) {
     const documents = await contractModel.getDocuments(req.params.id, currentUserId(req));
     const document = documents.find((entry) => Number(entry.id) === Number(req.params.documentId));
     if (!contract || !document) return res.status(404).render("error/404", { title: "Document not found", user: req.session.user });
-    const storedDocument = contractModel.contractDocuments.find((entry) => Number(entry.id) === Number(document.id));
-    const filePath = getPrivateDocumentPath(storedDocument && storedDocument.storageName);
+    const storageName = await contractModel.getDocumentStorageName(document.id, currentUserId(req));
+    const filePath = getPrivateDocumentPath(storageName);
     if (!filePath) return res.status(404).render("error/404", { title: "Document not found", user: req.session.user });
     return res.download(filePath, document.fileName);
   } catch (error) { return next(error); }
