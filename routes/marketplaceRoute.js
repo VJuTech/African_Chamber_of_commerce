@@ -14,6 +14,7 @@ const {
   deleteListing,
 } = require("../controllers/marketplaceController");
 const { marketplaceImageUpload } = require("../utility/marketplaceUpload");
+const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
 
 // Convert upload failures into the same friendly form experience as validation failures.
 function handleMarketplaceImageUpload(req, res, next) {
@@ -41,6 +42,8 @@ function handleMarketplaceImageUpload(req, res, next) {
       listing: req.params.id ? { id: req.params.id, ...req.body } : undefined,
       error: message,
       message: "",
+      africanCountries,
+      marketplaceCategories,
     };
 
     return res.status(400).render(view, templateData);

@@ -3,6 +3,19 @@
  *******************************************/
 const marketplaceModel = require("../models/marketplaceModel");
 const { publicImagePath, removeUploadedImage } = require("../utility/marketplaceUpload");
+const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
+
+function createListingViewData(req, formData = {}, error = "", message = "") {
+  return {
+    title: "Create Listing",
+    user: req.session && req.session.user ? req.session.user : null,
+    formData,
+    error,
+    message,
+    africanCountries,
+    marketplaceCategories,
+  };
+}
 
 async function marketplacePage(req, res, next) {
   try {
@@ -38,13 +51,7 @@ async function marketplacePage(req, res, next) {
 
 async function createListingPage(req, res, next) {
   try {
-    return res.render("marketplace/create", {
-      title: "Create Listing",
-      user: req.session && req.session.user ? req.session.user : null,
-      formData: {},
-      error: "",
-      message: req.query.message || "",
-    });
+    return res.render("marketplace/create", createListingViewData(req, {}, "", req.query.message || ""));
   } catch (error) {
     return next(error);
   }
@@ -79,13 +86,7 @@ async function submitCreateListing(req, res, next) {
 
     if (!result.success) {
       removeUploadedImage(req.file);
-      return res.render("marketplace/create", {
-        title: "Create Listing",
-        user: req.session && req.session.user ? req.session.user : null,
-        formData: req.body,
-        error: result.message,
-        message: "",
-      });
+      return res.render("marketplace/create", createListingViewData(req, req.body, result.message));
     }
 
     return res.redirect("/marketplace/my-listings?message=" + encodeURIComponent(result.message));
@@ -102,6 +103,7 @@ async function listingDetailPage(req, res, next) {
       return res.status(404).render("error/404", {
         title: "Listing not found",
         user: req.session && req.session.user ? req.session.user : null,
+        message: "The marketplace listing could not be found or is no longer available.",
       });
     }
 
@@ -145,6 +147,7 @@ async function editListingPage(req, res, next) {
       return res.status(404).render("error/404", {
         title: "Listing not found",
         user: req.session && req.session.user ? req.session.user : null,
+        message: "The marketplace listing could not be found or is no longer available.",
       });
     }
 

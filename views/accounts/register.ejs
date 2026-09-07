@@ -40,7 +40,20 @@
           </div>
           <div class="field-group">
             <label for="country">Country</label>
-            <input id="country" name="country" type="text" value="<%= formData && formData.country ? formData.country : '' %>" required aria-required="true" maxlength="100" placeholder="Nigeria" />
+            <div class="account-country-picker" data-account-country-picker>
+              <input id="country" name="country" type="hidden" value="<%= formData && formData.country ? formData.country : '' %>" required aria-required="true" />
+              <button type="button" class="account-country-picker__trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="account-country-picker__selected"><span class="account-country-picker__placeholder">Select your country</span></span>
+              </button>
+              <div class="account-country-picker__menu" role="listbox" aria-label="Country">
+                <% (africanCountries || []).forEach((country) => { %>
+                  <button type="button" class="account-country-picker__option" role="option" data-value="<%= country.name %>" data-label="<%= country.name %>" data-flag="<%= country.flagUrl %>">
+                    <img src="<%= country.flagUrl %>" alt="" width="24" height="16" loading="lazy" />
+                    <span><%= country.name %></span>
+                  </button>
+                <% }) %>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -130,3 +143,41 @@
     <p class="switch-link">Already have an account? <a href="/login">Sign in</a>.</p>
   </div>
 </div>
+
+<script>
+  document.querySelectorAll('[data-account-country-picker]').forEach(function (picker) {
+    const input = picker.querySelector('input[type="hidden"]');
+    const trigger = picker.querySelector('.account-country-picker__trigger');
+    const selected = picker.querySelector('.account-country-picker__selected');
+    const options = picker.querySelectorAll('.account-country-picker__option');
+
+    function showSelected(option) {
+      selected.innerHTML = '<img src="' + option.dataset.flag + '" alt="" width="24" height="16" />' +
+        '<span>' + option.dataset.label + '</span>';
+    }
+
+    options.forEach(function (option) {
+      if (option.dataset.value === input.value) showSelected(option);
+      option.addEventListener('click', function () {
+        input.value = option.dataset.value;
+        showSelected(option);
+        picker.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    trigger.addEventListener('click', function () {
+      const isOpen = picker.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', String(isOpen));
+    });
+  });
+
+  document.addEventListener('click', function (event) {
+    document.querySelectorAll('[data-account-country-picker].is-open').forEach(function (picker) {
+      if (!picker.contains(event.target)) {
+        picker.classList.remove('is-open');
+        picker.querySelector('.account-country-picker__trigger').setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+</script>

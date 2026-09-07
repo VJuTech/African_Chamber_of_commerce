@@ -112,6 +112,86 @@
   border-color: #e11d48;
 }
 
+.account-country-picker {
+  position: relative;
+}
+
+.account-country-picker__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid #d9c8f3;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f1a2d;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-country-picker__trigger::after {
+  content: "\\25BE";
+  color: #6d3db4;
+}
+
+.account-country-picker__selected,
+.account-country-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-country-picker__selected img,
+.account-country-picker__option img {
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid #d9c8f3;
+}
+
+.account-country-picker__placeholder {
+  color: #6f6680;
+}
+
+.account-country-picker__menu {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #d9c8f3;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(74, 38, 125, 0.16);
+}
+
+.account-country-picker.is-open .account-country-picker__menu {
+  display: block;
+}
+
+.account-country-picker__option {
+  width: 100%;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #1f1a2d;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-country-picker__option:hover,
+.account-country-picker__option:focus-visible {
+  background: #f2ebff;
+}
+
 .consent-block {
   display: flex;
   flex-direction: column;

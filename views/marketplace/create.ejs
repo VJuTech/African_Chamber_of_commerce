@@ -30,7 +30,12 @@
 
       <div class="field-group">
         <label for="category">Category</label>
-        <input id="category" name="category" type="text" value="<%= formData.category || '' %>" placeholder="e.g. Agriculture" required />
+        <select id="category" name="category" required>
+          <option value="">Select business category</option>
+          <% (marketplaceCategories || []).forEach((category) => { %>
+            <option value="<%= category %>" <%= formData.category === category ? 'selected' : '' %>><%= category %></option>
+          <% }) %>
+        </select>
       </div>
 
       <div class="field-group">
@@ -96,7 +101,20 @@
 
       <div class="field-group span-2">
         <label for="location">Business location</label>
-        <input id="location" name="location" type="text" value="<%= formData.location || '' %>" placeholder="e.g. Nairobi, Kenya" required />
+        <div class="marketplace-country-picker" data-marketplace-country-picker>
+          <input id="location" name="location" type="hidden" value="<%= formData.location || '' %>" required />
+          <button type="button" class="marketplace-country-picker__trigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="marketplace-country-picker__selected"><span class="marketplace-country-picker__placeholder">Select business location</span></span>
+          </button>
+          <div class="marketplace-country-picker__menu" role="listbox" aria-label="Business location">
+            <% (africanCountries || []).forEach((country) => { %>
+              <button type="button" class="marketplace-country-picker__option" role="option" data-value="<%= country.name %>" data-label="<%= country.name %>" data-flag="<%= country.flagUrl %>">
+                <img src="<%= country.flagUrl %>" alt="" width="24" height="16" loading="lazy" />
+                <span><%= country.name %></span>
+              </button>
+            <% }) %>
+          </div>
+        </div>
       </div>
 
       <div class="field-group span-2">
@@ -117,3 +135,41 @@
     </div>
   </form>
 </section>
+
+<script>
+  document.querySelectorAll('[data-marketplace-country-picker]').forEach(function (picker) {
+    const input = picker.querySelector('input[type="hidden"]');
+    const trigger = picker.querySelector('.marketplace-country-picker__trigger');
+    const selected = picker.querySelector('.marketplace-country-picker__selected');
+    const options = picker.querySelectorAll('.marketplace-country-picker__option');
+
+    function showSelected(option) {
+      selected.innerHTML = '<img src="' + option.dataset.flag + '" alt="" width="24" height="16" />' +
+        '<span>' + option.dataset.label + '</span>';
+    }
+
+    options.forEach(function (option) {
+      if (option.dataset.value === input.value) showSelected(option);
+      option.addEventListener('click', function () {
+        input.value = option.dataset.value;
+        showSelected(option);
+        picker.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    trigger.addEventListener('click', function () {
+      const isOpen = picker.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', String(isOpen));
+    });
+  });
+
+  document.addEventListener('click', function (event) {
+    document.querySelectorAll('[data-marketplace-country-picker].is-open').forEach(function (picker) {
+      if (!picker.contains(event.target)) {
+        picker.classList.remove('is-open');
+        picker.querySelector('.marketplace-country-picker__trigger').setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+</script>

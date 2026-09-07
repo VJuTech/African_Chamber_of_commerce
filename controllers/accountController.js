@@ -1,5 +1,16 @@
 const authModel = require("../models/authModel");
 const { validateAccountPayload } = require("../utility/account-validation");
+const { africanCountries } = require("../utility/business-options");
+
+function registerViewData(formData = {}, error = "", success = "") {
+  return {
+    title: "Create Account",
+    error,
+    success,
+    formData,
+    africanCountries,
+  };
+}
 
 async function renderForgotPassword(req, res, next) {
   try {
@@ -134,12 +145,7 @@ async function registerUser(req, res, next) {
     });
 
     if (errors.length > 0) {
-      return res.render("accounts/register", {
-        title: "Create Account",
-        error: errors.join(" "),
-        success: "",
-        formData: req.body,
-      });
+      return res.render("accounts/register", registerViewData(req.body, errors.join(" ")));
     }
 
     const result = await authModel.createUser({
@@ -160,12 +166,7 @@ async function registerUser(req, res, next) {
     });
 
     if (!result.success) {
-      return res.render("accounts/register", {
-        title: "Create Account",
-        error: result.message,
-        success: "",
-        formData: req.body,
-      });
+      return res.render("accounts/register", registerViewData(req.body, result.message));
     }
 
     req.session.authenticated = true;

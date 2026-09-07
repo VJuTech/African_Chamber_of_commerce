@@ -209,15 +209,16 @@ async function updateListing(userId, listingId, payload = {}) {
       "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
       [listingId]
     );
-    if (existingResult.rows.length === 0) return { success: false, message: "Listing not found." };
+    if (existingResult.rows.length === 0) {
+      // The listing may exist only in the local fallback store.
+    } else {
+      const existing = normalizeListing(existingResult.rows[0]);
+      if (Number(existing.userId) !== Number(userId)) {
+        return { success: false, message: "You can only update your own listings." };
+      }
 
-    const existing = normalizeListing(existingResult.rows[0]);
-    if (Number(existing.userId) !== Number(userId)) {
-      return { success: false, message: "You can only update your own listings." };
-    }
-
-    const next = {
-      ...existing,
+      const next = {
+        ...existing,
       title: typeof payload.title !== "undefined" ? String(payload.title || "").trim() : existing.title,
       description: typeof payload.description !== "undefined" ? String(payload.description || "").trim() : existing.description,
       category: typeof payload.category !== "undefined" ? String(payload.category || "").trim() : existing.category,
@@ -233,13 +234,13 @@ async function updateListing(userId, listingId, payload = {}) {
       location: typeof payload.location !== "undefined" ? String(payload.location || "").trim() : existing.location,
       tags: typeof payload.tags !== "undefined" && Array.isArray(payload.tags) ? payload.tags : existing.tags,
       media: typeof payload.media !== "undefined" ? (Array.isArray(payload.media) ? payload.media : [payload.media]) : existing.media,
-    };
+      };
 
-    if (!next.title || !next.description || !next.category) {
-      return { success: false, message: "Title, description, and category are required." };
-    }
+      if (!next.title || !next.description || !next.category) {
+        return { success: false, message: "Title, description, and category are required." };
+      }
 
-    const result = await pool.query(
+      const result = await pool.query(
       `UPDATE marketplace_listings SET title=$1, description=$2, category=$3, listing_type=$4,
         pricing_model=$5, price=$6, min_price=$7, max_price=$8, currency=$9, inventory=$10,
         availability=$11, visibility=$12, location=$13, media=$14::jsonb, tags=$15::jsonb,
@@ -248,9 +249,12 @@ async function updateListing(userId, listingId, payload = {}) {
         next.minPrice, next.maxPrice, next.currency, next.inventory, next.availability,
         next.visibility, next.location, JSON.stringify(next.media), JSON.stringify(next.tags), listingId, userId]
     );
-    const updatedListing = normalizeListing(result.rows[0]);
-    logMarketplaceAudit("listing_updated", { listingId: updatedListing.id, userId, businessId: updatedListing.businessId, outcome: "success" });
-    return { success: true, listing: updatedListing, message: "Listing updated successfully." };
+      if (result.rows.length > 0) {
+        const updatedListing = normalizeListing(result.rows[0]);
+        logMarketplaceAudit("listing_updated", { listingId: updatedListing.id, userId, businessId: updatedListing.businessId, outcome: "success" });
+        return { success: true, listing: updatedListing, message: "Listing updated successfully." };
+      }
+    }
   } catch (error) {
     // Use the existing local implementation when PostgreSQL is unavailable.
   }
@@ -307,9 +311,11 @@ async function deleteListing(userId, listingId) {
        WHERE id = $1 AND user_id = $2 AND status <> 'deleted' RETURNING id, business_id`,
       [listingId, userId]
     );
-    if (result.rows.length === 0) return { success: false, message: "Listing not found or you do not have permission to delete it." };
-    logMarketplaceAudit("listing_deleted", { listingId, userId, businessId: result.rows[0].business_id, outcome: "success" });
-    return { success: true, message: "Listing removed successfully." };
+    if (result.rows.length > 0) {
+      logMarketplaceAudit("listing_deleted", { listingId, userId, businessId: result.rows[0].business_id, outcome: "success" });
+      return { success: true, message: "Listing removed successfully." };
+    }
+    // The listing may exist only in the local fallback store.
   } catch (error) {
     // Use the existing local implementation when PostgreSQL is unavailable.
   }
@@ -419,7 +425,9 @@ async function getListingById(listingId) {
       "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
       [listingId]
     );
-    return result.rows.length ? normalizeListing(result.rows[0]) : null;
+    if (result.rows.length) return normalizeListing(result.rows[0]);
+    // A listing may have been created in the local fallback when its database
+    // insert was unavailable; preserve detail-page access in that case.
   } catch (error) {
     // Use the existing local implementation when PostgreSQL is unavailable.
   }

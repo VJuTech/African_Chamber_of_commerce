@@ -1,3 +1,5 @@
+const { africanCountries } = require("../utility/business-options");
+
 function getLoginPageContext(req) {
   return {
     title: "Sign In",
@@ -12,6 +14,7 @@ function getRegisterPageContext() {
     error: "",
     success: "",
     formData: {},
+    africanCountries,
   };
 }
 

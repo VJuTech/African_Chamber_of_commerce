@@ -97,6 +97,82 @@
   gap: 1.2rem;
 }
 
+.marketplace-country-picker {
+  position: relative;
+}
+
+.marketplace-country-picker__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--marketplace-border);
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+  color: #1d2d3d;
+  background: #fff;
+  cursor: pointer;
+}
+
+.marketplace-country-picker__trigger::after {
+  content: "\\25BE";
+  color: #587087;
+}
+
+.marketplace-country-picker__selected,
+.marketplace-country-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.marketplace-country-picker__selected img,
+.marketplace-country-picker__option img {
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid var(--marketplace-border);
+}
+
+.marketplace-country-picker__placeholder {
+  color: #6b7d8d;
+}
+
+.marketplace-country-picker__menu {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--marketplace-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(17, 39, 67, 0.16);
+}
+
+.marketplace-country-picker.is-open .marketplace-country-picker__menu { display: block; }
+
+.marketplace-country-picker__option {
+  width: 100%;
+  padding: 0.6rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  text-align: left;
+  color: #1d2d3d;
+  background: transparent;
+  cursor: pointer;
+}
+
+.marketplace-country-picker__option:hover,
+.marketplace-country-picker__option:focus-visible { background: #eef5fb; }
+
 .listing-card {
   background: var(--marketplace-panel);
   border: 1px solid var(--marketplace-border);
