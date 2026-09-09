@@ -81,6 +81,54 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key === "Escape") closeMegaMenus();
   });
 
+  const managementMenu = document.querySelector("[data-management-menu]");
+  if (managementMenu) {
+    const trigger = managementMenu.querySelector(".management-menu__trigger");
+    const closeManagementMenu = () => {
+      managementMenu.classList.remove("is-open");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    };
+
+    if (trigger) {
+      trigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const shouldOpen = !managementMenu.classList.contains("is-open");
+        closeManagementMenu();
+        managementMenu.classList.toggle("is-open", shouldOpen);
+        trigger.setAttribute("aria-expanded", String(shouldOpen));
+      });
+    }
+
+    managementMenu.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeManagementMenu));
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest("[data-management-menu]")) closeManagementMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeManagementMenu();
+    });
+  }
+
+  const managementBack = document.querySelector("[data-management-back]");
+  if (managementBack) {
+    managementBack.addEventListener("click", () => {
+      const fallback = managementBack.dataset.fallback || "/admin/dashboard";
+      let hasInternalHistory = false;
+      try {
+        hasInternalHistory = window.history.length > 1
+          && document.referrer
+          && new URL(document.referrer).origin === window.location.origin;
+      } catch (error) {
+        hasInternalHistory = false;
+      }
+
+      if (hasInternalHistory) {
+        window.history.back();
+        return;
+      }
+      window.location.assign(fallback);
+    });
+  }
+
   // Let workspace navigation groups expand independently without changing routes.
   document.querySelectorAll("[data-sidebar-group]").forEach((group) => {
     const toggle = group.querySelector(".workspace-sidebar__toggle");

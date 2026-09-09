@@ -64,6 +64,8 @@ DROP TABLE IF EXISTS requirement_changes CASCADE;
 DROP TABLE IF EXISTS requirement_validation_rules CASCADE;
 DROP TABLE IF EXISTS requirement_traceability CASCADE;
 DROP TABLE IF EXISTS requirements CASCADE;
+DROP TABLE IF EXISTS platform_integration_events CASCADE;
+DROP TABLE IF EXISTS platform_integrations CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -292,7 +294,8 @@ VALUES
   ('moderator', 'Moderator', 6, 'A platform operator who reviews community, marketplace, and dispute activity.'),
   ('compliance_officer', 'Compliance Officer', 7, 'An administrator who reviews requirements, audit evidence, and regulatory controls.'),
   ('platform_admin', 'Platform Admin', 8, 'An administrator who manages users and platform activity.'),
-  ('super_admin', 'Super Admin', 9, 'The highest platform administration role.')
+  ('acc_management_admin', 'ACC Management Administrator', 9, 'The dedicated administrator for the ACC management dashboard.'),
+  ('super_admin', 'Super Admin', 10, 'The highest platform administration role.')
 ON CONFLICT (role_key) DO NOTHING;
 
 INSERT INTO permissions (permission_key, resource, action, description)
@@ -327,6 +330,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.role_key IN ('platform_admin', 'super_admin')
+  AND p.resource IN ('users', 'businesses', 'requirements', 'platform_overview', 'platform_audit', 'platform_settings')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'acc_management_admin'
   AND p.resource IN ('users', 'businesses', 'requirements', 'platform_overview', 'platform_audit', 'platform_settings')
 ON CONFLICT DO NOTHING;
 
@@ -645,8 +654,8 @@ INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id
 FROM users u
 JOIN roles r ON r.role_key = CASE u.role
-  WHEN 'admin' THEN 'platform_admin'
   WHEN 'super_admin' THEN 'super_admin'
+  WHEN 'acc_management_admin' THEN 'acc_management_admin'
   ELSE 'registered_user'
 END
 ON CONFLICT DO NOTHING;
@@ -662,6 +671,35 @@ INSERT INTO user_roles (user_id, role_id, business_id, assigned_by)
 SELECT ba.owner_id, r.id, ba.id, ba.owner_id
 FROM business_accounts ba
 JOIN roles r ON r.role_key IN ('business_member', 'business_admin')
+ON CONFLICT DO NOTHING;
+
+-- Dedicated ACC Management administrator. Everyone still signs in through /login.
+-- Login email: acc.management@acc.com
+-- Login password: ACCadmin@2026!
+INSERT INTO users (
+  first_name, last_name, name, email, country, password_hash, role, status,
+  registration_state, email_verified, phone_verified, consent_terms,
+  consent_privacy, terms_version, privacy_version
+)
+VALUES (
+  'ACC', 'Management', 'ACC Management Administrator', 'acc.management@acc.com', 'Nigeria',
+  '$2b$10$fB03P0eN4Exph0WWKJeOJeBuwkCyyJVeWkXvYuemL.QTKB5ACjZQa',
+  'acc_management_admin', 'active', 'completed', TRUE, TRUE, TRUE, TRUE, 'v1', 'v1'
+)
+ON CONFLICT (email) DO UPDATE SET
+  password_hash = EXCLUDED.password_hash,
+  role = 'acc_management_admin',
+  status = 'active',
+  registration_state = 'completed',
+  email_verified = TRUE,
+  phone_verified = TRUE,
+  updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u CROSS JOIN roles r
+WHERE u.email = 'acc.management@acc.com'
+  AND r.role_key = 'acc_management_admin'
 ON CONFLICT DO NOTHING;
 
 CREATE TABLE business_administrators (
@@ -837,7 +875,7 @@ SELECT
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 FROM users u
-WHERE u.email = 'admin@acc.com'
+WHERE u.email = 'acc.management@acc.com'
 ON CONFLICT (business_name, country_of_registration) DO NOTHING;
 
 INSERT INTO business_audit_logs (

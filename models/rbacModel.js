@@ -11,7 +11,10 @@ const ROLE_KEYS = [
   "verified_user",
   "business_member",
   "business_admin",
+  "moderator",
+  "compliance_officer",
   "platform_admin",
+  "acc_management_admin",
   "super_admin",
 ];
 
@@ -118,7 +121,7 @@ async function getAdminOverview() {
 
 async function assignPlatformRole(actorId, userId, roleKey) {
   const normalizedRole = normalizeRoleKey(roleKey);
-  if (!["registered_user", "verified_user", "business_member", "business_admin", "platform_admin", "super_admin"].includes(normalizedRole)) {
+  if (!ROLE_KEYS.includes(normalizedRole)) {
     return { success: false, message: "Unsupported role." };
   }
 

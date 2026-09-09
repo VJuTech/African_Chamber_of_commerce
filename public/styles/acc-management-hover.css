@@ -1,0 +1,11 @@
+@media (min-width: 601px) {
+  .management-menu:hover .management-menu__panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .management-menu:hover .management-menu__chevron {
+    transform: rotate(45deg);
+  }
+}

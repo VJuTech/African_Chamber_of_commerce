@@ -4,7 +4,7 @@ const { requirePermission, requireRole } = require("../middleware/rbacMiddleware
 const requirementsController = require("../controllers/requirementsController");
 
 const router = express.Router();
-const adminAccess = [ensureAuthenticated, requireRole("platform_admin", "super_admin", "admin")];
+const adminAccess = [ensureAuthenticated, requireRole("acc_management_admin", "super_admin")];
 
 router.get("/admin/requirements", ...adminAccess, requirePermission("requirements.read"), requirementsController.requirementsPage);
 router.get("/admin/requirements/:id", ...adminAccess, requirePermission("requirements.read"), requirementsController.requirementDetailPage);

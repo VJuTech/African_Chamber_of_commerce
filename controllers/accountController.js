@@ -353,7 +353,8 @@ async function loginUser(req, res, next) {
     req.session.cookie.maxAge = rememberMe ? 1000 * 60 * 60 * 24 * 7 : 1000 * 60 * 30;
 
     return req.session.save(() => {
-      res.redirect("/dashboard");
+      const isManagementAdmin = access.roles.some((role) => role.key === "acc_management_admin");
+      res.redirect(isManagementAdmin ? "/admin/dashboard" : "/dashboard");
     });
   } catch (error) {
     return next(error);

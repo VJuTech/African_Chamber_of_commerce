@@ -35,7 +35,7 @@
           <a href="/profile">My Profile</a>
           <a href="/messages">Messages</a>
           <a href="/notifications">Notifications</a>
-          <% if (['admin', 'super_admin', 'platform_admin', 'compliance_officer', 'moderator'].includes(user.role) || (user.roles && user.roles.some((role) => ['platform_admin', 'super_admin', 'compliance_officer', 'moderator'].includes(role)))) { %><a href="/admin/access-control">Access control</a><a href="/admin/requirements">Requirements</a><a href="/admin/system-overview">System overview</a><% } %>
+          <% if (user.roles && user.roles.some((role) => ['acc_management_admin', 'super_admin'].includes(role))) { %><a href="/admin/dashboard">ACC Management</a><% } %>
           <a href="/logout">Logout</a>
         <% } else { %>
           <a href="/">Home</a>

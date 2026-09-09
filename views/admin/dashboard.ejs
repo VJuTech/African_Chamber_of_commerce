@@ -1,0 +1,105 @@
+<section class="management-dashboard" aria-labelledby="management-dashboard-title">
+  <div class="management-toolbar" aria-label="ACC management tools">
+    <button class="management-back" type="button" data-management-back data-fallback="/admin/dashboard">
+      <span aria-hidden="true">&larr;</span>
+      <span>Back</span>
+    </button>
+
+    <div class="management-menu" data-management-menu>
+      <button class="management-menu__trigger" type="button" aria-expanded="false" aria-controls="managementMenuPanel">
+        <span class="management-menu__trigger-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>ACC Management</span>
+        <span class="management-menu__chevron" aria-hidden="true">+</span>
+      </button>
+      <div class="management-menu__panel" id="managementMenuPanel" aria-label="ACC management sections">
+        <div class="management-menu__intro">
+          <span class="management-eyebrow">ACC control room</span>
+          <strong>Manage the chamber platform</strong>
+          <p>Move between access, requirements, and system operations from one place.</p>
+        </div>
+        <nav class="management-menu__links" aria-label="ACC management navigation">
+          <a href="/admin/dashboard" data-management-link="/admin/dashboard"><span class="management-menu__index">01</span><span><strong>Dashboard</strong><small>Operational snapshot</small></span><span aria-hidden="true">&rarr;</span></a>
+          <a href="/admin/access-control" data-management-link="/admin/access-control"><span class="management-menu__index">02</span><span><strong>Access control</strong><small>Users, roles, and audit activity</small></span><span aria-hidden="true">&rarr;</span></a>
+          <a href="/admin/requirements" data-management-link="/admin/requirements"><span class="management-menu__index">03</span><span><strong>Requirements</strong><small>Traceability and compliance coverage</small></span><span aria-hidden="true">&rarr;</span></a>
+          <a href="/admin/system-overview" data-management-link="/admin/system-overview"><span class="management-menu__index">04</span><span><strong>System overview</strong><small>Architecture and integration health</small></span><span aria-hidden="true">&rarr;</span></a>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <header class="management-dashboard__hero">
+    <div>
+      <p class="management-eyebrow">ACC operations centre</p>
+      <h1 id="management-dashboard-title">Management dashboard</h1>
+      <p>One control surface for platform access, requirement traceability, and system health.</p>
+    </div>
+    <div class="management-dashboard__identity">
+      <span>Signed in as</span>
+      <strong><%= user && user.name ? user.name : 'ACC Administrator' %></strong>
+      <small><%= user && user.email ? user.email : '' %></small>
+    </div>
+  </header>
+
+  <div class="management-metrics" aria-label="Management metrics">
+    <article><span>Users</span><strong><%= metrics.users %></strong><small>Accounts in PostgreSQL</small></article>
+    <article><span>RBAC roles</span><strong><%= metrics.roles %></strong><small>Available platform roles</small></article>
+    <article><span>Requirements</span><strong><%= metrics.completeRequirements %>/<%= metrics.requirements %></strong><small>Traceability complete</small></article>
+    <article><span>Integrations</span><strong><%= metrics.healthyIntegrations %>/<%= metrics.integrations %></strong><small>Currently healthy</small></article>
+  </div>
+
+  <div class="management-card-grid">
+    <article class="management-card management-card--access">
+      <div class="management-card__top"><span class="management-card__number">01</span><span class="management-card__status">RBAC</span></div>
+      <h2>Access control</h2>
+      <p>Review users, assign normalized roles, and inspect the latest audit activity.</p>
+      <div class="management-card__summary"><strong><%= access.users.length %></strong><span>users shown in access review</span></div>
+      <a class="management-card__link" href="/admin/access-control">Open access control <span aria-hidden="true">&rarr;</span></a>
+    </article>
+
+    <article class="management-card management-card--requirements">
+      <div class="management-card__top"><span class="management-card__number">02</span><span class="management-card__status"><%= metrics.completeRequirements %> complete</span></div>
+      <h2>Requirements</h2>
+      <p>Track functional coverage, validation rules, compliance controls, and change history.</p>
+      <div class="management-card__summary"><strong><%= metrics.requirements %></strong><span>active requirements in traceability</span></div>
+      <a class="management-card__link" href="/admin/requirements">Open requirements <span aria-hidden="true">&rarr;</span></a>
+    </article>
+
+    <article class="management-card management-card--system">
+      <div class="management-card__top"><span class="management-card__number">03</span><span class="management-card__status"><%= metrics.healthyIntegrations %> healthy</span></div>
+      <h2>System overview</h2>
+      <p>Monitor architecture layers, external services, live platform counts, and operational status.</p>
+      <div class="management-card__summary"><strong><%= metrics.integrations %></strong><span>registered platform integrations</span></div>
+      <a class="management-card__link" href="/admin/system-overview">Open system overview <span aria-hidden="true">&rarr;</span></a>
+    </article>
+  </div>
+
+  <section class="management-latest" aria-labelledby="management-latest-title">
+    <div class="management-section-heading"><div><p class="management-eyebrow">Operational snapshot</p><h2 id="management-latest-title">Integration health</h2></div><a href="/admin/system-overview">View full status <span aria-hidden="true">&rarr;</span></a></div>
+    <div class="management-integrations">
+      <% overview.integrations.forEach((integration) => { %>
+        <div class="management-integration"><span class="management-integration__dot management-integration__dot--<%= integration.status %>"></span><div><strong><%= integration.displayName %></strong><small><%= integration.provider %> &middot; <%= integration.environment %></small></div><span class="management-integration__status"><%= integration.status.replace('_', ' ') %></span></div>
+      <% }); %>
+    </div>
+  </section>
+    <div class="management-activity-grid">
+      <section class="management-latest" aria-labelledby="management-users-title">
+        <div class="management-section-heading"><div><p class="management-eyebrow">People</p><h2 id="management-users-title">Recent user activity</h2></div><a href="/admin/access-control">Manage access <span aria-hidden="true">&rarr;</span></a></div>
+        <div class="management-user-list">
+          <% access.users.slice(0, 5).forEach((account) => { %>
+            <div class="management-user-row"><div><strong><%= account.name %></strong><small><%= account.email %></small></div><span><%= account.assigned_roles || 'Registered User' %></span></div>
+          <% }); %>
+          <% if (!access.users.length) { %><p class="management-empty">No user activity is available yet.</p><% } %>
+        </div>
+      </section>
+
+      <section class="management-latest" aria-labelledby="management-audit-title">
+        <div class="management-section-heading"><div><p class="management-eyebrow">Traceability</p><h2 id="management-audit-title">Latest audit events</h2></div><a href="/admin/access-control">View audit trail <span aria-hidden="true">&rarr;</span></a></div>
+        <div class="management-audit-list">
+          <% access.auditLogs.slice(0, 5).forEach((log) => { %>
+            <div class="management-audit-row"><strong><%= log.event_type %></strong><span><%= log.outcome || 'recorded' %></span><small><%= new Date(log.created_at).toLocaleString() %></small></div>
+          <% }); %>
+          <% if (!access.auditLogs.length) { %><p class="management-empty">No audit events are available yet.</p><% } %>
+        </div>
+      </section>
+    </div>
+</section>

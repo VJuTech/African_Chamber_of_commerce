@@ -1,24 +1,17 @@
 const express = require("express");
 const { ensureAuthenticated } = require("../controllers/accountController");
 const { requirePermission, requireRole } = require("../middleware/rbacMiddleware");
-const rbacController = require("../controllers/rbacController");
+const controller = require("../controllers/accManagementController");
 
 const router = express.Router();
-
-router.get(
-  "/admin/access-control",
+const managementAccess = [
   ensureAuthenticated,
   requireRole("acc_management_admin", "super_admin"),
   requirePermission("users.read"),
-  rbacController.accessControlPage
-);
+  requirePermission("requirements.read"),
+  requirePermission("platform_overview.read"),
+];
 
-router.post(
-  "/admin/access-control/roles",
-  ensureAuthenticated,
-  requireRole("acc_management_admin", "super_admin"),
-  requirePermission("users.manage"),
-  rbacController.assignRole
-);
+router.get("/admin/dashboard", ...managementAccess, controller.managementDashboard);
 
 module.exports = router;

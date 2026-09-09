@@ -41,6 +41,7 @@ const notificationRoutes = require("./routes/notificationRoute");
 const rbacRoutes = require("./routes/rbacRoute");
 const requirementsRoutes = require("./routes/requirementsRoute");
 const systemOverviewRoutes = require("./routes/systemOverviewRoute");
+const accManagementRoutes = require("./routes/accManagementRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -212,6 +213,7 @@ async function initApp() {
   app.use("/", rbacRoutes);
   app.use("/", requirementsRoutes);
   app.use("/", systemOverviewRoutes);
+  app.use("/", accManagementRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);
