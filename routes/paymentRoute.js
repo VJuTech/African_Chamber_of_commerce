@@ -9,6 +9,7 @@ const {
   initiatePayment,
   processPaymentGateway,
   updatePaymentStatus,
+  retryPayment,
   refundPayment,
   paymentDetailPage,
 } = require("../controllers/paymentController");
@@ -22,6 +23,7 @@ router.get("/payments/:id", ensureAuthenticated, paymentDetailPage);
 router.post("/payments/initiate", ensureAuthenticated, ensureVerifiedAccount, initiatePayment);
 router.post("/payments/gateway", ensureAuthenticated, ensureVerifiedAccount, processPaymentGateway);
 router.post("/payments/:id/status", ensureAuthenticated, ensureVerifiedAccount, updatePaymentStatus);
+router.post("/payments/:id/retry", ensureAuthenticated, ensureVerifiedAccount, retryPayment);
 router.post("/payments/:id/refund", ensureAuthenticated, ensureVerifiedAccount, refundPayment);
 
 module.exports = router;

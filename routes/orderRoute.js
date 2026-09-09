@@ -7,6 +7,8 @@ const {
   orderDashboardPage,
   orderHistoryPage,
   checkoutPage,
+  cartCheckoutPage,
+  placeCartOrder,
   placeOrder,
   orderDetailPage,
   orderTrackingPage,
@@ -24,6 +26,8 @@ router.get("/orders", ensureAuthenticated, orderDashboardPage);
 router.get("/orders/history", ensureAuthenticated, orderHistoryPage);
 router.get("/orders/checkout/:listingId", ensureAuthenticated, ensureVerifiedAccount, checkoutPage);
 router.post("/orders/create", ensureAuthenticated, ensureVerifiedAccount, placeOrder);
+router.get("/cart/checkout", ensureAuthenticated, ensureVerifiedAccount, cartCheckoutPage);
+router.post("/cart/checkout", ensureAuthenticated, ensureVerifiedAccount, placeCartOrder);
 
 // Order detail and tracking views.
 router.get("/orders/:id/track", ensureAuthenticated, orderTrackingPage);

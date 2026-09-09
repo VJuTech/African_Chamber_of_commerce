@@ -59,8 +59,23 @@
       <% } %>
 
       <div class="detail-actions">
-        <button type="button" class="button button--primary">Contact seller</button>
-        <button type="button" class="button button--secondary">Request quote</button>
+        <% if (user) { %>
+          <% if (listing.type === 'product') { %>
+            <form method="post" action="/cart/items" class="inline-form">
+              <input type="hidden" name="listingId" value="<%= listing.id %>" />
+              <input type="number" name="quantity" value="1" min="1" class="quantity-input" aria-label="Quantity" />
+              <button type="submit" class="button button--primary">Add to cart</button>
+            </form>
+          <% } %>
+          <form method="post" action="/messages/start" class="inline-form">
+            <input type="hidden" name="targetId" value="<%= listing.sellerId %>" />
+            <input type="hidden" name="subject" value="Regarding <%= listing.title %>" />
+            <button type="submit" class="button button--secondary">Contact seller</button>
+          </form>
+          <a href="/procurement/create" class="button button--secondary">Request quote</a>
+        <% } else { %>
+          <a href="/login?message=Please sign in to buy or contact a seller." class="button button--primary">Sign in to continue</a>
+        <% } %>
       </div>
     </div>
   </div>

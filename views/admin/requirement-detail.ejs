@@ -1,0 +1,23 @@
+<section class="requirements-page">
+  <header class="requirements-hero requirements-hero--detail"><div><p class="eyebrow"><%= requirement.category.replace('_', ' ') %> / v<%= requirement.version %></p><h1><code><%= requirement.requirement_id %></code> <%= requirement.name %></h1><p><%= requirement.description %></p></div><a href="/admin/requirements" class="button button--secondary">Back to register</a></header>
+  <% if (message) { %><div class="requirements-alert requirements-alert--success"><%= message %></div><% } %>
+  <div class="requirements-detail-grid">
+    <section class="requirements-panel"><p class="eyebrow">Requirement attributes</p><dl class="requirements-definition"><dt>Actor</dt><dd><%= requirement.actor %></dd><dt>Preconditions</dt><dd><%= requirement.preconditions %></dd><dt>Postconditions</dt><dd><%= requirement.postconditions %></dd><dt>Priority</dt><dd><%= requirement.priority %></dd><dt>Dependencies</dt><dd><%= requirement.dependencies.length ? requirement.dependencies.join(', ') : 'None recorded' %></dd></dl></section>
+    <section class="requirements-panel"><p class="eyebrow">Version history</p><div class="requirements-history"><% requirement.changes.forEach((change) => { %><div><strong>v<%= change.version %> · <%= change.changeType %></strong><span><%= change.summary %></span></div><% }); %></div></section>
+  </div>
+  <section class="requirements-panel"><div class="requirements-panel__heading"><div><p class="eyebrow">FRS → Story → UI → API → DB → Test → Sprint → Release</p><h2>Traceability coverage</h2></div><span class="requirements-coverage requirements-coverage--<%= requirement.traceability ? requirement.traceability.coverageStatus : 'missing' %>"><%= requirement.traceability ? requirement.traceability.coverageStatus : 'missing' %></span></div>
+    <form class="requirements-form" method="post" action="/admin/requirements/<%= requirement.id %>/traceability">
+      <label>User story<textarea name="userStory" required><%= requirement.traceability ? requirement.traceability.userStory : '' %></textarea></label>
+      <label>UI reference<input name="uiReference" required value="<%= requirement.traceability ? requirement.traceability.uiReference : '' %>" /></label>
+      <label>API reference<input name="apiReference" required value="<%= requirement.traceability ? requirement.traceability.apiReference : '' %>" /></label>
+      <label>Database objects<input name="databaseObjects" required value="<%= requirement.traceability ? (requirement.traceability.databaseObjects || []).join(', ') : '' %>" /></label>
+      <label>Test case<input name="testCase" required value="<%= requirement.traceability ? requirement.traceability.testCase : '' %>" /></label>
+      <label>Sprint<input name="sprint" required value="<%= requirement.traceability ? requirement.traceability.sprint : '' %>" /></label>
+      <label>Release<input name="release" required value="<%= requirement.traceability ? requirement.traceability.release : '' %>" /></label>
+      <label>Coverage status<select name="coverageStatus" required><% coverageValues.forEach((value) => { %><option value="<%= value %>" <%= requirement.traceability && requirement.traceability.coverageStatus === value ? 'selected' : '' %>><%= value %></option><% }); %></select></label>
+      <label class="requirements-form__wide">Notes<textarea name="notes"><%= requirement.traceability ? requirement.traceability.notes || '' : '' %></textarea></label>
+      <button class="button button--primary" type="submit">Save traceability version</button>
+    </form>
+  </section>
+  <div class="requirements-detail-grid"><section class="requirements-panel"><p class="eyebrow">Validation rules</p><% if (!requirement.validationRules.length) { %><p>No field-level rules registered yet.</p><% } else { %><ul class="requirements-list"><% requirement.validationRules.forEach((rule) => { %><li><strong><%= rule.fieldName %> · <%= rule.ruleKey %></strong><span><%= rule.errorMessage %></span></li><% }); %></ul><% } %></section><section class="requirements-panel"><p class="eyebrow">Compliance controls</p><% if (!requirement.complianceControls.length) { %><p>No compliance evidence registered yet.</p><% } else { %><ul class="requirements-list"><% requirement.complianceControls.forEach((control) => { %><li><strong><%= control.framework %> · <%= control.controlKey %></strong><span><%= control.status %> · <%= control.evidence || 'Evidence pending' %></span></li><% }); %></ul><% } %></section></div>
+</section>

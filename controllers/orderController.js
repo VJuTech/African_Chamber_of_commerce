@@ -3,6 +3,66 @@
  *******************************************/
 const orderModel = require("../models/orderModel");
 const marketplaceModel = require("../models/marketplaceModel");
+const cartModel = require("../models/cartModel");
+const paymentModel = require("../models/paymentModel");
+
+async function cartCheckoutPage(req, res, next) {
+  try {
+    const userId = req.session && req.session.user ? req.session.user.id : null;
+    const cart = await cartModel.getCart(userId);
+    if (!cart.items.length) return res.redirect("/cart?message=" + encodeURIComponent("Your cart is empty."));
+    return res.render("orders/cart-checkout", {
+      title: "Cart checkout",
+      user: req.session.user,
+      cart,
+      formData: {},
+      message: req.query.message || "",
+      error: "",
+    });
+  } catch (error) { return next(error); }
+}
+
+async function placeCartOrder(req, res, next) {
+  try {
+    const userId = req.session && req.session.user ? req.session.user.id : null;
+    const cart = await cartModel.getCart(userId);
+    const shippingAddress = String(req.body.shippingAddress || "").trim();
+    if (!shippingAddress || !cart.items.length) {
+      return res.redirect("/cart/checkout?message=" + encodeURIComponent("Add delivery details before completing checkout."));
+    }
+
+    const createdOrders = [];
+    for (const item of cart.items) {
+      const orderResult = await orderModel.createOrder(userId, {
+        sellerId: item.sellerId,
+        listingId: item.listingId,
+        listingTitle: item.title,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        currency: item.currency,
+        paymentMethod: req.body.paymentMethod || "card",
+        shippingAddress,
+        deliveryMethod: req.body.deliveryMethod || "standard",
+        notes: req.body.notes || "",
+      });
+      if (!orderResult.success) {
+        return res.redirect("/cart/checkout?message=" + encodeURIComponent(orderResult.message));
+      }
+      const paymentResult = await paymentModel.initiatePayment(userId, {
+        orderId: orderResult.order.id,
+        sellerId: item.sellerId,
+        amount: orderResult.order.totalPrice,
+        currency: item.currency,
+        paymentMethod: req.body.paymentMethod || "card",
+        orderNumber: `ORD-${orderResult.order.id}`,
+      });
+      createdOrders.push({ order: orderResult.order, payment: paymentResult.payment });
+    }
+
+    await cartModel.clearCart(userId);
+    return res.redirect("/payments/history?message=" + encodeURIComponent(`${createdOrders.length} order(s) created and payment initiated.`));
+  } catch (error) { return next(error); }
+}
 
 async function orderDashboardPage(req, res, next) {
   try {
@@ -102,7 +162,18 @@ async function placeOrder(req, res, next) {
       });
     }
 
-    return res.redirect("/orders/history?message=" + encodeURIComponent(result.message));
+    const paymentResult = await paymentModel.initiatePayment(userId, {
+      orderId: result.order.id,
+      sellerId: result.order.sellerId,
+      amount: result.order.totalPrice,
+      currency: result.order.currency,
+      paymentMethod: result.order.paymentMethod,
+      orderNumber: `ORD-${result.order.id}`,
+    });
+    const message = paymentResult.success
+      ? "Order created and payment initiated."
+      : `${result.message} Payment could not be initiated: ${paymentResult.message}`;
+    return res.redirect("/payments/history?message=" + encodeURIComponent(message));
   } catch (error) {
     return next(error);
   }
@@ -226,6 +297,8 @@ module.exports = {
   orderDashboardPage,
   orderHistoryPage,
   checkoutPage,
+  cartCheckoutPage,
+  placeCartOrder,
   placeOrder,
   orderDetailPage,
   orderTrackingPage,

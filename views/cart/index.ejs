@@ -1,0 +1,58 @@
+<section class="cart-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Marketplace</p>
+      <h1>Your cart</h1>
+      <p>Review your selected products before checkout.</p>
+    </div>
+    <a href="/marketplace" class="button button--secondary">Continue shopping</a>
+  </div>
+
+  <% if (message) { %><div class="status-banner success"><%= message %></div><% } %>
+  <% if (error) { %><div class="status-banner error"><%= error %></div><% } %>
+
+  <% if (!cart.items.length) { %>
+    <div class="cart-empty">
+      <h2>Your cart is empty</h2>
+      <p>Add products from the marketplace and they will appear here.</p>
+      <a href="/marketplace" class="button button--primary">Browse marketplace</a>
+    </div>
+  <% } else { %>
+    <div class="cart-layout">
+      <div class="cart-items">
+        <% cart.items.forEach((item) => { %>
+          <article class="cart-item">
+            <div class="cart-item__media">
+              <% if (item.media && item.media.length) { %>
+                <img src="<%= item.media[0] %>" alt="<%= item.title %>" />
+              <% } else { %><span><%= item.listingType %></span><% } %>
+            </div>
+            <div class="cart-item__content">
+              <p class="eyebrow"><%= item.listingType %></p>
+              <h2><a href="/marketplace/<%= item.listingId %>"><%= item.title %></a></h2>
+              <p><%= item.currency %> <%= item.unitPrice.toFixed(2) %> each</p>
+              <div class="cart-item__actions">
+                <form method="post" action="/cart/items/<%= item.listingId %>" class="inline-form">
+                  <label for="quantity-<%= item.listingId %>">Quantity</label>
+                  <input id="quantity-<%= item.listingId %>" type="number" name="quantity" min="1" value="<%= item.quantity %>" />
+                  <button type="submit" class="button button--secondary">Update</button>
+                </form>
+                <form method="post" action="/cart/items/<%= item.listingId %>">
+                  <button type="submit" class="button button--text">Remove</button>
+                </form>
+              </div>
+            </div>
+            <strong class="cart-item__total"><%= item.currency %> <%= item.totalPrice.toFixed(2) %></strong>
+          </article>
+        <% }); %>
+      </div>
+
+      <aside class="cart-summary">
+        <p class="eyebrow">Order preview</p>
+        <h2>Cart total</h2>
+        <div class="cart-summary__total"><span><%= cart.items.length %> item(s)</span><strong><%= cart.currency %> <%= cart.total.toFixed(2) %></strong></div>
+        <a href="/cart/checkout" class="button button--primary">Proceed to checkout</a>
+      </aside>
+    </div>
+  <% } %>
+</section>

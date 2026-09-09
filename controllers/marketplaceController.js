@@ -2,6 +2,7 @@
  * marketplaceController.js - Marketplace listing management for ACC Chapter 17.
  *******************************************/
 const marketplaceModel = require("../models/marketplaceModel");
+const cartModel = require("../models/cartModel");
 const { persistentImageDataUrl, removeUploadedImage } = require("../utility/marketplaceUpload");
 const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
 
@@ -97,6 +98,7 @@ async function submitCreateListing(req, res, next) {
 
 async function listingDetailPage(req, res, next) {
   try {
+    const userId = req.session && req.session.user ? req.session.user.id : null;
     const listing = await marketplaceModel.getListingById(req.params.id);
 
     if (!listing) {
@@ -113,6 +115,7 @@ async function listingDetailPage(req, res, next) {
       listing,
       message: req.query.message || "",
       error: "",
+      cart: userId ? await cartModel.getCart(userId) : { items: [] },
     });
   } catch (error) {
     return next(error);

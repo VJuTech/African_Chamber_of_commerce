@@ -1,0 +1,63 @@
+.access-control-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2.5rem 0 4rem;
+  color: #18283d;
+}
+
+.access-control-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+  padding: 2rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #172f4d, #245f76);
+  color: #fff;
+}
+
+.access-control-hero .eyebrow { color: #b7e5d1; }
+.access-control-hero h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.5rem); }
+.access-control-hero p:not(.eyebrow) { max-width: 620px; margin: .65rem 0 0; color: #d9edf0; line-height: 1.6; }
+.access-control-hero__badge { padding: .55rem .8rem; border: 1px solid rgba(255,255,255,.3); border-radius: 999px; color: #dff8eb; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.access-control-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 1rem; margin-bottom: 1rem; }
+.access-control-panel { padding: 1.4rem; border: 1px solid #d9e3e8; border-radius: 14px; background: #fff; box-shadow: 0 12px 30px rgba(24,40,61,.07); margin-bottom: 1rem; }
+.access-control-panel__heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.access-control-panel h2 { margin: 0; font-size: 1.25rem; }
+.access-control-count { color: #587083; font-size: .8rem; font-weight: 700; }
+.role-list { display: grid; gap: .65rem; }
+.role-row { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: .8rem; border: 1px solid #e2ebee; border-radius: 10px; }
+.role-row__level { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #e1f3eb; color: #14634b; font-weight: 800; }
+.role-row strong { display: block; }
+.role-row p { margin: .2rem 0 0; color: #607486; font-size: .82rem; line-height: 1.4; }
+.access-control-page code { color: #176b66; font-size: .78rem; }
+.role-assignment-form { display: grid; gap: .55rem; }
+.role-assignment-form label { color: #3f566b; font-size: .82rem; font-weight: 700; }
+.role-assignment-form input, .role-assignment-form select { width: 100%; box-sizing: border-box; padding: .72rem .75rem; border: 1px solid #cbd9df; border-radius: 8px; background: #fbfdfd; font: inherit; }
+.access-control-button { margin-top: .5rem; padding: .75rem 1rem; border: 0; border-radius: 8px; background: #157a63; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.access-control-note { margin: 1rem 0 0; color: #718493; font-size: .78rem; line-height: 1.5; }
+.access-control-table-wrap { overflow-x: auto; }
+.access-control-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.access-control-table th, .access-control-table td { padding: .8rem .65rem; border-bottom: 1px solid #e6edef; text-align: left; vertical-align: top; font-size: .86rem; }
+.access-control-table th { color: #587083; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+.access-control-table small { display: block; margin-top: .2rem; color: #718493; }
+.status-pill { display: inline-block; padding: .25rem .5rem; border-radius: 999px; background: #edf1f3; color: #4a5e6c; font-size: .72rem; font-weight: 700; }
+.status-pill--active { background: #e0f5e8; color: #176b48; }
+.audit-list { display: grid; gap: .55rem; }
+.audit-row { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; padding: .75rem 0; border-bottom: 1px solid #e6edef; font-size: .84rem; }
+.audit-row strong { color: #176b48; font-size: .75rem; }
+.audit-row time { color: #718493; font-size: .75rem; }
+.access-control-alert { margin-bottom: 1rem; padding: .8rem 1rem; border-radius: 8px; font-weight: 700; }
+.access-control-alert--success { background: #e2f5ea; color: #176b48; }
+.access-control-alert--error { background: #fff0ed; color: #9a3c2b; }
+@media (max-width: 760px) {
+  .access-control-page { padding: 1.25rem 0 3rem; }
+  .access-control-hero { display: block; padding: 1.35rem; }
+  .access-control-hero__badge { display: inline-block; margin-top: 1rem; }
+  .access-control-grid { grid-template-columns: 1fr; }
+  .role-row { grid-template-columns: 2rem minmax(0, 1fr); }
+  .role-row code { grid-column: 2; }
+  .audit-row { grid-template-columns: 1fr auto; }
+  .audit-row time { grid-column: 1 / -1; }
+}

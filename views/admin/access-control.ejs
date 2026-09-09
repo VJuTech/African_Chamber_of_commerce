@@ -1,0 +1,77 @@
+<section class="access-control-page">
+  <header class="access-control-hero">
+    <div>
+      <p class="eyebrow">Platform governance</p>
+      <h1>Access control</h1>
+      <p>Manage user roles, permissions, and the audit trail from one PostgreSQL-backed workspace.</p>
+    </div>
+    <div class="access-control-hero__badge">RBAC enabled</div>
+  </header>
+
+  <% if (message) { %><div class="access-control-alert access-control-alert--success"><%= message %></div><% } %>
+  <% if (error) { %><div class="access-control-alert access-control-alert--error"><%= error %></div><% } %>
+
+  <div class="access-control-grid">
+    <section class="access-control-panel access-control-panel--roles">
+      <div class="access-control-panel__heading">
+        <div><p class="eyebrow">Hierarchy</p><h2>Role model</h2></div>
+        <span class="access-control-count"><%= roles.length %> roles</span>
+      </div>
+      <div class="role-list">
+        <% roles.forEach((role) => { %>
+          <article class="role-row">
+            <span class="role-row__level"><%= role.hierarchy_level %></span>
+            <div><strong><%= role.display_name %></strong><p><%= role.description %></p></div>
+            <code><%= role.role_key %></code>
+          </article>
+        <% }); %>
+      </div>
+    </section>
+
+    <section class="access-control-panel">
+      <div class="access-control-panel__heading">
+        <div><p class="eyebrow">Administration</p><h2>Assign a role</h2></div>
+      </div>
+      <form class="role-assignment-form" method="post" action="/admin/access-control/roles">
+        <label for="accessUserId">User ID</label>
+        <input id="accessUserId" name="userId" type="number" min="1" required placeholder="e.g. 42" />
+        <label for="accessRoleKey">Role</label>
+        <select id="accessRoleKey" name="roleKey" required>
+          <option value="">Select a role</option>
+          <% roles.forEach((role) => { %><option value="<%= role.role_key %>"><%= role.display_name %></option><% }); %>
+        </select>
+        <button class="access-control-button" type="submit">Assign role</button>
+      </form>
+      <p class="access-control-note">Every assignment is recorded in the platform audit log.</p>
+    </section>
+  </div>
+
+  <section class="access-control-panel access-control-panel--users">
+    <div class="access-control-panel__heading"><div><p class="eyebrow">Directory</p><h2>User access</h2></div><span class="access-control-count"><%= users.length %> shown</span></div>
+    <div class="access-control-table-wrap">
+      <table class="access-control-table">
+        <thead><tr><th>User</th><th>Account</th><th>Legacy role</th><th>Assigned roles</th><th>Joined</th></tr></thead>
+        <tbody>
+          <% users.forEach((account) => { %>
+            <tr>
+              <td><strong><%= account.name %></strong><small><%= account.email %></small></td>
+              <td><span class="status-pill status-pill--<%= account.status %>"><%= account.status %></span></td>
+              <td><code><%= account.role %></code></td>
+              <td><%= account.assigned_roles || 'No RBAC role assigned' %></td>
+              <td><%= new Date(account.created_at).toLocaleDateString() %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="access-control-panel">
+    <div class="access-control-panel__heading"><div><p class="eyebrow">Traceability</p><h2>Recent audit activity</h2></div></div>
+    <div class="audit-list">
+      <% auditLogs.forEach((log) => { %>
+        <div class="audit-row"><span><%= log.event_type %></span><strong><%= log.outcome || 'recorded' %></strong><time><%= new Date(log.created_at).toLocaleString() %></time></div>
+      <% }); %>
+    </div>
+  </section>
+</section>

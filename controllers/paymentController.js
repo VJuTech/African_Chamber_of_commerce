@@ -103,6 +103,15 @@ async function updatePaymentStatus(req, res, next) {
   }
 }
 
+async function retryPayment(req, res, next) {
+  try {
+    const userId = req.session && req.session.user ? req.session.user.id : null;
+    if (!userId) return res.redirect("/login?message=" + encodeURIComponent("Please sign in to retry this payment."));
+    const result = await paymentModel.retryPayment(userId, req.params.id);
+    return res.redirect("/payments/" + req.params.id + "?message=" + encodeURIComponent(result.message));
+  } catch (error) { return next(error); }
+}
+
 async function refundPayment(req, res, next) {
   try {
     const userId = req.session && req.session.user ? req.session.user.id : null;
@@ -145,6 +154,7 @@ module.exports = {
   initiatePayment,
   processPaymentGateway,
   updatePaymentStatus,
+  retryPayment,
   refundPayment,
   paymentDetailPage,
 };

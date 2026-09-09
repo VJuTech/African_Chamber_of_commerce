@@ -15,6 +15,7 @@ const {
 } = require("../controllers/marketplaceController");
 const { marketplaceImageUpload } = require("../utility/marketplaceUpload");
 const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
+const cartController = require("../controllers/cartController");
 
 // Convert upload failures into the same friendly form experience as validation failures.
 function handleMarketplaceImageUpload(req, res, next) {
@@ -54,6 +55,10 @@ const router = express.Router();
 
 // Public marketplace browsing and product/service discovery.
 router.get("/marketplace", marketplacePage);
+router.get("/cart", ensureAuthenticated, cartController.cartPage);
+router.post("/cart/items", ensureAuthenticated, cartController.addItem);
+router.post("/cart/items/:listingId", ensureAuthenticated, cartController.updateItem);
+router.post("/cart/items/:listingId/remove", ensureAuthenticated, cartController.removeItem);
 
 // Business ownership and management actions.
 router.get("/marketplace/create", ensureAuthenticated, ensureVerifiedAccount, createListingPage);

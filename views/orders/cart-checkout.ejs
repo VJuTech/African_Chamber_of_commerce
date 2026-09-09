@@ -1,0 +1,56 @@
+<section class="cart-shell">
+  <div class="page-header compact-header">
+    <div>
+      <p class="eyebrow">Checkout</p>
+      <h1>Complete your cart order</h1>
+    </div>
+    <a href="/cart" class="button button--secondary">Back to cart</a>
+  </div>
+
+  <% if (message) { %><div class="status-banner error"><%= message %></div><% } %>
+  <% if (error) { %><div class="status-banner error"><%= error %></div><% } %>
+
+  <div class="cart-layout">
+    <div class="checkout-card">
+      <form method="post" action="/cart/checkout" class="order-form">
+        <div class="form-grid">
+          <div class="field-group span-2">
+            <label for="shippingAddress">Delivery address</label>
+            <textarea id="shippingAddress" name="shippingAddress" rows="4" required><%= formData.shippingAddress || '' %></textarea>
+          </div>
+          <div class="field-group">
+            <label for="paymentMethod">Payment method</label>
+            <select id="paymentMethod" name="paymentMethod" required>
+              <option value="card">Card</option>
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="mobile_money">Mobile money</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="deliveryMethod">Delivery method</label>
+            <select id="deliveryMethod" name="deliveryMethod">
+              <option value="standard">Standard delivery</option>
+              <option value="express">Express delivery</option>
+              <option value="pickup">Local pickup</option>
+              <option value="third_party">Third-party logistics</option>
+            </select>
+          </div>
+          <div class="field-group span-2">
+            <label for="notes">Order notes</label>
+            <textarea id="notes" name="notes" rows="3"><%= formData.notes || '' %></textarea>
+          </div>
+        </div>
+        <button type="submit" class="button button--primary">Create order and initiate payment</button>
+      </form>
+    </div>
+
+    <aside class="cart-summary">
+      <p class="eyebrow">Order preview</p>
+      <h2><%= cart.items.length %> item(s)</h2>
+      <% cart.items.forEach((item) => { %>
+        <div class="summary-line"><span><%= item.title %> x <%= item.quantity %></span><strong><%= item.currency %> <%= item.totalPrice.toFixed(2) %></strong></div>
+      <% }); %>
+      <div class="cart-summary__total"><span>Total</span><strong><%= cart.currency %> <%= cart.total.toFixed(2) %></strong></div>
+    </aside>
+  </div>
+</section>

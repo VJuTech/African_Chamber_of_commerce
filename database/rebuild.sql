@@ -15,6 +15,8 @@ DROP TABLE IF EXISTS order_disputes CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
 DROP TABLE IF EXISTS marketplace_audit_logs CASCADE;
 DROP TABLE IF EXISTS marketplace_listings CASCADE;
+DROP TABLE IF EXISTS cart_items CASCADE;
+DROP TABLE IF EXISTS shopping_carts CASCADE;
 DROP TABLE IF EXISTS trust_audit_logs CASCADE;
 DROP TABLE IF EXISTS review_reports CASCADE;
 DROP TABLE IF EXISTS business_reviews CASCADE;
@@ -53,6 +55,15 @@ DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversation_participants CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
 DROP TABLE IF EXISTS messaging_blocks CASCADE;
+DROP TABLE IF EXISTS user_roles CASCADE;
+DROP TABLE IF EXISTS role_permissions CASCADE;
+DROP TABLE IF EXISTS permissions CASCADE;
+DROP TABLE IF EXISTS roles CASCADE;
+DROP TABLE IF EXISTS requirement_compliance_controls CASCADE;
+DROP TABLE IF EXISTS requirement_changes CASCADE;
+DROP TABLE IF EXISTS requirement_validation_rules CASCADE;
+DROP TABLE IF EXISTS requirement_traceability CASCADE;
+DROP TABLE IF EXISTS requirements CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -108,6 +119,227 @@ CREATE TABLE users (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ========================================
+-- CHAPTER 5: REQUIREMENTS & TRACEABILITY
+-- ========================================
+
+CREATE TABLE requirements (
+  id SERIAL PRIMARY KEY,
+  requirement_id VARCHAR(40) NOT NULL UNIQUE CHECK (requirement_id ~ '^FR-[A-Z0-9]+-[0-9]{3}$'),
+  name VARCHAR(200) NOT NULL,
+  description TEXT NOT NULL,
+  actor VARCHAR(200) NOT NULL,
+  preconditions TEXT NOT NULL,
+  postconditions TEXT NOT NULL,
+  priority VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (priority IN ('critical', 'high', 'medium', 'low')),
+  category VARCHAR(30) NOT NULL CHECK (category IN ('functional', 'non_functional', 'security', 'performance')),
+  dependencies TEXT[] NOT NULL DEFAULT '{}',
+  status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('draft', 'active', 'deprecated')),
+  version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+  owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE requirement_traceability (
+  id SERIAL PRIMARY KEY,
+  requirement_id INTEGER NOT NULL UNIQUE REFERENCES requirements(id) ON DELETE CASCADE,
+  user_story TEXT NOT NULL,
+  ui_reference VARCHAR(255) NOT NULL,
+  api_reference VARCHAR(255) NOT NULL,
+  database_objects TEXT[] NOT NULL DEFAULT '{}',
+  test_case VARCHAR(255) NOT NULL,
+  sprint VARCHAR(100) NOT NULL,
+  release VARCHAR(100) NOT NULL,
+  coverage_status VARCHAR(30) NOT NULL DEFAULT 'partial' CHECK (coverage_status IN ('complete', 'partial', 'missing', 'blocked')),
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE requirement_validation_rules (
+  id SERIAL PRIMARY KEY,
+  requirement_id INTEGER NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
+  field_name VARCHAR(120) NOT NULL,
+  rule_key VARCHAR(120) NOT NULL,
+  rule_description TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (requirement_id, field_name, rule_key)
+);
+
+CREATE TABLE requirement_changes (
+  id SERIAL PRIMARY KEY,
+  requirement_id INTEGER NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL CHECK (version > 0),
+  change_type VARCHAR(30) NOT NULL CHECK (change_type IN ('created', 'updated', 'deprecated', 'restored')),
+  change_summary TEXT NOT NULL,
+  previous_snapshot JSONB,
+  changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (requirement_id, version)
+);
+
+CREATE TABLE requirement_compliance_controls (
+  id SERIAL PRIMARY KEY,
+  requirement_id INTEGER NOT NULL REFERENCES requirements(id) ON DELETE CASCADE,
+  framework VARCHAR(120) NOT NULL,
+  control_key VARCHAR(120) NOT NULL,
+  control_description TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'implemented', 'review_required', 'not_applicable')),
+  evidence_reference VARCHAR(255),
+  reviewed_at TIMESTAMP,
+  reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE (requirement_id, framework, control_key)
+);
+
+CREATE INDEX idx_requirements_category_status ON requirements(category, status);
+CREATE INDEX idx_requirement_traceability_coverage ON requirement_traceability(coverage_status);
+CREATE INDEX idx_requirement_validation_rules_requirement ON requirement_validation_rules(requirement_id);
+CREATE INDEX idx_requirement_changes_requirement ON requirement_changes(requirement_id, version DESC);
+CREATE INDEX idx_requirement_compliance_requirement ON requirement_compliance_controls(requirement_id);
+
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies)
+VALUES
+  ('FR-AUTH-001', 'Account registration and verification', 'A user can submit valid registration details, verify their account, and activate access.', 'Guest user', 'Registration form is available and required fields are present.', 'A verified user account and audit event exist in PostgreSQL.', 'critical', 'functional', ARRAY['users', 'account_verification_codes']),
+  ('FR-BIZ-001', 'Business registration workflow', 'A verified user can create, save, submit, and track a business registration.', 'Verified user', 'User is authenticated and has completed account verification.', 'Business record, ownership, status, and audit history are persisted.', 'high', 'functional', ARRAY['business_accounts', 'business_audit_logs']),
+  ('FR-MKT-001', 'Marketplace order journey', 'A buyer can browse a listing, add it to a persistent cart, check out, and initiate payment.', 'Verified buyer', 'Listing is public, active, and available.', 'Cart, order, payment, and audit records are created in PostgreSQL.', 'critical', 'functional', ARRAY['marketplace_listings', 'shopping_carts', 'cart_items', 'orders', 'payments']),
+  ('FR-PROC-001', 'Procurement tender lifecycle', 'A buyer can publish a tender, receive bids, evaluate them, and award a procurement order.', 'Verified buyer and supplier', 'Buyer and supplier accounts are verified.', 'RFQ, quotation, award, order, notification, and audit records are persisted.', 'high', 'functional', ARRAY['procurement_rfqs', 'procurement_quotations', 'procurement_orders']),
+  ('FR-MSG-001', 'Messaging delivery lifecycle', 'Users can send, deliver, read, and respond to messages in an authorized conversation.', 'Authenticated user', 'Participants have access to the conversation and are not blocked.', 'Message status and notification/audit records reflect delivery and reading.', 'high', 'functional', ARRAY['conversations', 'messages', 'messaging_notifications']),
+  ('FR-SEC-001', 'Access control enforcement', 'Protected actions require an authenticated user with the required role and permission.', 'Platform administrator', 'RBAC schema and session access context are available.', 'Unauthorized actions are denied and critical role changes are audited.', 'critical', 'security', ARRAY['roles', 'permissions', 'user_roles', 'audit_logs']),
+  ('FR-OPS-001', 'Validation and error recovery', 'Invalid input is returned to the user, unexpected failures are logged, and retryable payment/notification operations can retry.', 'Any platform user', 'A workflow action has been submitted.', 'Validation feedback, durable error records, and retry audit events exist.', 'high', 'non_functional', ARRAY['audit_logs', 'payment_gateway_events', 'notification_deliveries'])
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT r.id, v.user_story, v.ui_reference, v.api_reference, v.database_objects, v.test_case, 'Foundation', '1.0', v.coverage_status, v.notes
+FROM requirements r
+JOIN (VALUES
+  ('FR-AUTH-001', 'As a guest, I want to verify my account so I can access the platform.', 'views/accounts/register.ejs, views/accounts/verify-account.ejs', 'POST /register, POST /verify-account', ARRAY['users','account_verification_codes','audit_logs'], 'Account verification acceptance flow', 'Foundation', '1.0', 'complete', 'Registration and verification are implemented.'),
+  ('FR-BIZ-001', 'As a verified member, I want to register a business and track its review state.', 'views/business/register.ejs, views/business/detail.ejs', 'POST /business/register, POST /business/:id/submit', ARRAY['business_accounts','business_audit_logs'], 'tests/chapter10-business-register.test.js', 'Foundation', '1.0', 'complete', 'Business workflow is PostgreSQL-backed.'),
+  ('FR-MKT-001', 'As a buyer, I want to purchase a marketplace product through a persistent cart.', 'views/marketplace/detail.ejs, views/cart/index.ejs, views/orders/cart-checkout.ejs', 'POST /cart/items, POST /cart/checkout', ARRAY['marketplace_listings','shopping_carts','cart_items','orders','payments'], 'tests/chapter17-marketplace.test.js', 'Foundation', '1.0', 'complete', 'Cart and checkout were added in Chapter 4.'),
+  ('FR-PROC-001', 'As a buyer, I want to compare supplier bids and award the best quotation.', 'views/procurement/dashboard.ejs, views/procurement/detail.ejs', 'POST /procurement/:id/bids, POST /procurement/:id/award', ARRAY['procurement_rfqs','procurement_quotations','procurement_orders'], 'tests/chapter22-procurement.test.js', 'Foundation', '1.0', 'complete', 'Tender lifecycle is implemented.'),
+  ('FR-MSG-001', 'As a participant, I want to send and read replies in a conversation.', 'views/messaging/index.ejs, views/messaging/conversation.ejs', 'POST /messages/send', ARRAY['conversations','messages','messaging_notifications'], 'tests/chapter14-messaging.test.js', 'Foundation', '1.0', 'complete', 'Message status transitions are implemented.'),
+  ('FR-SEC-001', 'As an administrator, I want access decisions to be permission checked and auditable.', 'views/admin/access-control.ejs', 'GET /admin/access-control, POST /admin/access-control/roles', ARRAY['roles','permissions','user_roles','audit_logs'], 'RBAC acceptance checks', 'Foundation', '1.0', 'complete', 'RBAC administration is implemented.'),
+  ('FR-OPS-001', 'As a user, I want clear validation errors and a retry path when operations fail.', 'views/error/500.ejs, views/payments/detail.ejs', 'POST /payments/:id/retry', ARRAY['audit_logs','payment_gateway_events','notification_deliveries'], 'tests/chapter19-payment.test.js, tests/chapter25-notifications.test.js', 'Foundation', '1.0', 'partial', 'Payment and notification retries exist; broader workflow retry coverage remains.' )
+) AS v(requirement_key, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_validation_rules (requirement_id, field_name, rule_key, rule_description, error_message)
+SELECT r.id, v.field_name, v.rule_key, v.rule_description, v.error_message
+FROM requirements r
+JOIN (VALUES
+  ('FR-AUTH-001', 'email', 'required_and_format', 'Email is required and must use a valid address format.', 'Enter a valid email address.'),
+  ('FR-BIZ-001', 'businessName', 'required_and_length', 'Business name is required and must be between 2 and 200 characters.', 'Enter a valid business name.'),
+  ('FR-MKT-001', 'quantity', 'positive_integer', 'Cart quantity must be a positive whole number.', 'Quantity must be at least 1.'),
+  ('FR-PROC-001', 'closingDate', 'future_date', 'A tender closing date must be in the future.', 'Choose a future closing date.'),
+  ('FR-MSG-001', 'message', 'required_and_length', 'Message content is required and must not exceed the platform limit.', 'Enter a message within the allowed length.'),
+  ('FR-SEC-001', 'permission', 'known_permission', 'Access decisions must reference a registered permission.', 'Select a registered permission.'),
+  ('FR-OPS-001', 'retryCount', 'bounded_integer', 'Retry count must be a non-negative bounded integer.', 'Retry count is invalid.')
+) AS v(requirement_key, field_name, rule_key, rule_description, error_message) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, field_name, rule_key) DO NOTHING;
+
+INSERT INTO requirement_compliance_controls (requirement_id, framework, control_key, control_description, status, evidence_reference)
+SELECT r.id, v.framework, v.control_key, v.control_description, v.status, v.evidence_reference
+FROM requirements r
+JOIN (VALUES
+  ('FR-AUTH-001', 'Data protection', 'DP-01', 'Account data is collected for a stated purpose and protected in PostgreSQL.', 'implemented', 'users and audit_logs'),
+  ('FR-MKT-001', 'Financial regulations', 'FIN-01', 'Payment initiation and status changes are auditable and tied to an order.', 'implemented', 'payments and payment_gateway_events'),
+  ('FR-PROC-001', 'Cross-border compliance', 'XBR-01', 'Procurement records retain jurisdiction and supplier evidence for cross-border review.', 'review_required', 'procurement RFQ and quotation records'),
+  ('FR-MSG-001', 'Data protection', 'DP-02', 'Message access is restricted to conversation participants and security events are logged.', 'implemented', 'messaging access checks and audit_logs'),
+  ('FR-SEC-001', 'Data protection', 'DP-03', 'Role and permission changes are auditable and restricted to authorized administrators.', 'implemented', 'roles, permissions, user_roles, audit_logs')
+) AS v(requirement_key, framework, control_key, control_description, status, evidence_reference) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, framework, control_key) DO NOTHING;
+
+INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary)
+SELECT id, version, 'created', 'Initial Chapter 5 traceability baseline.' FROM requirements
+ON CONFLICT (requirement_id, version) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 3: ROLE-BASED ACCESS CONTROL
+-- ========================================
+
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  role_key VARCHAR(60) NOT NULL UNIQUE,
+  display_name VARCHAR(120) NOT NULL,
+  hierarchy_level INTEGER NOT NULL UNIQUE,
+  description TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE permissions (
+  id SERIAL PRIMARY KEY,
+  permission_key VARCHAR(120) NOT NULL UNIQUE,
+  resource VARCHAR(80) NOT NULL,
+  action VARCHAR(30) NOT NULL CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage')),
+  description TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE role_permissions (
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+INSERT INTO roles (role_key, display_name, hierarchy_level, description)
+VALUES
+  ('registered_user', 'Registered User', 2, 'A registered account with access to authenticated platform features.'),
+  ('verified_user', 'Verified User', 3, 'A user who has completed account verification.'),
+  ('business_member', 'Business Member', 4, 'A user who owns or belongs to a business.'),
+  ('business_admin', 'Business Admin', 5, 'A user who manages a business profile and operations.'),
+  ('moderator', 'Moderator', 6, 'A platform operator who reviews community, marketplace, and dispute activity.'),
+  ('compliance_officer', 'Compliance Officer', 7, 'An administrator who reviews requirements, audit evidence, and regulatory controls.'),
+  ('platform_admin', 'Platform Admin', 8, 'An administrator who manages users and platform activity.'),
+  ('super_admin', 'Super Admin', 9, 'The highest platform administration role.')
+ON CONFLICT (role_key) DO NOTHING;
+
+INSERT INTO permissions (permission_key, resource, action, description)
+VALUES
+  ('users.create', 'users', 'create', 'Create user accounts.'),
+  ('users.read', 'users', 'read', 'View user accounts and access status.'),
+  ('users.update', 'users', 'update', 'Update user access and account details.'),
+  ('users.delete', 'users', 'delete', 'Delete or deactivate user accounts.'),
+  ('users.approve', 'users', 'approve', 'Approve user access requests.'),
+  ('users.reject', 'users', 'reject', 'Reject user access requests.'),
+  ('users.manage', 'users', 'manage', 'Manage user access roles.'),
+  ('businesses.create', 'businesses', 'create', 'Create a business account.'),
+  ('businesses.read', 'businesses', 'read', 'View business information.'),
+  ('businesses.update', 'businesses', 'update', 'Update business information.'),
+  ('businesses.delete', 'businesses', 'delete', 'Remove a business account.'),
+  ('businesses.approve', 'businesses', 'approve', 'Approve a business account.'),
+  ('businesses.reject', 'businesses', 'reject', 'Reject a business account.'),
+  ('businesses.manage', 'businesses', 'manage', 'Manage owned or assigned business operations.'),
+  ('requirements.read', 'requirements', 'read', 'View requirement coverage and traceability.'),
+  ('requirements.manage', 'requirements', 'manage', 'Maintain requirements, validation rules, and compliance evidence.'),
+  ('platform_overview.read', 'platform_overview', 'read', 'View system architecture, operating environment, and integration health.'),
+  ('platform_overview.manage', 'platform_overview', 'manage', 'Update external integration status and operational notes.'),
+  ('platform.audit.read', 'platform_audit', 'read', 'View platform audit activity.'),
+  ('platform.settings.manage', 'platform_settings', 'manage', 'Manage platform access settings.')
+ON CONFLICT (permission_key) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'business_admin' AND p.permission_key = 'businesses.manage'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin', 'super_admin')
+  AND p.resource IN ('users', 'businesses', 'requirements', 'platform_overview', 'platform_audit', 'platform_settings')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'compliance_officer' AND p.permission_key IN ('requirements.read', 'platform_overview.read', 'platform.audit.read')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'moderator' AND p.permission_key = 'platform_overview.read'
+ON CONFLICT DO NOTHING;
+
 CREATE TABLE audit_logs (
   id SERIAL PRIMARY KEY,
   event_type VARCHAR(100) NOT NULL,
@@ -118,6 +350,43 @@ CREATE TABLE audit_logs (
   CONSTRAINT fk_audit_user
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- Chapter 2: external service registry and operational integration status.
+CREATE TABLE platform_integrations (
+  id SERIAL PRIMARY KEY,
+  integration_key VARCHAR(80) NOT NULL UNIQUE,
+  display_name VARCHAR(160) NOT NULL,
+  integration_type VARCHAR(40) NOT NULL CHECK (integration_type IN ('payment', 'notification', 'hosting', 'cloud', 'other')),
+  provider VARCHAR(120) NOT NULL,
+  environment VARCHAR(30) NOT NULL DEFAULT 'production' CHECK (environment IN ('development', 'staging', 'production')),
+  status VARCHAR(30) NOT NULL DEFAULT 'configured' CHECK (status IN ('configured', 'healthy', 'degraded', 'unavailable', 'not_configured')),
+  endpoint_reference VARCHAR(255),
+  last_checked_at TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE platform_integration_events (
+  id SERIAL PRIMARY KEY,
+  integration_id INTEGER NOT NULL REFERENCES platform_integrations(id) ON DELETE CASCADE,
+  event_type VARCHAR(80) NOT NULL,
+  status VARCHAR(30) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_platform_integrations_type_status ON platform_integrations(integration_type, status);
+CREATE INDEX idx_platform_integration_events_integration ON platform_integration_events(integration_id, created_at DESC);
+
+INSERT INTO platform_integrations (integration_key, display_name, integration_type, provider, environment, status, endpoint_reference, notes)
+VALUES
+  ('primary_database', 'PostgreSQL system of record', 'cloud', 'PostgreSQL', 'production', 'healthy', 'DATABASE_URL', 'All authenticated sessions, commerce records, requirements, and audit data persist here.'),
+  ('payment_gateway', 'Payment gateway', 'payment', 'Paystack-compatible gateway', 'production', 'configured', 'PAYMENT_GATEWAY_URL', 'Payment initiation and gateway events are linked to orders and audit records.'),
+  ('notification_delivery', 'Notification delivery', 'notification', 'SMTP / in-app delivery', 'production', 'configured', 'SMTP_HOST', 'In-app notifications are persisted; external delivery depends on deployment configuration.'),
+  ('cloud_hosting', 'Cloud hosting', 'hosting', 'Render', 'production', 'configured', 'APP_URL', 'The web process uses PostgreSQL because local upload storage is ephemeral on cloud hosting.')
+ON CONFLICT (integration_key) DO NOTHING;
 
 -- Account verification codes for initial signup verification.
 CREATE TABLE account_verification_codes (
@@ -355,6 +624,45 @@ CREATE TABLE business_accounts (
   suspended_at TIMESTAMP,
   UNIQUE (business_name, country_of_registration)
 );
+
+CREATE TABLE user_roles (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  business_id INTEGER REFERENCES business_accounts(id) ON DELETE CASCADE,
+  assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, role_id, business_id)
+);
+
+CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
+CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
+CREATE INDEX idx_user_roles_business_id ON user_roles(business_id);
+CREATE UNIQUE INDEX idx_user_roles_global_unique ON user_roles(user_id, role_id) WHERE business_id IS NULL;
+
+-- Backfill normalized roles for accounts created with the legacy users.role column.
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN roles r ON r.role_key = CASE u.role
+  WHEN 'admin' THEN 'platform_admin'
+  WHEN 'super_admin' THEN 'super_admin'
+  ELSE 'registered_user'
+END
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN roles r ON r.role_key = 'verified_user'
+WHERE u.email_verified = TRUE OR u.status = 'active'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO user_roles (user_id, role_id, business_id, assigned_by)
+SELECT ba.owner_id, r.id, ba.id, ba.owner_id
+FROM business_accounts ba
+JOIN roles r ON r.role_key IN ('business_member', 'business_admin')
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE business_administrators (
   id SERIAL PRIMARY KEY,
@@ -695,6 +1003,29 @@ CREATE TABLE IF NOT EXISTS marketplace_audit_logs (
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_business_id ON marketplace_listings(business_id);
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status);
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_visibility ON marketplace_listings(visibility);
+
+-- Chapter 4: PostgreSQL-backed shopping cart persistence.
+CREATE TABLE shopping_carts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE cart_items (
+  id SERIAL PRIMARY KEY,
+  cart_id INTEGER NOT NULL REFERENCES shopping_carts(id) ON DELETE CASCADE,
+  listing_id INTEGER NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0),
+  currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (cart_id, listing_id)
+);
+
+CREATE INDEX idx_cart_items_cart_id ON cart_items(cart_id);
+CREATE INDEX idx_cart_items_listing_id ON cart_items(listing_id);
 
 -- ========================================
 -- CHAPTER 18: ORDER MANAGEMENT

@@ -38,6 +38,9 @@ const contractRoutes = require("./routes/contractRoute");
 const disputeRoutes = require("./routes/disputeRoute");
 // Load the Chapter 25 notification route collection for inbox and alert preferences.
 const notificationRoutes = require("./routes/notificationRoute");
+const rbacRoutes = require("./routes/rbacRoute");
+const requirementsRoutes = require("./routes/requirementsRoute");
+const systemOverviewRoutes = require("./routes/systemOverviewRoute");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -205,6 +208,10 @@ async function initApp() {
   app.use("/", disputeRoutes);
   // Mount notifications after the authenticated workspace routes.
   app.use("/", notificationRoutes);
+  // Mount Chapter 3 role and permission administration after authenticated routes.
+  app.use("/", rbacRoutes);
+  app.use("/", requirementsRoutes);
+  app.use("/", systemOverviewRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

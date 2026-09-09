@@ -1,0 +1,37 @@
+<section class="requirements-page">
+  <header class="requirements-hero">
+    <div><p class="eyebrow">Engineering governance</p><h1>Requirements traceability</h1><p>Keep every requirement connected from FRS through delivery evidence, tests, sprint, and release.</p></div>
+    <div class="requirements-hero__metric"><strong><%= complete %>/<%= requirements.length %></strong><span>complete coverage</span></div>
+  </header>
+
+  <% if (message) { %><div class="requirements-alert requirements-alert--success"><%= message %></div><% } %>
+  <section class="requirements-panel">
+    <form class="requirements-filters" method="get" action="/admin/requirements">
+      <input name="search" value="<%= filters.search || '' %>" placeholder="Search ID or requirement name" />
+      <select name="coverage"><option value="">All coverage</option><% ['complete','partial','missing','blocked'].forEach((value) => { %><option value="<%= value %>" <%= filters.coverage === value ? 'selected' : '' %>><%= value %></option><% }); %></select>
+      <select name="category"><option value="">All categories</option><% ['functional','non_functional','security','performance'].forEach((value) => { %><option value="<%= value %>" <%= filters.category === value ? 'selected' : '' %>><%= value.replace('_', ' ') %></option><% }); %></select>
+      <button class="button button--primary" type="submit">Filter</button>
+    </form>
+  </section>
+
+  <section class="requirements-panel">
+    <div class="requirements-panel__heading"><div><p class="eyebrow">Traceability matrix</p><h2>Requirement register</h2></div><span><%= requirements.length %> active records</span></div>
+    <div class="requirements-table-wrap"><table class="requirements-table"><thead><tr><th>ID</th><th>Requirement</th><th>Actor</th><th>Category</th><th>Priority</th><th>Coverage</th><th>Version</th></tr></thead><tbody>
+      <% requirements.forEach((requirement) => { %><tr><td><a href="/admin/requirements/<%= requirement.id %>"><code><%= requirement.requirement_id %></code></a></td><td><strong><%= requirement.name %></strong><small><%= requirement.description %></small></td><td><%= requirement.actor %></td><td><span class="requirements-tag"><%= requirement.category.replace('_', ' ') %></span></td><td><span class="requirements-priority requirements-priority--<%= requirement.priority %>"><%= requirement.priority %></span></td><td><span class="requirements-coverage requirements-coverage--<%= requirement.coverage_status %>"><%= requirement.coverage_status %></span></td><td>v<%= requirement.version %></td></tr><% }); %>
+    </tbody></table></div>
+  </section>
+
+  <section class="requirements-panel requirements-create-panel"><div class="requirements-panel__heading"><div><p class="eyebrow">Controlled change</p><h2>Register a requirement</h2></div></div>
+    <form class="requirements-form" method="post" action="/admin/requirements">
+      <label>Requirement ID<input name="requirementId" required pattern="FR-[A-Za-z0-9]+-[0-9]{3}" placeholder="FR-BIZ-011" /></label>
+      <label>Name<input name="name" required /></label>
+      <label>Actor<input name="actor" required /></label>
+      <label>Priority<select name="priority" required><option value="critical">Critical</option><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label>
+      <label>Category<select name="category" required><option value="functional">Functional</option><option value="non_functional">Non-functional</option><option value="security">Security</option><option value="performance">Performance</option></select></label>
+      <label class="requirements-form__wide">Description<textarea name="description" required></textarea></label>
+      <label>Preconditions<textarea name="preconditions" required></textarea></label><label>Postconditions<textarea name="postconditions" required></textarea></label>
+      <label class="requirements-form__wide">Dependencies<input name="dependencies" placeholder="users, audit_logs" /></label>
+      <button class="button button--primary" type="submit">Create version 1</button>
+    </form>
+  </section>
+</section>

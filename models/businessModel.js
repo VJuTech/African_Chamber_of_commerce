@@ -1,5 +1,6 @@
 const pool = require("../database/connection");
 const notificationModel = require("./notificationModel");
+const rbacModel = require("./rbacModel");
 const { validateBusinessPayload } = require("../utility/account-validation");
 
 // This helper records registration, verification, duplicate, and lifecycle events
@@ -154,6 +155,7 @@ async function createBusiness(userId, payload = {}) {
     );
 
     const createdBusiness = normalizeBusinessRecord(result.rows[0]);
+    await rbacModel.assignBusinessRoles(userId, createdBusiness.id, userId);
     await logBusinessAudit("registration_started", {
       userId,
       businessId: createdBusiness.id,

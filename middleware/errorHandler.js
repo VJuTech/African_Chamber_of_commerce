@@ -1,5 +1,6 @@
 // Middleware for handling missing routes and unexpected server errors.
 // This keeps the application responsive and gives users clear feedback.
+const { logSystemError } = require("../utility/errorLogger");
 
 function notFoundHandler(req, res, next) {
   res.status(404).render("error/404", {
@@ -8,8 +9,9 @@ function notFoundHandler(req, res, next) {
   });
 }
 
-function globalErrorHandler(err, req, res, next) {
+async function globalErrorHandler(err, req, res, next) {
   console.error(err);
+  await logSystemError(err, req);
 
   const statusCode = err.statusCode || 500;
   const message = err.message || "Something went wrong on the server.";

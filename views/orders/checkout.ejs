@@ -16,7 +16,7 @@
     <div class="checkout-card">
       <form method="post" action="/orders/create" class="order-form">
         <input type="hidden" name="listingId" value="<%= listing.id %>" />
-        <input type="hidden" name="sellerId" value="<%= listing.businessId || 2 %>" />
+        <input type="hidden" name="sellerId" value="<%= listing.sellerId || listing.userId %>" />
         <input type="hidden" name="listingTitle" value="<%= listing.title %>" />
         <input type="hidden" name="unitPrice" value="<%= listing.pricingModel === 'range' ? listing.minPrice : listing.price %>" />
         <input type="hidden" name="currency" value="<%= listing.currency || 'USD' %>" />
@@ -76,7 +76,7 @@
       </div>
       <div class="summary-line">
         <span>Estimated total</span>
-        <strong><%= listing.currency || 'USD' %> <%= ((listing.pricingModel === 'range' ? listing.minPrice : listing.price) || 0) %></strong>
+        <strong><%= listing.currency || 'USD' %> <%= (((listing.pricingModel === 'range' ? listing.minPrice : listing.price) || 0) * (Number(formData.quantity || 1))) %></strong>
       </div>
     </aside>
   </div>

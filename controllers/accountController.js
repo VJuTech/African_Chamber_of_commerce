@@ -1,4 +1,5 @@
 const authModel = require("../models/authModel");
+const rbacModel = require("../models/rbacModel");
 const { validateAccountPayload } = require("../utility/account-validation");
 const { africanCountries } = require("../utility/business-options");
 
@@ -169,6 +170,8 @@ async function registerUser(req, res, next) {
       return res.render("accounts/register", registerViewData(req.body, result.message));
     }
 
+    await rbacModel.ensureRegisteredUserRole(result.user.id);
+
     req.session.authenticated = true;
     req.session.userId = result.user.id;
     req.session.user = {
@@ -245,6 +248,8 @@ async function submitVerifyAccount(req, res, next) {
         userId,
       });
     }
+
+    await rbacModel.ensureVerifiedUserRole(userId);
 
     req.session.destroy((err) => {
       if (err) {
@@ -325,6 +330,8 @@ async function loginUser(req, res, next) {
       });
     }
 
+    const access = await rbacModel.getUserAccessContext(result.user.id);
+
     req.session.authenticated = true;
     req.session.userId = result.user.id;
     req.session.user = {
@@ -334,6 +341,8 @@ async function loginUser(req, res, next) {
       email: result.user.email,
       role: result.user.role,
       status: result.user.status,
+      roles: access.roles.map((role) => role.key),
+      permissions: access.permissions,
     };
     req.session.sessionMeta = {
       userId: result.user.id,

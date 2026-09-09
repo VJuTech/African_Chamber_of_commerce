@@ -28,6 +28,7 @@ function normalizeListing(record = {}) {
     id: Number(record.id),
     businessId: Number(record.businessId || record.business_id || 0),
     userId: Number(record.userId || record.user_id || 0),
+    sellerId: Number(record.sellerId || record.seller_id || record.userId || record.user_id || 0),
     title: record.title || "Untitled listing",
     description: record.description || "",
     category: record.category || "General",
@@ -289,7 +290,10 @@ async function getMarketplaceListings(filters = {}) {
 
 async function getListingById(listingId) {
   const result = await pool.query(
-    "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
+    `SELECT marketplace_listings.*, business_accounts.owner_id AS seller_id
+     FROM marketplace_listings
+     JOIN business_accounts ON business_accounts.id = marketplace_listings.business_id
+     WHERE marketplace_listings.id = $1 AND marketplace_listings.status <> 'deleted' LIMIT 1`,
     [listingId]
   );
   return result.rows.length ? normalizeListing(result.rows[0]) : null;

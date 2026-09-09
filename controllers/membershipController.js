@@ -370,9 +370,11 @@ const showAdminPanel = async (req, res) => {
 
     // Get recent audit logs
     const auditLogs = await membershipModel.getAllAuditLogs(20);
+    const tiers = await membershipModel.getMembershipTiers();
 
-    res.render("membership/admin-panel", {
+    res.render("membership/admin-dashboard", {
       stats,
+      tiers,
       auditLogs,
       title: "Membership Administration",
     });

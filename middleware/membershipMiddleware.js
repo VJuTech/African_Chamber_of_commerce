@@ -4,6 +4,7 @@
  */
 
 const membershipModel = require("../models/membershipModel");
+const rbacModel = require("../models/rbacModel");
 
 /**
  * Check if user is authenticated
@@ -18,16 +19,23 @@ const isAuthenticated = (req, res, next) => {
 /**
  * Check if user is admin
  */
-const isAdmin = (req, res, next) => {
+const isAdmin = async (req, res, next) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ success: false, message: "User not authenticated" });
   }
 
-  if (req.session.role !== "admin" && req.session.role !== "super_admin") {
-    return res.status(403).json({ success: false, message: "Access denied. Admin role required" });
+  try {
+    const access = await rbacModel.getUserAccessContext(req.session.userId);
+    const legacyAdmin = ["admin", "super_admin"].includes(req.session.role);
+    const databaseAdmin = access.roles.some((role) => ["platform_admin", "super_admin"].includes(role.key));
+    if (!legacyAdmin && !databaseAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied. Admin role required" });
+    }
+    req.access = access;
+    return next();
+  } catch (error) {
+    return next(error);
   }
-
-  next();
 };
 
 /**

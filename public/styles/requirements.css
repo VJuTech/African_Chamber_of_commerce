@@ -1,0 +1,28 @@
+.requirements-page { max-width: 1220px; margin: 0 auto; color: #173d43; }
+.requirements-hero { display: flex; justify-content: space-between; gap: 2rem; align-items: end; padding: 2rem; margin-bottom: 1.25rem; border-radius: 8px; background: linear-gradient(135deg, #173d43, #1f6a5c); color: #fff; }
+.requirements-hero h1 { margin: .35rem 0; font-size: clamp(1.8rem, 4vw, 3rem); }
+.requirements-hero h1 code { color: #b9e3c6; }
+.requirements-hero p:not(.eyebrow) { max-width: 720px; margin: 0; color: #dbeceb; }
+.requirements-hero .eyebrow { color: #b9e3c6; }
+.requirements-hero__metric { min-width: 150px; padding: 1rem; border-left: 1px solid rgba(255,255,255,.3); text-align: right; }
+.requirements-hero__metric strong { display: block; font-size: 2rem; }
+.requirements-hero__metric span { color: #dbeceb; font-size: .85rem; }
+.requirements-panel { background: #fff; border: 1px solid #d9e3e5; border-radius: 8px; margin-bottom: 1.25rem; padding: 1.25rem; box-shadow: 0 12px 30px rgba(25,59,65,.06); }
+.requirements-panel__heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.requirements-panel__heading h2 { margin: .2rem 0 0; }
+.requirements-filters { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: .75rem; }
+.requirements-table-wrap { overflow-x: auto; }
+.requirements-table { width: 100%; border-collapse: collapse; min-width: 850px; }
+.requirements-table th, .requirements-table td { padding: .85rem .7rem; text-align: left; vertical-align: top; border-bottom: 1px solid #e8eeee; }
+.requirements-table th { color: #607377; font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; }
+.requirements-table td small { display: block; max-width: 320px; margin-top: .3rem; color: #607377; }
+.requirements-table a { color: #17624f; }
+.requirements-tag, .requirements-priority, .requirements-coverage { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
+.requirements-tag { background: #edf4f1; color: #17624f; }
+.requirements-priority--critical { background: #f8dfdc; color: #9a3329; }.requirements-priority--high { background: #fff0d6; color: #8b5b10; }.requirements-priority--medium { background: #e5eef6; color: #285b83; }.requirements-priority--low { background: #edf0f0; color: #607377; }
+.requirements-coverage--complete { background: #dff2e6; color: #21633b; }.requirements-coverage--partial { background: #fff0d6; color: #8b5b10; }.requirements-coverage--missing, .requirements-coverage--blocked { background: #f8dfdc; color: #9a3329; }
+.requirements-alert { padding: .8rem 1rem; border-radius: 6px; margin-bottom: 1rem; }.requirements-alert--success { background: #dff2e6; color: #21633b; }
+.requirements-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.requirements-form label { display: grid; gap: .35rem; color: #607377; font-size: .83rem; }.requirements-form__wide { grid-column: 1 / -1; }.requirements-form button { justify-self: start; }
+.requirements-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }.requirements-definition { display: grid; grid-template-columns: 140px 1fr; gap: .8rem; margin: 1rem 0 0; }.requirements-definition dt { color: #607377; font-size: .83rem; }.requirements-definition dd { margin: 0; }
+.requirements-history, .requirements-list { display: grid; gap: .75rem; padding: 0; margin: 1rem 0 0; list-style: none; }.requirements-history div, .requirements-list li { display: grid; gap: .2rem; padding-bottom: .75rem; border-bottom: 1px solid #e8eeee; }.requirements-history span, .requirements-list span { color: #607377; font-size: .88rem; }
+@media (max-width: 760px) { .requirements-hero { display: block; padding: 1.25rem; }.requirements-hero__metric { margin-top: 1.25rem; padding: .75rem 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.3); text-align: left; }.requirements-filters, .requirements-form, .requirements-detail-grid { grid-template-columns: 1fr; }.requirements-form__wide { grid-column: auto; }.requirements-definition { grid-template-columns: 1fr; gap: .2rem; }.requirements-definition dd { margin-bottom: .7rem; } }

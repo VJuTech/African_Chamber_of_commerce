@@ -72,6 +72,12 @@
         <input id="refundReason" name="reason" type="text" placeholder="Refund reason" />
         <button type="submit" class="button button--secondary">Process refund</button>
       </form>
+
+      <% if (payment.status === 'failed') { %>
+        <form method="post" action="/payments/<%= payment.id %>/retry" class="stacked-form">
+          <button type="submit" class="button button--primary">Retry payment</button>
+        </form>
+      <% } %>
     </aside>
   </div>
 </section>
