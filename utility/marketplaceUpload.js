@@ -44,10 +44,20 @@ function publicImagePath(file) {
   return file ? `/uploads/marketplace/${file.filename}` : "";
 }
 
+// Keep newly uploaded images available after a Render instance restarts.
+function persistentImageDataUrl(file) {
+  if (!file || !file.path || !file.mimetype) return "";
+  try {
+    return `data:${file.mimetype};base64,${fs.readFileSync(file.path).toString("base64")}`;
+  } catch (_error) {
+    return "";
+  }
+}
+
 // Remove an uploaded asset when listing persistence fails after the file is written.
 function removeUploadedImage(file) {
   if (!file || !file.path) return;
   fs.unlink(file.path, () => {});
 }
 
-module.exports = { marketplaceImageUpload, publicImagePath, removeUploadedImage };
+module.exports = { marketplaceImageUpload, publicImagePath, persistentImageDataUrl, removeUploadedImage };

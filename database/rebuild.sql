@@ -342,7 +342,7 @@ CREATE TABLE business_accounts (
   tax_identification_number VARCHAR(120),
   website VARCHAR(255),
   business_description TEXT,
-  logo VARCHAR(255),
+  logo TEXT,
   status VARCHAR(50) NOT NULL DEFAULT 'draft',
   owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   ownership_role VARCHAR(100) NOT NULL DEFAULT 'Business Owner',
@@ -434,6 +434,7 @@ ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS search_rank INTEGER NOT N
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS membership_level VARCHAR(60) NOT NULL DEFAULT 'Basic';
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS state_region VARCHAR(120);
 ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS country_of_residence VARCHAR(120);
+ALTER TABLE business_accounts ALTER COLUMN logo TYPE TEXT;
 
 CREATE TABLE business_directory_search_logs (
   id SERIAL PRIMARY KEY,

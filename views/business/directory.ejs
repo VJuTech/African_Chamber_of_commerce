@@ -45,7 +45,11 @@
         <% listings.forEach((business) => { %>
           <article class="directory-item">
             <div class="listing-top">
-              <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+              <% if (business.logo) { %>
+                <img class="logo-placeholder" src="<%= business.logo %>" alt="<%= business.businessName %> logo" loading="lazy" />
+              <% } else { %>
+                <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+              <% } %>
               <div>
                 <h3><a href="/directory/<%= business.id %>"><%= business.businessName %></a></h3>
                 <p><%= business.industryCategory %></p>
@@ -151,25 +155,32 @@
     border: 1px solid #e8dcff;
     border-radius: 16px;
     background: #fcfaff;
-    padding: 1rem;
+    overflow: hidden;
   }
   .listing-top {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 0.75rem;
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
   }
   .logo-placeholder {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+    width: 100%;
+    height: clamp(150px, 14vw, 190px);
+    border-radius: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #6d3db4, #4a267d);
     color: #fff;
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: 3rem;
+    object-fit: cover;
+  }
+  .listing-top > div:not(.logo-placeholder) {
+    padding: 0 1rem;
+  }
+  .listing-top .verified-badge {
+    justify-self: start;
+    margin: 0 1rem;
   }
   .listing-top h3 {
     margin: 0;
@@ -190,11 +201,11 @@
   .description {
     color: #4a5d73;
     line-height: 1.5;
-    margin: 0 0 0.9rem;
+    margin: 0 1rem 0.9rem;
   }
   .directory-item ul {
     list-style: none;
-    padding: 0;
+    padding: 0 1rem;
     margin: 0 0 1rem;
     display: grid;
     gap: 0.45rem;
@@ -205,6 +216,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    padding: 0 1rem 1rem;
     font-size: 0.9rem;
     color: #516884;
   }
@@ -243,5 +255,6 @@
   @media (max-width: 760px) {
     .search-row, .filter-row { grid-template-columns: 1fr; }
     .directory-card { padding: 1rem; }
+    .logo-placeholder { height: 160px; }
   }
 </style>

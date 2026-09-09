@@ -2,7 +2,7 @@
  * marketplaceController.js - Marketplace listing management for ACC Chapter 17.
  *******************************************/
 const marketplaceModel = require("../models/marketplaceModel");
-const { publicImagePath, removeUploadedImage } = require("../utility/marketplaceUpload");
+const { persistentImageDataUrl, removeUploadedImage } = require("../utility/marketplaceUpload");
 const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
 
 function createListingViewData(req, formData = {}, error = "", message = "") {
@@ -64,9 +64,9 @@ async function submitCreateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to create a listing."));
     }
 
-    const uploadedImage = publicImagePath(req.file);
+    const uploadedImage = persistentImageDataUrl(req.file);
     const result = await marketplaceModel.createListing(userId, {
-      businessId: Number(req.body.businessId || userId),
+      businessId: Number(req.body.businessId || 0),
       title: req.body.title,
       description: req.body.description,
       category: req.body.category,
@@ -171,7 +171,7 @@ async function updateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to update your listing."));
     }
 
-    const uploadedImage = publicImagePath(req.file);
+    const uploadedImage = persistentImageDataUrl(req.file);
     const result = await marketplaceModel.updateListing(userId, req.params.id, {
       title: req.body.title,
       description: req.body.description,

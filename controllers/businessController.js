@@ -1,6 +1,6 @@
 const businessModel = require("../models/businessModel");
 const { africanCountries, industryCategories } = require("../utility/business-options");
-const { publicLogoPath, removeUploadedLogo } = require("../utility/businessUpload");
+const { persistentLogoDataUrl, removeUploadedLogo } = require("../utility/businessUpload");
 
 function registrationViewData(req, formData = {}, error = "", success = "") {
   return {
@@ -29,7 +29,7 @@ async function createBusinessAccount(req, res, next) {
 
     const result = await businessModel.createBusiness(userId, {
       ...req.body,
-      logo: publicLogoPath(req.file) || req.body.logo,
+      logo: persistentLogoDataUrl(req.file) || req.body.logo,
     });
 
     if (!result.success) {

@@ -3,7 +3,11 @@
     <a class="breadcrumb" href="/directory">← Back to directory</a>
 
     <div class="detail-header">
-      <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+      <% if (business.logo) { %>
+        <img class="logo-placeholder" src="<%= business.logo %>" alt="<%= business.businessName %> logo" />
+      <% } else { %>
+        <div class="logo-placeholder"><%= (business.businessName || 'B').charAt(0).toUpperCase() %></div>
+      <% } %>
       <div>
         <p class="eyebrow">Business profile</p>
         <h1><%= business.businessName %></h1>

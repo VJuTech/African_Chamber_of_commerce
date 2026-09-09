@@ -55,6 +55,17 @@ function validateMediaUpload(mediaEntries = []) {
   const maxSizeBytes = 2 * 1024 * 1024;
 
   for (const entry of mediaList) {
+    if (typeof entry === "string" && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(entry)) {
+      const encodedBytes = Buffer.byteLength(entry.slice(entry.indexOf(",") + 1), "base64");
+      if (encodedBytes > maxSizeBytes) {
+        return {
+          success: false,
+          message: "Listing media must be 2MB or smaller.",
+        };
+      }
+      continue;
+    }
+
     const sourceName = entry && entry.originalname ? entry.originalname : String(entry || "");
     const fileSize = entry && entry.size ? Number(entry.size) : 0;
     const extension = path.extname(sourceName || "").toLowerCase();
@@ -119,9 +130,14 @@ async function createListing(userId, payload = {}) {
     [userId, businessId]
   );
 
-  if (businessResult.rows.length > 0) {
-    businessId = Number(businessResult.rows[0].id);
+  if (businessResult.rows.length === 0) {
+    return {
+      success: false,
+      message: "Create or select an authorized business profile before creating a marketplace listing.",
+    };
   }
+
+  businessId = Number(businessResult.rows[0].id);
 
   const listing = {
     id: null,

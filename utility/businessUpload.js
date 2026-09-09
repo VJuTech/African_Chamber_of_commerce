@@ -38,9 +38,19 @@ function publicLogoPath(file) {
   return file ? `/uploads/business/${file.filename}` : "";
 }
 
+// Keep newly uploaded logos available after a Render instance restarts.
+function persistentLogoDataUrl(file) {
+  if (!file || !file.path || !file.mimetype) return "";
+  try {
+    return `data:${file.mimetype};base64,${fs.readFileSync(file.path).toString("base64")}`;
+  } catch (_error) {
+    return "";
+  }
+}
+
 function removeUploadedLogo(file) {
   if (!file || !file.path) return;
   fs.unlink(file.path, () => {});
 }
 
-module.exports = { businessLogoUpload, publicLogoPath, removeUploadedLogo };
+module.exports = { businessLogoUpload, publicLogoPath, persistentLogoDataUrl, removeUploadedLogo };
