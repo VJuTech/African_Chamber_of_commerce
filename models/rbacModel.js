@@ -18,6 +18,16 @@ const ROLE_KEYS = [
   "super_admin",
 ];
 
+const TRANSIENT_DATABASE_ERRORS = new Set(["EAI_AGAIN", "ECONNRESET", "ETIMEDOUT", "ENETUNREACH"]);
+
+function isTransientDatabaseError(error) {
+  return Boolean(error && TRANSIENT_DATABASE_ERRORS.has(error.code));
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 function normalizeRoleKey(role) {
   const value = String(role || "").trim().toLowerCase();
   return LEGACY_ROLE_MAP[value] || value;
@@ -29,14 +39,23 @@ async function assignRole(userId, roleKey, options = {}) {
     return { success: false, message: "Invalid user or role." };
   }
 
-  const result = await pool.query(
-    `INSERT INTO user_roles (user_id, role_id, business_id, assigned_by)
-     SELECT $1, r.id, $3, $4
-     FROM roles r WHERE r.role_key = $2
-     ON CONFLICT (user_id, role_id, business_id) DO NOTHING
-     RETURNING id`,
-    [Number(userId), normalizedRole, options.businessId || null, options.assignedBy || null]
-  );
+  let result;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      result = await pool.query(
+        `INSERT INTO user_roles (user_id, role_id, business_id, assigned_by)
+         SELECT $1, r.id, $3, $4
+         FROM roles r WHERE r.role_key = $2
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [Number(userId), normalizedRole, options.businessId || null, options.assignedBy || null]
+      );
+      break;
+    } catch (error) {
+      if (!isTransientDatabaseError(error) || attempt === 3) throw error;
+      await wait(attempt * 300);
+    }
+  }
 
   return { success: true, assigned: result.rowCount > 0, roleKey: normalizedRole };
 }
