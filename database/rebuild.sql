@@ -78,6 +78,18 @@ DROP TABLE IF EXISTS security_mfa_challenges CASCADE;
 DROP TABLE IF EXISTS security_mfa_methods CASCADE;
 DROP TABLE IF EXISTS security_login_attempts CASCADE;
 DROP TABLE IF EXISTS security_policies CASCADE;
+DROP TABLE IF EXISTS webhook_deliveries CASCADE;
+DROP TABLE IF EXISTS webhook_subscriptions CASCADE;
+DROP TABLE IF EXISTS api_rate_limit_windows CASCADE;
+DROP TABLE IF EXISTS api_request_logs CASCADE;
+DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS api_clients CASCADE;
+DROP TABLE IF EXISTS deployment_audit_logs CASCADE;
+DROP TABLE IF EXISTS deployment_backups CASCADE;
+DROP TABLE IF EXISTS deployment_alerts CASCADE;
+DROP TABLE IF EXISTS deployment_metrics CASCADE;
+DROP TABLE IF EXISTS deployment_releases CASCADE;
+DROP TABLE IF EXISTS deployment_environments CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -343,6 +355,15 @@ VALUES
   ('admin.reports.read', 'admin_reports', 'read', 'Generate and export platform reports.'),
   ('admin.logs.read', 'admin_logs', 'read', 'Search platform and administrative logs.')
   ,('admin.security.read', 'admin_security', 'read', 'View security monitoring, alerts, and security audit events.')
+  ,('admin.deployment.read', 'admin_deployment', 'read', 'View deployment environments, health metrics, releases, alerts, and backups.')
+  ,('admin.deployment.manage', 'admin_deployment', 'manage', 'Manage deployment status, release records, monitoring, and backup operations.')
+  ,('admin.api.manage', 'api_management', 'manage', 'Manage API clients, keys, webhooks, and integration settings.')
+  ,('admin.api.monitor', 'api_monitoring', 'read', 'View API traffic, rate limits, errors, and delivery metrics.')
+  ,('api.users.read', 'api_users', 'read', 'Read users through the versioned external API.')
+  ,('api.businesses.read', 'api_businesses', 'read', 'Read businesses through the versioned external API.')
+  ,('api.listings.read', 'api_listings', 'read', 'Read marketplace listings through the versioned external API.')
+  ,('api.orders.read', 'api_orders', 'read', 'Read authorized orders through the versioned external API.')
+  ,('api.payments.read', 'api_payments', 'read', 'Read authorized payments through the versioned external API.')
   ,('analytics.global.read', 'analytics', 'read', 'View global platform analytics.')
   ,('analytics.business.read', 'analytics', 'read', 'View authorized business analytics.')
   ,('analytics.reports.export', 'analytics_reports', 'manage', 'Generate and export analytics reports.')
@@ -374,6 +395,19 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.role_key IN ('platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
   AND p.permission_key LIKE 'admin.%'
+ON CONFLICT DO NOTHING;
+
+-- Chapter 29 API management access is restricted to platform operators.
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key IN ('admin.api.manage', 'admin.api.monitor')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key IN ('api.users.read', 'api.businesses.read', 'api.listings.read', 'api.orders.read', 'api.payments.read')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -525,6 +559,105 @@ CREATE INDEX idx_security_alerts_created ON security_alerts(created_at DESC);
 CREATE INDEX idx_security_audit_logs_user_created ON security_audit_logs(user_id, created_at DESC);
 CREATE INDEX idx_security_audit_logs_event_created ON security_audit_logs(event_type, created_at DESC);
 
+-- ========================================
+-- CHAPTER 29: API & INTEGRATION SYSTEM
+-- ========================================
+
+-- API clients identify external developers, partner systems, and mobile applications.
+CREATE TABLE api_clients (
+  id BIGSERIAL PRIMARY KEY,
+  owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  client_name VARCHAR(160) NOT NULL,
+  client_type VARCHAR(40) NOT NULL DEFAULT 'partner' CHECK (client_type IN ('developer', 'partner', 'mobile', 'internal')),
+  status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'revoked')),
+  description TEXT,
+  rate_limit_per_minute INTEGER NOT NULL DEFAULT 60 CHECK (rate_limit_per_minute > 0),
+  allowed_origins JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Only a non-reversible hash is persisted. The raw key is shown once at creation.
+CREATE TABLE api_keys (
+  id BIGSERIAL PRIMARY KEY,
+  client_id BIGINT NOT NULL REFERENCES api_clients(id) ON DELETE CASCADE,
+  key_prefix VARCHAR(24) NOT NULL,
+  key_hash VARCHAR(128) NOT NULL UNIQUE,
+  label VARCHAR(120) NOT NULL DEFAULT 'Primary key',
+  scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+  last_used_at TIMESTAMP,
+  expires_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TIMESTAMP
+);
+
+-- Request-level telemetry supports volume, error-rate, latency, auth, and audit reporting.
+CREATE TABLE api_request_logs (
+  id BIGSERIAL PRIMARY KEY,
+  client_id BIGINT REFERENCES api_clients(id) ON DELETE SET NULL,
+  api_key_id BIGINT REFERENCES api_keys(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  method VARCHAR(10) NOT NULL,
+  path VARCHAR(500) NOT NULL,
+  version VARCHAR(20) NOT NULL DEFAULT 'v1',
+  status_code INTEGER NOT NULL,
+  latency_ms INTEGER NOT NULL DEFAULT 0,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  request_id VARCHAR(100),
+  error_code VARCHAR(100),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Database-backed fixed windows prevent rate-limit state from disappearing on restart.
+CREATE TABLE api_rate_limit_windows (
+  client_id BIGINT NOT NULL REFERENCES api_clients(id) ON DELETE CASCADE,
+  window_started_at TIMESTAMP NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 0 CHECK (request_count >= 0),
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (client_id, window_started_at)
+);
+
+CREATE TABLE webhook_subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  client_id BIGINT NOT NULL REFERENCES api_clients(id) ON DELETE CASCADE,
+  target_url VARCHAR(500) NOT NULL,
+  secret_hash VARCHAR(128) NOT NULL,
+  event_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'revoked')),
+  failure_count INTEGER NOT NULL DEFAULT 0,
+  last_delivered_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE webhook_deliveries (
+  id BIGSERIAL PRIMARY KEY,
+  subscription_id BIGINT NOT NULL REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+  event_type VARCHAR(120) NOT NULL,
+  event_id VARCHAR(120) NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'delivered', 'failed', 'retrying')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  response_code INTEGER,
+  response_body TEXT,
+  next_attempt_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  delivered_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_api_clients_owner_status ON api_clients(owner_id, status);
+CREATE INDEX idx_api_keys_client_status ON api_keys(client_id, status);
+CREATE INDEX idx_api_request_logs_created ON api_request_logs(created_at DESC);
+CREATE INDEX idx_api_request_logs_client_created ON api_request_logs(client_id, created_at DESC);
+CREATE INDEX idx_api_request_logs_status ON api_request_logs(status_code, created_at DESC);
+CREATE INDEX idx_api_rate_limit_windows_updated ON api_rate_limit_windows(updated_at);
+CREATE INDEX idx_webhook_subscriptions_client_status ON webhook_subscriptions(client_id, status);
+CREATE INDEX idx_webhook_deliveries_queue ON webhook_deliveries(status, next_attempt_at);
+CREATE INDEX idx_webhook_deliveries_subscription ON webhook_deliveries(subscription_id, created_at DESC);
+
 -- Chapter 2: external service registry and operational integration status.
 CREATE TABLE platform_integrations (
   id SERIAL PRIMARY KEY,
@@ -553,6 +686,103 @@ CREATE TABLE platform_integration_events (
 
 CREATE INDEX idx_platform_integrations_type_status ON platform_integrations(integration_type, status);
 CREATE INDEX idx_platform_integration_events_integration ON platform_integration_events(integration_id, created_at DESC);
+
+-- ========================================
+-- CHAPTER 30: SYSTEM DEPLOYMENT & INFRASTRUCTURE
+-- ========================================
+
+CREATE TABLE deployment_environments (
+  id SERIAL PRIMARY KEY,
+  environment_key VARCHAR(30) NOT NULL UNIQUE CHECK (environment_key IN ('development', 'qa', 'staging', 'production')),
+  display_name VARCHAR(100) NOT NULL,
+  provider VARCHAR(120) NOT NULL,
+  region VARCHAR(120),
+  base_url VARCHAR(500),
+  status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'healthy', 'degraded', 'maintenance', 'offline')),
+  desired_instances INTEGER NOT NULL DEFAULT 1 CHECK (desired_instances > 0),
+  min_instances INTEGER NOT NULL DEFAULT 1 CHECK (min_instances > 0),
+  max_instances INTEGER NOT NULL DEFAULT 1 CHECK (max_instances >= min_instances),
+  isolation_notes TEXT,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE deployment_releases (
+  id BIGSERIAL PRIMARY KEY,
+  environment_id INTEGER NOT NULL REFERENCES deployment_environments(id) ON DELETE CASCADE,
+  version VARCHAR(120) NOT NULL,
+  commit_sha VARCHAR(120),
+  pipeline_url VARCHAR(500),
+  status VARCHAR(30) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'building', 'deployed', 'failed', 'rolled_back')),
+  deployed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP,
+  notes TEXT,
+  UNIQUE (environment_id, version)
+);
+
+CREATE TABLE deployment_metrics (
+  id BIGSERIAL PRIMARY KEY,
+  environment_id INTEGER NOT NULL REFERENCES deployment_environments(id) ON DELETE CASCADE,
+  cpu_percent NUMERIC(6,2) NOT NULL CHECK (cpu_percent >= 0),
+  memory_percent NUMERIC(6,2) NOT NULL CHECK (memory_percent >= 0),
+  response_time_ms INTEGER NOT NULL CHECK (response_time_ms >= 0),
+  request_count INTEGER NOT NULL DEFAULT 0 CHECK (request_count >= 0),
+  error_rate NUMERIC(7,4) NOT NULL DEFAULT 0 CHECK (error_rate >= 0),
+  captured_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE deployment_alerts (
+  id BIGSERIAL PRIMARY KEY,
+  environment_id INTEGER REFERENCES deployment_environments(id) ON DELETE CASCADE,
+  severity VARCHAR(20) NOT NULL CHECK (severity IN ('info', 'warning', 'critical')),
+  alert_type VARCHAR(80) NOT NULL,
+  message TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'acknowledged', 'resolved')),
+  triggered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  acknowledged_at TIMESTAMP,
+  acknowledged_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at TIMESTAMP
+);
+
+CREATE TABLE deployment_backups (
+  id BIGSERIAL PRIMARY KEY,
+  environment_id INTEGER NOT NULL REFERENCES deployment_environments(id) ON DELETE CASCADE,
+  backup_type VARCHAR(30) NOT NULL CHECK (backup_type IN ('scheduled', 'manual', 'restore_test')),
+  status VARCHAR(30) NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'running', 'completed', 'failed', 'restored')),
+  storage_reference VARCHAR(500),
+  size_bytes BIGINT CHECK (size_bytes IS NULL OR size_bytes >= 0),
+  started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP,
+  verified_at TIMESTAMP,
+  requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  notes TEXT
+);
+
+CREATE TABLE deployment_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  environment_id INTEGER REFERENCES deployment_environments(id) ON DELETE SET NULL,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(100) NOT NULL,
+  outcome VARCHAR(50) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_deployment_releases_environment ON deployment_releases(environment_id, started_at DESC);
+CREATE INDEX idx_deployment_metrics_environment ON deployment_metrics(environment_id, captured_at DESC);
+CREATE INDEX idx_deployment_alerts_status ON deployment_alerts(status, triggered_at DESC);
+CREATE INDEX idx_deployment_backups_environment ON deployment_backups(environment_id, started_at DESC);
+CREATE INDEX idx_deployment_audit_created ON deployment_audit_logs(created_at DESC);
+
+INSERT INTO deployment_environments (environment_key, display_name, provider, region, base_url, status, desired_instances, min_instances, max_instances, isolation_notes, configuration)
+VALUES
+  ('development', 'Development', 'Local / developer workstation', 'local', 'http://localhost:5500', 'planned', 1, 1, 1, 'Developer-only credentials and data boundary.', '{"pipeline":"manual","containerized":true}'::jsonb),
+  ('qa', 'Quality assurance', 'Cloud deployment target', 'configured per deployment', NULL, 'planned', 1, 1, 2, 'Dedicated test database and isolated credentials.', '{"pipeline":"ci","containerized":true}'::jsonb),
+  ('staging', 'Staging', 'Cloud deployment target', 'configured per deployment', NULL, 'planned', 2, 1, 4, 'Production-shaped environment with separate secrets and database.', '{"pipeline":"cd","containerized":true}'::jsonb),
+  ('production', 'Production', 'Render / AWS / Azure / GCP', 'configured per deployment', NULL, 'planned', 2, 2, 10, 'Private database access, TLS, restricted operators, and isolated secrets.', '{"pipeline":"protected-cd","containerized":true,"load_balancer":true,"autoscaling":true}'::jsonb)
+ON CONFLICT (environment_key) DO NOTHING;
 
 INSERT INTO platform_integrations (integration_key, display_name, integration_type, provider, environment, status, endpoint_reference, notes)
 VALUES

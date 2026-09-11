@@ -1,0 +1,59 @@
+<section class="admin-page api-admin-page">
+  <header class="admin-page__heading">
+    <div>
+      <p class="admin-eyebrow">Chapter 29 / connectivity layer</p>
+      <h1>API &amp; integrations</h1>
+      <p>Manage external clients, secure credentials, webhook delivery, and PostgreSQL-backed API observability.</p>
+    </div>
+    <a class="admin-button" href="/api/docs" target="_blank" rel="noreferrer">Open API docs</a>
+  </header>
+
+  <% if (message) { %><div class="admin-alert" role="status"><%= message %></div><% } %>
+  <% if (newlyCreatedKey) { %><div class="api-secret-callout"><strong>New API key</strong><code><%= newlyCreatedKey %></code><small>Copy this key now. ACC stores only its hash.</small></div><% } %>
+  <% if (newlyCreatedSecret) { %><div class="api-secret-callout"><strong>New webhook signing secret</strong><code><%= newlyCreatedSecret %></code><small>Copy this secret now. ACC stores only its hash.</small></div><% } %>
+
+  <div class="api-metric-grid">
+    <article><span>Requests / 24h</span><strong><%= usage.requests %></strong><small>Durable request records</small></article>
+    <article><span>Error responses</span><strong><%= usage.errors %></strong><small>HTTP 4xx and 5xx responses</small></article>
+    <article><span>Average latency</span><strong><%= usage.latency %> ms</strong><small>Measured at the API gateway</small></article>
+    <article><span>Active clients</span><strong><%= usage.clients %></strong><small>Clients with recent traffic</small></article>
+  </div>
+
+  <div class="api-admin-grid">
+    <section class="admin-panel">
+      <div class="admin-panel__heading"><div><p class="admin-eyebrow">Access management</p><h2>Create API client</h2></div></div>
+      <form class="api-create-form" method="post" action="/admin/api/clients">
+        <label>Client name<input name="clientName" required maxlength="160" placeholder="Mobile commerce app"></label>
+        <label>Client type<select name="clientType"><option value="partner">Partner</option><option value="developer">Developer</option><option value="mobile">Mobile app</option><option value="internal">Internal service</option></select></label>
+        <label>Requests per minute<input name="rateLimitPerMinute" type="number" min="1" max="10000" value="60" required></label>
+        <label class="api-create-form__wide">Description<textarea name="description" rows="3" maxlength="2000" placeholder="What will this client connect to ACC?"></textarea></label>
+        <button class="admin-button" type="submit">Create client &amp; key</button>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel__heading"><div><p class="admin-eyebrow">Event delivery</p><h2>Create webhook</h2></div></div>
+      <form class="api-create-form" method="post" action="/admin/api/webhooks">
+        <label>Client<select name="clientId" required><option value="">Choose a client</option><% clients.forEach((client) => { %><option value="<%= client.id %>"><%= client.clientName %></option><% }); %></select></label>
+        <label>HTTPS endpoint<input name="targetUrl" type="url" required placeholder="https://partner.example.com/acc-events"></label>
+        <label class="api-create-form__wide">Events<input name="eventTypes" required placeholder="payment.completed, order.shipped"></label>
+        <button class="admin-button" type="submit">Create webhook</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="admin-panel">
+    <div class="admin-panel__heading"><div><p class="admin-eyebrow">Developer access</p><h2>Registered API clients</h2></div></div>
+    <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Client</th><th>Type</th><th>Rate limit</th><th>Keys</th><th>Webhooks</th><th>Status</th></tr></thead><tbody><% clients.forEach((client) => { %><tr><td><strong><%= client.clientName %></strong><small><%= client.description || 'No description' %></small></td><td><%= client.clientType %></td><td><%= client.rateLimitPerMinute %> / min</td><td><%= client.activeKeys %></td><td><%= client.webhookCount %></td><td><span class="admin-badge"><%= client.status %></span></td></tr><% }); %><% if (!clients.length) { %><tr><td colspan="6">No API clients have been registered.</td></tr><% } %></tbody></table></div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel__heading"><div><p class="admin-eyebrow">Event delivery</p><h2>Webhook subscriptions</h2></div></div>
+    <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Client</th><th>Endpoint</th><th>Events</th><th>Failures</th><th>Status</th><th>Action</th></tr></thead><tbody><% webhooks.forEach((webhook) => { %><tr><td><strong><%= webhook.client_name %></strong></td><td><code><%= webhook.target_url %></code></td><td><%= Array.isArray(webhook.event_types) ? webhook.event_types.join(', ') : webhook.event_types %></td><td><%= webhook.failure_count %></td><td><span class="admin-badge"><%= webhook.status %></span></td><td><% if (webhook.status !== 'revoked') { %><form method="post" action="/admin/api/webhooks/<%= webhook.id %>/revoke"><button type="submit">Revoke</button></form><% } %></td></tr><% }); %><% if (!webhooks.length) { %><tr><td colspan="6">No webhook subscriptions have been registered.</td></tr><% } %></tbody></table></div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel__heading"><div><p class="admin-eyebrow">Gateway telemetry</p><h2>Recent API requests</h2></div></div>
+    <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Client</th><th>Request</th><th>Status</th><th>Latency</th><th>Created</th></tr></thead><tbody><% logs.forEach((log) => { %><tr><td><%= log.client_name || 'Unknown client' %></td><td><strong><%= log.method %> <%= log.path %></strong></td><td><span class="admin-badge"><%= log.status_code %></span></td><td><%= log.latency_ms %> ms</td><td><%= new Date(log.created_at).toLocaleString() %></td></tr><% }); %><% if (!logs.length) { %><tr><td colspan="5">No API requests have been recorded yet.</td></tr><% } %></tbody></table></div>
+  </section>
+</section>

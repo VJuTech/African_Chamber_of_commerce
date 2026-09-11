@@ -45,6 +45,10 @@ const accManagementRoutes = require("./routes/accManagementRoute");
 const adminRoutes = require("./routes/adminRoute");
 const analyticsRoutes = require("./routes/analyticsRoute");
 const securityRoutes = require("./routes/securityRoute");
+const apiRoutes = require("./routes/apiRoute");
+const apiAdminRoutes = require("./routes/apiAdminRoute");
+const deploymentRoutes = require("./routes/deploymentRoute");
+const healthRoutes = require("./routes/healthRoute");
 const analyticsModel = require("./models/analyticsModel");
 const securityModel = require("./models/securityModel");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
@@ -232,6 +236,11 @@ async function initApp() {
   app.use("/", disputeRoutes);
   // Mount notifications after the authenticated workspace routes.
   app.use("/", notificationRoutes);
+  // Mount the versioned Chapter 29 API before HTML administration routes.
+  app.use("/", apiRoutes);
+  app.use("/", apiAdminRoutes);
+  app.use("/", deploymentRoutes);
+  app.use("/", healthRoutes);
   // Mount Chapter 3 role and permission administration after authenticated routes.
   app.use("/", rbacRoutes);
   app.use("/", requirementsRoutes);

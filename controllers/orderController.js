@@ -5,6 +5,7 @@ const orderModel = require("../models/orderModel");
 const marketplaceModel = require("../models/marketplaceModel");
 const cartModel = require("../models/cartModel");
 const paymentModel = require("../models/paymentModel");
+const webhookService = require("../utility/webhookService");
 
 async function cartCheckoutPage(req, res, next) {
   try {
@@ -161,6 +162,9 @@ async function placeOrder(req, res, next) {
         message: "",
       });
     }
+      if (result.success && ["shipped", "delivered"].includes(result.order.status)) {
+        webhookService.enqueueEvent(`order.${result.order.status}`, result.order.id, { order: result.order }).catch((error) => console.error("Order webhook enqueue failed:", error.message));
+      }
 
     const paymentResult = await paymentModel.initiatePayment(userId, {
       orderId: result.order.id,
@@ -245,6 +249,9 @@ async function updateOrderStatus(req, res, next) {
     }
 
     const result = await orderModel.updateOrderStatus(userId, req.params.id, req.body.status, req.body.trackingDetails || "");
+    if (result.success && ["shipped", "delivered"].includes(result.order.status)) {
+      webhookService.enqueueEvent(`order.${result.order.status}`, result.order.id, { order: result.order }).catch((error) => console.error("Order webhook enqueue failed:", error.message));
+    }
     return res.redirect("/orders/" + req.params.id + "?message=" + encodeURIComponent(result.message));
   } catch (error) {
     return next(error);

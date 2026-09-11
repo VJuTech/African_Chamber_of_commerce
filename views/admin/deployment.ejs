@@ -1,0 +1,44 @@
+<section class="deployment-page" aria-labelledby="deployment-title">
+  <header class="deployment-hero">
+    <div>
+      <p class="management-eyebrow">Chapter 30 / Operations</p>
+      <h1 id="deployment-title">Deployment &amp; infrastructure</h1>
+      <p>Observe environment health, deployment flow, scaling posture, alerts, and recovery evidence from one PostgreSQL-backed operations console.</p>
+    </div>
+    <div class="deployment-hero__health"><span class="deployment-health-dot deployment-health-dot--<%= database.status %>"></span><strong>Database <%= database.status %></strong><small><%= database.responseTimeMs == null ? 'Unavailable' : database.responseTimeMs + ' ms response' %></small></div>
+  </header>
+  <% if (message) { %><div class="deployment-alert deployment-alert--notice" role="status"><%= message %></div><% } %>
+
+  <section class="deployment-section">
+    <div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-001 / DEPLOY-002 / DEPLOY-005 / DEPLOY-006</p><h2>Environment topology</h2></div><span class="deployment-section__note">Independent boundaries, scalable targets</span></div>
+    <div class="deployment-environments">
+      <% environments.forEach((environment) => { %>
+        <article class="deployment-environment deployment-environment--<%= environment.status %>">
+          <div class="deployment-environment__top"><div><span class="deployment-environment__key"><%= environment.environmentKey %></span><h3><%= environment.displayName %></h3></div><span class="deployment-status"><%= environment.status %></span></div>
+          <p><%= environment.provider %> · <%= environment.region || 'Region pending' %></p>
+          <small><%= environment.isolationNotes || 'Environment isolation details pending.' %></small>
+          <div class="deployment-scale"><span>Instances</span><strong><%= environment.desiredInstances %></strong><small><%= environment.minInstances %> min / <%= environment.maxInstances %> max</small></div>
+          <form method="post" action="/admin/deployment/environments/<%= environment.id %>" class="deployment-form">
+            <select name="status" aria-label="Status for <%= environment.displayName %>"><% ['planned','healthy','degraded','maintenance','offline'].forEach((status) => { %><option value="<%= status %>" <%= environment.status === status ? 'selected' : '' %>><%= status %></option><% }); %></select>
+            <input name="desiredInstances" type="number" min="1" value="<%= environment.desiredInstances %>" aria-label="Desired instances for <%= environment.displayName %>">
+            <input name="minInstances" type="number" min="1" value="<%= environment.minInstances %>" aria-label="Minimum instances for <%= environment.displayName %>">
+            <input name="maxInstances" type="number" min="1" value="<%= environment.maxInstances %>" aria-label="Maximum instances for <%= environment.displayName %>">
+            <button class="button button--primary" type="submit">Save posture</button>
+          </form>
+        </article>
+      <% }); %>
+    </div>
+  </section>
+
+  <div class="deployment-grid">
+    <section class="deployment-section deployment-section--wide"><div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-007</p><h2>Performance telemetry</h2></div><span class="deployment-section__note">Latest persisted samples</span></div><div class="deployment-metrics"><% metrics.slice(0, 8).forEach((metric) => { %><article><span><%= metric.environmentKey %></span><strong><%= metric.responseTimeMs %> ms</strong><small>CPU <%= metric.cpuPercent %>% · memory <%= metric.memoryPercent %>% · errors <%= metric.errorRate %>%</small></article><% }); %><% if (!metrics.length) { %><p class="deployment-empty">No metric samples have been captured yet.</p><% } %></div></section>
+    <section class="deployment-section"><div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-008</p><h2>Alerts</h2></div></div><div class="deployment-list"><% alerts.slice(0, 6).forEach((alert) => { %><div class="deployment-list__row"><div><strong><%= alert.alertType %></strong><span><%= alert.message %></span></div><div><em class="deployment-severity deployment-severity--<%= alert.severity %>"><%= alert.severity %></em><% if (alert.status !== 'resolved') { %><form method="post" action="/admin/deployment/alerts/<%= alert.id %>"><input type="hidden" name="status" value="<%= alert.status === 'open' ? 'acknowledged' : 'resolved' %>"><button class="button button--quiet" type="submit"><%= alert.status === 'open' ? 'Acknowledge' : 'Resolve' %></button></form><% } %></div></div><% }); %><% if (!alerts.length) { %><p class="deployment-empty">No deployment alerts recorded.</p><% } %></div></section>
+  </div>
+
+  <div class="deployment-grid">
+    <section class="deployment-section"><div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-003 / DEPLOY-004</p><h2>Release pipeline</h2></div></div><form method="post" action="/admin/deployment/releases" class="deployment-stack-form"><select name="environmentId" required><option value="">Environment</option><% environments.forEach((environment) => { %><option value="<%= environment.id %>"><%= environment.displayName %></option><% }); %></select><input name="version" required placeholder="Version or build tag"><input name="commitSha" placeholder="Commit SHA"><input name="pipelineUrl" type="url" placeholder="Pipeline URL"><select name="status"><option value="queued">Queued</option><option value="building">Building</option><option value="deployed">Deployed</option><option value="failed">Failed</option><option value="rolled_back">Rolled back</option></select><textarea name="notes" placeholder="Release notes"></textarea><button class="button button--primary" type="submit">Record release</button></form><div class="deployment-list"><% releases.slice(0, 6).forEach((release) => { %><div class="deployment-list__row"><div><strong><%= release.version %></strong><span><%= release.environmentName %> · <%= release.commitSha || 'commit pending' %></span></div><em class="deployment-release--<%= release.status %>"><%= release.status %></em></div><% }); %></div></section>
+    <section class="deployment-section"><div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-009</p><h2>Backup &amp; recovery</h2></div></div><form method="post" action="/admin/deployment/backups" class="deployment-stack-form"><select name="environmentId" required><option value="">Environment</option><% environments.forEach((environment) => { %><option value="<%= environment.id %>"><%= environment.displayName %></option><% }); %></select><select name="backupType"><option value="manual">Manual backup</option><option value="scheduled">Scheduled backup</option><option value="restore_test">Restore test</option></select><input name="storageReference" placeholder="Encrypted object storage reference"><textarea name="notes" placeholder="Verification or recovery notes"></textarea><button class="button button--primary" type="submit">Record recovery action</button></form><div class="deployment-list"><% backups.slice(0, 6).forEach((backup) => { %><div class="deployment-list__row"><div><strong><%= backup.backupType %></strong><span><%= backup.environmentKey %> · <%= backup.storageReference || 'reference pending' %></span></div><em><%= backup.status %></em></div><% }); %></div></section>
+  </div>
+
+  <section class="deployment-section"><div class="deployment-section__heading"><div><p class="management-eyebrow">DEPLOY-010 / audit</p><h2>Infrastructure controls &amp; activity</h2></div><span class="deployment-section__note">TLS, firewall, isolated secrets, and operator actions belong in the deployment target configuration.</span></div><div class="deployment-control-strip"><span>Container image</span><strong>Dockerfile + compose</strong><span>Orchestration</span><strong>Kubernetes-ready cloud target</strong><span>Pipeline</span><strong>GitHub Actions CI/CD</strong><span>Data recovery</span><strong>PostgreSQL backup evidence</strong></div><div class="deployment-list deployment-list--audit"><% auditLogs.slice(0, 8).forEach((log) => { %><div class="deployment-list__row"><div><strong><%= log.eventType %></strong><span><%= log.environmentKey || 'platform' %></span></div><em><%= log.outcome %> · <%= new Date(log.createdAt).toLocaleString() %></em></div><% }); %></div></section>
+</section>

@@ -1,0 +1,68 @@
+name: ACC CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [qa, staging, production]
+    env:
+      NODE_ENV: test
+      DEPLOYMENT_ENV: ${{ matrix.environment }}
+      DATABASE_URL: postgresql://acc:acc@localhost:5432/acc
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: acc
+          POSTGRES_USER: acc
+          POSTGRES_PASSWORD: acc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U acc -d acc"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize isolated QA schema
+        run: psql "$DATABASE_URL" --file=database/rebuild.sql
+      - run: pnpm run build
+      - run: node --check server.js
+      - run: node --check models/deploymentModel.js
+      - run: node --check controllers/deploymentController.js
+      - run: node --check routes/deploymentRoute.js
+      - run: node --check routes/healthRoute.js
+      - run: node -e "require('./routes/deploymentRoute'); require('./routes/healthRoute'); console.log('Deployment routes load successfully')"
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --tag acc:${{ github.sha }} .
+      - name: Deploy through cloud provider hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: test -n "$DEPLOY_HOOK_URL" && curl --fail --silent --show-error --request POST "$DEPLOY_HOOK_URL"

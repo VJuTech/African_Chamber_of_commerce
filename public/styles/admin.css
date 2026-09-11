@@ -195,6 +195,54 @@
   transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
 
+.deployment-page { max-width: 1440px; margin: 0 auto; padding: 32px clamp(18px, 4vw, 64px) 72px; color: #18324a; }
+.deployment-hero { display: flex; justify-content: space-between; gap: 28px; align-items: flex-end; padding: 34px; background: linear-gradient(135deg, #e9f5f1, #f6efe2); border: 1px solid #d6e5df; }
+.deployment-hero h1 { margin: 8px 0 10px; font-size: clamp(2rem, 4vw, 4.2rem); letter-spacing: 0; line-height: .98; }
+.deployment-hero p { max-width: 720px; margin: 0; color: #516777; }
+.deployment-hero__health { display: grid; gap: 5px; min-width: 170px; padding: 16px; border-left: 3px solid #247a68; }
+.deployment-hero__health small, .deployment-section__note { color: #687b88; }
+.deployment-health-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #c64f45; }
+.deployment-health-dot--healthy { background: #258b69; }
+.deployment-alert { margin: 18px 0; padding: 13px 16px; border: 1px solid #b8d6ca; background: #edf8f2; }
+.deployment-section { margin-top: 24px; padding: 26px; background: #fff; border: 1px solid #dfe7e4; box-shadow: 0 12px 30px rgba(25, 53, 68, .06); }
+.deployment-section__heading { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; margin-bottom: 20px; }
+.deployment-section h2 { margin: 4px 0 0; font-size: 1.5rem; }
+.deployment-environments { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.deployment-environment { padding: 18px; background: #f7faf9; border-top: 4px solid #9db8ae; }
+.deployment-environment--healthy { border-top-color: #258b69; }
+.deployment-environment--degraded { border-top-color: #d59035; }
+.deployment-environment--offline { border-top-color: #c64f45; }
+.deployment-environment__top, .deployment-list__row, .deployment-section__heading { display: flex; justify-content: space-between; gap: 16px; }
+.deployment-environment h3 { margin: 4px 0; }
+.deployment-environment p, .deployment-environment small { color: #627582; }
+.deployment-environment__key { color: #247a68; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.deployment-status, .deployment-severity, .deployment-release--deployed { font-size: .7rem; font-weight: 800; text-transform: uppercase; color: #247a68; }
+.deployment-scale { display: grid; grid-template-columns: 1fr auto; margin: 17px 0; padding-top: 12px; border-top: 1px solid #dbe7e2; }
+.deployment-scale small { grid-column: 1 / -1; }
+.deployment-form, .deployment-stack-form { display: grid; gap: 8px; }
+.deployment-form { grid-template-columns: 1fr 1fr; }
+.deployment-form select, .deployment-form input, .deployment-stack-form input, .deployment-stack-form select, .deployment-stack-form textarea { min-width: 0; padding: 9px; border: 1px solid #cddbd6; background: #fff; font: inherit; }
+.deployment-form button, .deployment-stack-form button { grid-column: 1 / -1; }
+.deployment-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px; }
+.deployment-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.deployment-metrics article { padding: 14px; background: #f3f8f6; }
+.deployment-metrics span, .deployment-metrics small, .deployment-list__row span { display: block; color: #687b88; }
+.deployment-metrics strong { display: block; margin: 8px 0 4px; font-size: 1.35rem; }
+.deployment-list { display: grid; gap: 0; }
+.deployment-list__row { align-items: center; padding: 13px 0; border-bottom: 1px solid #e4ebe8; }
+.deployment-list__row strong { display: block; }
+.deployment-list__row em { font-size: .75rem; font-style: normal; color: #637985; white-space: nowrap; }
+.deployment-severity--critical { color: #bd463c; }
+.deployment-severity--warning { color: #ba751e; }
+.deployment-stack-form { margin-bottom: 20px; }
+.deployment-stack-form textarea { min-height: 70px; resize: vertical; }
+.deployment-control-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; background: #eef5f2; }
+.deployment-control-strip span { color: #687b88; font-size: .78rem; }
+.deployment-control-strip strong { color: #247a68; }
+.deployment-empty { color: #71828c; }
+@media (max-width: 1050px) { .deployment-environments { grid-template-columns: repeat(2, 1fr); } .deployment-metrics { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .deployment-hero, .deployment-section__heading { display: block; } .deployment-hero__health { margin-top: 24px; } .deployment-environments, .deployment-grid, .deployment-control-strip { grid-template-columns: 1fr; } .deployment-metrics { grid-template-columns: repeat(2, 1fr); } .deployment-section { padding: 18px; } }
+
 .admin-module-grid a::after {
   content: "→";
   align-self: flex-end;
@@ -354,6 +402,168 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-module-grid a {
     transition: none;
+  }
+}
+
+.api-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.api-metric-grid article {
+  padding: 1.15rem;
+  border: 1px solid var(--admin-line);
+  border-top: 3px solid var(--admin-teal);
+  border-radius: 9px;
+  background: var(--admin-paper);
+  box-shadow: var(--admin-shadow);
+}
+
+.api-metric-grid article:nth-child(2n) {
+  border-top-color: var(--admin-coral);
+}
+
+.api-metric-grid span,
+.api-metric-grid small {
+  display: block;
+}
+
+.api-metric-grid span {
+  color: var(--admin-muted);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.api-metric-grid strong {
+  display: block;
+  margin: .55rem 0 .25rem;
+  font-size: 1.85rem;
+  line-height: 1;
+}
+
+.api-metric-grid small {
+  color: var(--admin-muted);
+  font-size: .76rem;
+}
+
+.api-secret-callout {
+  display: grid;
+  gap: .45rem;
+  margin: 1rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid #efc7ad;
+  border-left: 4px solid var(--admin-coral);
+  border-radius: 7px;
+  background: var(--admin-coral-soft);
+  color: #673d2b;
+}
+
+.api-secret-callout code,
+.api-admin-page .admin-table code {
+  overflow-wrap: anywhere;
+  color: var(--admin-ink);
+  font-family: "Courier New", monospace;
+  font-size: .8rem;
+}
+
+.api-secret-callout small {
+  color: #876451;
+}
+
+.api-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.api-create-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding-top: 1.15rem;
+}
+
+.api-create-form label {
+  display: grid;
+  gap: .4rem;
+  color: var(--admin-muted);
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+.api-create-form input,
+.api-create-form select,
+.api-create-form textarea {
+  width: 100%;
+  padding: .7rem .75rem;
+  border: 1px solid #cbdcda;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--admin-ink);
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.api-create-form input:focus,
+.api-create-form select:focus,
+.api-create-form textarea:focus {
+  border-color: var(--admin-teal);
+  outline: 3px solid rgba(23, 108, 98, .14);
+  outline-offset: 1px;
+}
+
+.api-create-form__wide,
+.api-create-form .admin-button {
+  grid-column: 1 / -1;
+}
+
+.api-create-form .admin-button {
+  justify-self: start;
+}
+
+.api-admin-page .admin-table {
+  min-width: 860px;
+}
+
+.api-admin-page .admin-table td form button {
+  min-height: 2.2rem;
+  padding: .45rem .7rem;
+  border: 1px solid #e5b69e;
+  border-radius: 5px;
+  background: #fff7f2;
+  color: #a44d2e;
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.api-admin-page .admin-table td form button:hover,
+.api-admin-page .admin-table td form button:focus-visible {
+  background: var(--admin-coral);
+  color: #fff;
+  outline: none;
+}
+
+@media (max-width: 900px) {
+  .api-metric-grid,
+  .api-admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .api-metric-grid,
+  .api-admin-grid,
+  .api-create-form {
+    grid-template-columns: 1fr;
   }
 }
 

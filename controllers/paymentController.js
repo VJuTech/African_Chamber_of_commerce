@@ -2,6 +2,7 @@
  * paymentController.js - Payment processing actions for ACC Chapter 19.
  *******************************************/
 const paymentModel = require("../models/paymentModel");
+const webhookService = require("../utility/webhookService");
 
 async function paymentDashboardPage(req, res, next) {
   try {
@@ -66,7 +67,6 @@ async function initiatePayment(req, res, next) {
     if (!result.success) {
       return res.status(400).json({ success: false, message: result.message });
     }
-
     return res.status(200).json({ success: true, payment: result.payment, message: result.message });
   } catch (error) {
     return next(error);
@@ -83,6 +83,10 @@ async function processPaymentGateway(req, res, next) {
 
     if (!result.success) {
       return res.status(400).json({ success: false, message: result.message });
+    }
+
+    if (result.payment.status === "successful") {
+      webhookService.enqueueEvent("payment.completed", result.payment.id, { payment: result.payment }).catch((error) => console.error("Payment webhook enqueue failed:", error.message));
     }
 
     return res.status(200).json({ success: true, payment: result.payment, message: result.message });
