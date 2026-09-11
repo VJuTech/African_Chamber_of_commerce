@@ -320,7 +320,10 @@ async function loginUser(req, res, next) {
       });
     }
 
-    const result = await authModel.authenticateUser(identifier, password);
+    const result = await authModel.authenticateUser(identifier, password, {
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent") || "",
+    });
 
     if (!result.success) {
       return res.render("accounts/login", {
@@ -328,6 +331,16 @@ async function loginUser(req, res, next) {
         message: "",
         error: result.message,
       });
+    }
+
+    if (result.mfaRequired) {
+      req.session.mfaPending = {
+        user: result.user,
+        challengeToken: result.mfaChallenge.token,
+        expiresAt: result.mfaChallenge.expiresAt,
+        rememberMe: rememberMe === "on" || rememberMe === true,
+      };
+      return req.session.save(() => res.redirect("/mfa/challenge"));
     }
 
     const access = await rbacModel.getUserAccessContext(result.user.id);

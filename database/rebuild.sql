@@ -66,6 +66,18 @@ DROP TABLE IF EXISTS requirement_traceability CASCADE;
 DROP TABLE IF EXISTS requirements CASCADE;
 DROP TABLE IF EXISTS platform_integration_events CASCADE;
 DROP TABLE IF EXISTS platform_integrations CASCADE;
+DROP TABLE IF EXISTS admin_moderation_reports CASCADE;
+DROP TABLE IF EXISTS admin_audit_logs CASCADE;
+DROP TABLE IF EXISTS system_feature_flags CASCADE;
+DROP TABLE IF EXISTS system_settings CASCADE;
+DROP TABLE IF EXISTS analytics_report_audits CASCADE;
+DROP TABLE IF EXISTS analytics_events CASCADE;
+DROP TABLE IF EXISTS security_audit_logs CASCADE;
+DROP TABLE IF EXISTS security_alerts CASCADE;
+DROP TABLE IF EXISTS security_mfa_challenges CASCADE;
+DROP TABLE IF EXISTS security_mfa_methods CASCADE;
+DROP TABLE IF EXISTS security_login_attempts CASCADE;
+DROP TABLE IF EXISTS security_policies CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -293,9 +305,12 @@ VALUES
   ('business_admin', 'Business Admin', 5, 'A user who manages a business profile and operations.'),
   ('moderator', 'Moderator', 6, 'A platform operator who reviews community, marketplace, and dispute activity.'),
   ('compliance_officer', 'Compliance Officer', 7, 'An administrator who reviews requirements, audit evidence, and regulatory controls.'),
-  ('platform_admin', 'Platform Admin', 8, 'An administrator who manages users and platform activity.'),
-  ('acc_management_admin', 'ACC Management Administrator', 9, 'The dedicated administrator for the ACC management dashboard.'),
-  ('super_admin', 'Super Admin', 10, 'The highest platform administration role.')
+  ('platform_admin', 'Platform Admin', 11, 'An administrator who manages users and platform activity.'),
+  ('system_admin', 'System Administrator', 12, 'An administrator who manages platform operations and configuration.'),
+  ('support_staff', 'Support Staff', 13, 'A support operator who assists members and reviews account activity.'),
+  ('data_analyst', 'Data Analyst', 16, 'An analyst who prepares authorized platform and business insights.'),
+  ('acc_management_admin', 'ACC Management Administrator', 14, 'The dedicated administrator for the ACC management dashboard.'),
+  ('super_admin', 'Super Admin', 15, 'The highest platform administration role.')
 ON CONFLICT (role_key) DO NOTHING;
 
 INSERT INTO permissions (permission_key, resource, action, description)
@@ -319,7 +334,18 @@ VALUES
   ('platform_overview.read', 'platform_overview', 'read', 'View system architecture, operating environment, and integration health.'),
   ('platform_overview.manage', 'platform_overview', 'manage', 'Update external integration status and operational notes.'),
   ('platform.audit.read', 'platform_audit', 'read', 'View platform audit activity.'),
-  ('platform.settings.manage', 'platform_settings', 'manage', 'Manage platform access settings.')
+  ('platform.settings.manage', 'platform_settings', 'manage', 'Manage platform access settings.'),
+  ('admin.users.manage', 'admin_users', 'manage', 'Suspend, activate, and assign roles to user accounts.'),
+  ('admin.businesses.manage', 'admin_businesses', 'manage', 'Approve, verify, restrict, and remove businesses.'),
+  ('admin.moderation.manage', 'admin_moderation', 'manage', 'Review and action reported platform content.'),
+  ('admin.settings.manage', 'admin_settings', 'manage', 'Manage platform settings and feature flags.'),
+  ('admin.monitoring.read', 'admin_monitoring', 'read', 'View platform activity and performance metrics.'),
+  ('admin.reports.read', 'admin_reports', 'read', 'Generate and export platform reports.'),
+  ('admin.logs.read', 'admin_logs', 'read', 'Search platform and administrative logs.')
+  ,('admin.security.read', 'admin_security', 'read', 'View security monitoring, alerts, and security audit events.')
+  ,('analytics.global.read', 'analytics', 'read', 'View global platform analytics.')
+  ,('analytics.business.read', 'analytics', 'read', 'View authorized business analytics.')
+  ,('analytics.reports.export', 'analytics_reports', 'manage', 'Generate and export analytics reports.')
 ON CONFLICT (permission_key) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -346,6 +372,50 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key LIKE 'admin.%'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'system_admin'
+  AND p.permission_key IN ('users.read', 'requirements.read', 'platform_overview.read')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'moderator' AND p.permission_key = 'admin.moderation.manage'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'support_staff' AND p.permission_key IN ('admin.users.manage', 'admin.businesses.manage', 'admin.logs.read')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key = 'compliance_officer' AND p.permission_key IN ('admin.reports.read', 'admin.logs.read')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('data_analyst', 'platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key IN ('analytics.global.read', 'analytics.reports.export')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('verified_user', 'business_member', 'business_admin')
+  AND p.permission_key IN ('analytics.business.read', 'analytics.reports.export')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('business_admin', 'business_member') AND p.permission_key = 'analytics.business.read'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.role_key = 'moderator' AND p.permission_key = 'platform_overview.read'
 ON CONFLICT DO NOTHING;
 
@@ -359,6 +429,101 @@ CREATE TABLE audit_logs (
   CONSTRAINT fk_audit_user
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- ========================================
+-- CHAPTER 28: SECURITY & ACCESS CONTROL
+-- ========================================
+
+CREATE TABLE security_policies (
+  policy_key VARCHAR(100) PRIMARY KEY,
+  policy_value JSONB NOT NULL,
+  description TEXT NOT NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE security_login_attempts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  identifier_hash VARCHAR(128) NOT NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  success BOOLEAN NOT NULL DEFAULT FALSE,
+  outcome VARCHAR(80) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE security_mfa_methods (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  method_type VARCHAR(30) NOT NULL CHECK (method_type IN ('email', 'sms', 'authenticator')),
+  secret_ciphertext TEXT,
+  destination VARCHAR(255),
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  verified_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, method_type)
+);
+
+CREATE TABLE security_mfa_challenges (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  method_id BIGINT NOT NULL REFERENCES security_mfa_methods(id) ON DELETE CASCADE,
+  challenge_hash VARCHAR(128) NOT NULL UNIQUE,
+  code_hash VARCHAR(128) NOT NULL,
+  purpose VARCHAR(40) NOT NULL CHECK (purpose IN ('login', 'enrollment', 'sensitive_action')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMP NOT NULL,
+  consumed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE security_alerts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  alert_type VARCHAR(80) NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'unread' CHECK (status IN ('unread', 'acknowledged', 'resolved')),
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  acknowledged_at TIMESTAMP,
+  acknowledged_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE security_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL,
+  outcome VARCHAR(80) NOT NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO security_policies (policy_key, policy_value, description)
+VALUES
+  ('login_lockout', '{"maxAttempts":5,"durationMinutes":10}'::jsonb, 'Repeated failed login protection.'),
+  ('mfa_challenge', '{"expiryMinutes":10,"maxAttempts":5}'::jsonb, 'MFA challenge lifetime and retry limit.'),
+  ('session', '{"timeoutMinutes":30,"rememberDays":7}'::jsonb, 'Authenticated session lifetime defaults.')
+ON CONFLICT (policy_key) DO NOTHING;
+
+CREATE INDEX idx_security_login_attempts_user_created ON security_login_attempts(user_id, created_at DESC);
+CREATE INDEX idx_security_login_attempts_ip_created ON security_login_attempts(ip_address, created_at DESC);
+CREATE INDEX idx_security_login_attempts_outcome ON security_login_attempts(outcome, created_at DESC);
+CREATE INDEX idx_security_mfa_methods_user ON security_mfa_methods(user_id, enabled);
+CREATE INDEX idx_security_mfa_challenges_user ON security_mfa_challenges(user_id, expires_at);
+CREATE INDEX idx_security_alerts_user_status ON security_alerts(user_id, status, created_at DESC);
+CREATE INDEX idx_security_alerts_created ON security_alerts(created_at DESC);
+CREATE INDEX idx_security_audit_logs_user_created ON security_audit_logs(user_id, created_at DESC);
+CREATE INDEX idx_security_audit_logs_event_created ON security_audit_logs(event_type, created_at DESC);
 
 -- Chapter 2: external service registry and operational integration status.
 CREATE TABLE platform_integrations (
@@ -1712,3 +1877,111 @@ ON CONFLICT (plan_key) DO NOTHING;
 INSERT INTO subscription_plans (tier_id, plan_key, display_name, description, monthly_price, quarterly_price, yearly_price, listing_limit, visibility_boost, priority_support, features)
 SELECT id, 'enterprise', 'Enterprise', 'A full growth suite for established organizations.', 149, 402, 1490, NULL, 5, TRUE, '["Everything in Premium", "Unlimited listings", "Dedicated support", "Enterprise visibility"]'::jsonb FROM membership_tiers WHERE tier_name = 'Enterprise'
 ON CONFLICT (plan_key) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 26: ADMINISTRATION & SYSTEM MANAGEMENT
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS system_settings (
+  id SERIAL PRIMARY KEY,
+  setting_key VARCHAR(120) NOT NULL UNIQUE,
+  setting_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  value_type VARCHAR(30) NOT NULL DEFAULT 'json',
+  description TEXT NOT NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_feature_flags (
+  id SERIAL PRIMARY KEY,
+  feature_key VARCHAR(120) NOT NULL UNIQUE,
+  display_name VARCHAR(160) NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  description TEXT NOT NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- CHAPTER 27: ANALYTICS & REPORTING SYSTEM
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  business_id INTEGER REFERENCES business_accounts(id) ON DELETE SET NULL,
+  event_name VARCHAR(120) NOT NULL,
+  resource_type VARCHAR(80),
+  resource_id VARCHAR(120),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_report_audits (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  report_type VARCHAR(80) NOT NULL,
+  format VARCHAR(20) NOT NULL,
+  filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user_time ON analytics_events(user_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_business_time ON analytics_events(business_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_name_time ON analytics_events(event_name, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_report_audits_user_time ON analytics_report_audits(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action VARCHAR(120) NOT NULL,
+  resource_type VARCHAR(80) NOT NULL,
+  resource_id VARCHAR(120),
+  outcome VARCHAR(30) NOT NULL DEFAULT 'success',
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admin_moderation_reports (
+  id BIGSERIAL PRIMARY KEY,
+  content_type VARCHAR(30) NOT NULL CHECK (content_type IN ('listing', 'review', 'message')),
+  content_id BIGINT NOT NULL,
+  reporter_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reason VARCHAR(120) NOT NULL,
+  details TEXT,
+  status VARCHAR(30) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'reviewing', 'resolved', 'dismissed')),
+  action_taken VARCHAR(80),
+  reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_key);
+CREATE INDEX IF NOT EXISTS idx_system_feature_flags_key ON system_feature_flags(feature_key);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created ON admin_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_action ON admin_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_resource ON admin_audit_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_admin_moderation_queue ON admin_moderation_reports(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_moderation_content ON admin_moderation_reports(content_type, content_id);
+
+INSERT INTO system_settings (setting_key, setting_value, value_type, description)
+VALUES
+  ('notification.default_channels', '["in_app", "email"]'::jsonb, 'json', 'Default notification delivery channels.'),
+  ('payment.currency', '"USD"'::jsonb, 'string', 'Default platform currency.'),
+  ('payment.gateway_mode', '"configured"'::jsonb, 'string', 'Payment gateway operating mode.'),
+  ('moderation.auto_publish_listings', 'true'::jsonb, 'boolean', 'Whether new marketplace listings publish automatically.')
+ON CONFLICT (setting_key) DO NOTHING;
+
+INSERT INTO system_feature_flags (feature_key, display_name, enabled, description)
+VALUES
+  ('marketplace', 'Marketplace', TRUE, 'Marketplace browsing and listing workflows.'),
+  ('messaging', 'Messaging', TRUE, 'Member-to-member messaging workflows.'),
+  ('procurement', 'Procurement', TRUE, 'B2B sourcing and tender workflows.'),
+  ('events', 'Events', TRUE, 'Events and registration workflows.'),
+  ('payments', 'Payments', TRUE, 'Payment and transaction workflows.')
+ON CONFLICT (feature_key) DO NOTHING;

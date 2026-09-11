@@ -8,6 +8,7 @@ const {
   sendAccountVerificationSms,
   generateVerificationCode,
 } = require("../utility/emailService");
+const securityModel = require("./securityModel");
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 10 * 60 * 1000;
@@ -212,7 +213,7 @@ async function createUser(userData) {
   }
 }
 
-async function authenticateUser(identifier, password) {
+async function authenticateUser(identifier, password, context = {}) {
   const normalizedIdentifier = String(identifier).trim().toLowerCase();
   if (!pool) {
     return { success: false, message: "Database connection is not available. Please ensure PostgreSQL is configured." };
@@ -231,12 +232,14 @@ async function authenticateUser(identifier, password) {
     const user = res.rows[0];
     if (!user) {
       await logEvent("login_failure", { identifier: normalizedIdentifier, outcome: "invalid_user" });
+      await securityModel.recordLoginAttempt(normalizedIdentifier, "invalid_user", false, context);
       return { success: false, message: "Invalid credentials." };
     }
 
     const now = Date.now();
     if (user.status === "locked" && user.locked_until && new Date(user.locked_until).getTime() > now) {
       await logEvent("login_failure", { userId: user.id, outcome: "account_locked" });
+      await securityModel.recordLoginAttempt(normalizedIdentifier, "account_locked", false, context, user.id);
       return { success: false, message: "Account temporarily locked due to repeated failed attempts." };
     }
 
@@ -249,6 +252,7 @@ async function authenticateUser(identifier, password) {
 
     if (user.status !== "active" && user.status !== "pending_verification") {
       await logEvent("login_failure", { userId: user.id, outcome: user.status });
+      await securityModel.recordLoginAttempt(normalizedIdentifier, user.status, false, context, user.id);
       return { success: false, message: `Account is currently ${user.status}.` };
     }
 
@@ -260,15 +264,25 @@ async function authenticateUser(identifier, password) {
         const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
         await client.query(`UPDATE users SET status='locked', locked_until=$1 WHERE id=$2`, [lockedUntil, user.id]);
         await logEvent("account_lockout", { userId: user.id, outcome: "locked" });
+        await securityModel.recordLoginAttempt(normalizedIdentifier, "account_locked", false, context, user.id, { failedAttempts: failed });
+        await securityModel.createAlert(user.id, {
+          type: "account_lockout",
+          severity: "high",
+          title: "Account temporarily locked",
+          message: "Your account was locked after repeated unsuccessful sign-in attempts.",
+          details: { failedAttempts: failed },
+        }, context);
         return { success: false, message: "Account temporarily locked after repeated failed attempts." };
       }
       await logEvent("login_failure", { userId: user.id, outcome: "invalid_password", failedAttempts: failed });
+      await securityModel.recordLoginAttempt(normalizedIdentifier, "invalid_password", false, context, user.id, { failedAttempts: failed });
       return { success: false, message: "Invalid credentials." };
     }
 
     await client.query(`UPDATE users SET failed_attempts=0, last_login_at=NOW(), locked_until=NULL WHERE id=$1`, [user.id]);
     const loginOutcome = user.status === "pending_verification" ? "success_pending_verification" : "success";
     await logEvent("login_success", { userId: user.id, outcome: loginOutcome });
+    await securityModel.recordLoginAttempt(normalizedIdentifier, "authenticated", true, context, user.id);
     const normalizedUser = {
       id: user.id,
       name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim(),
@@ -277,7 +291,12 @@ async function authenticateUser(identifier, password) {
       role: user.role,
       status: user.status,
     };
-    return { success: true, user: normalizedUser };
+    const mfaMethod = await securityModel.getEnabledMfaMethod(user.id);
+    if (mfaMethod) {
+      const challenge = await securityModel.createMfaChallenge(user.id, mfaMethod, "login", context);
+      return { success: true, user: normalizedUser, mfaRequired: true, mfaChallenge: challenge };
+    }
+    return { success: true, user: normalizedUser, mfaRequired: false };
   } catch (err) {
     return { success: false, message: "Authentication failed." };
   } finally {

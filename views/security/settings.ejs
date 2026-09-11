@@ -1,0 +1,20 @@
+<main class="security-page">
+  <header class="security-hero"><div><p class="security-eyebrow">Account protection</p><h1>Security settings</h1><p>Manage multi-factor authentication and review security activity recorded for your account.</p></div><a class="secondary-btn" href="/profile">Back to profile</a></header>
+  <% if (message) { %><div class="security-alert security-alert--success"><%= message %></div><% } %>
+  <% if (error) { %><div class="security-alert security-alert--error"><%= error %></div><% } %>
+  <div class="security-grid">
+    <section class="security-panel"><p class="security-eyebrow">Multi-factor authentication</p><h2>Extra protection at sign-in</h2><p>Use a one-time code delivered to a verified email address or mobile number.</p>
+      <% if (methods.some((method) => method.enabled)) { %>
+        <% methods.filter((method) => method.enabled).forEach((method) => { %><div class="security-method"><strong><%= method.methodType.toUpperCase() %> MFA enabled</strong><span><%= method.destination || 'Registered contact' %></span></div><% }) %>
+        <form method="post" action="/security/mfa/disable"><button type="submit" class="secondary-btn">Disable MFA</button></form>
+      <% } else { %>
+        <form method="post" action="/security/mfa/enroll" class="security-form">
+          <label for="methodType">Delivery method</label><select id="methodType" name="methodType" required><option value="email">Email OTP</option><option value="sms">SMS OTP</option></select>
+          <label for="destination">Destination <span class="security-hint">Leave blank to use your verified contact.</span></label><input id="destination" name="destination" type="text" maxlength="255" />
+          <button type="submit" class="primary-btn">Start MFA enrollment</button>
+        </form>
+      <% } %>
+    </section>
+    <section class="security-panel"><p class="security-eyebrow">Security alerts</p><h2>Recent account activity</h2><div class="security-list"><% alerts.forEach((alert) => { %><article><div><strong><%= alert.title %></strong><span><%= alert.message %></span></div><time><%= new Date(alert.createdAt).toLocaleString() %></time></article><% }) %><% if (!alerts.length) { %><p>No security alerts have been recorded.</p><% } %></div></section>
+  </div>
+</main>

@@ -42,6 +42,11 @@ const rbacRoutes = require("./routes/rbacRoute");
 const requirementsRoutes = require("./routes/requirementsRoute");
 const systemOverviewRoutes = require("./routes/systemOverviewRoute");
 const accManagementRoutes = require("./routes/accManagementRoute");
+const adminRoutes = require("./routes/adminRoute");
+const analyticsRoutes = require("./routes/analyticsRoute");
+const securityRoutes = require("./routes/securityRoute");
+const analyticsModel = require("./models/analyticsModel");
+const securityModel = require("./models/securityModel");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -159,6 +164,15 @@ async function initApp() {
 
     if (req.session && req.session.authenticated && req.session.user) {
       const previousMeta = req.session.sessionMeta || {};
+      const sessionTimeoutMs = Number(process.env.SESSION_IDLE_TIMEOUT_MS || 30 * 60 * 1000);
+      const lastActivity = previousMeta.lastActivityAt ? new Date(previousMeta.lastActivityAt).getTime() : Date.now();
+      if (Date.now() - lastActivity > sessionTimeoutMs) {
+        securityModel.recordAudit("session_timeout", "expired", { userId: req.session.user.id }, {
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent") || "",
+        }).catch((error) => console.error("Session timeout audit failed:", error.message));
+        return req.session.destroy(() => res.redirect("/login?message=Your session expired. Please sign in again."));
+      }
       const userAgent = req.headers["user-agent"] || previousMeta.userAgent || "";
 
       req.session.userId = req.session.userId || req.session.user.id;
@@ -172,6 +186,15 @@ async function initApp() {
         loginAt: previousMeta.loginAt || new Date().toISOString(),
         lastActivityAt: new Date().toISOString(),
       };
+
+      if (!req.path.startsWith("/analytics") && !req.path.startsWith("/admin/analytics") && req.method === "GET") {
+        analyticsModel.recordEvent({
+          userId: req.session.user.id,
+          eventName: "user_activity",
+          resourceType: req.path,
+          metadata: { method: req.method },
+        }).catch((error) => console.error("Analytics event capture failed:", error.message));
+      }
     }
 
     next();
@@ -214,6 +237,9 @@ async function initApp() {
   app.use("/", requirementsRoutes);
   app.use("/", systemOverviewRoutes);
   app.use("/", accManagementRoutes);
+  app.use("/", adminRoutes);
+  app.use("/", analyticsRoutes);
+  app.use("/", securityRoutes);
 
   // Handle unmatched routes gracefully.
   app.use(notFoundHandler);

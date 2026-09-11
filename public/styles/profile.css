@@ -104,6 +104,29 @@
   margin-top: 18px;
 }
 
+.profile-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  margin-top: 16px;
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.profile-identity__label {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.profile-identity__value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

@@ -2,8 +2,7 @@
  * marketplaceController.js - Marketplace listing management for ACC Chapter 17.
  *******************************************/
 const marketplaceModel = require("../models/marketplaceModel");
-const cartModel = require("../models/cartModel");
-const { persistentImageDataUrl, removeUploadedImage } = require("../utility/marketplaceUpload");
+const { publicImagePath, removeUploadedImage } = require("../utility/marketplaceUpload");
 const { africanCountries, marketplaceCategories } = require("../utility/marketplace-options");
 
 function createListingViewData(req, formData = {}, error = "", message = "") {
@@ -65,7 +64,7 @@ async function submitCreateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to create a listing."));
     }
 
-    const uploadedImage = persistentImageDataUrl(req.file);
+    const uploadedImage = publicImagePath(req.file);
     const result = await marketplaceModel.createListing(userId, {
       businessId: Number(req.body.businessId || 0),
       title: req.body.title,
@@ -98,7 +97,6 @@ async function submitCreateListing(req, res, next) {
 
 async function listingDetailPage(req, res, next) {
   try {
-    const userId = req.session && req.session.user ? req.session.user.id : null;
     const listing = await marketplaceModel.getListingById(req.params.id);
 
     if (!listing) {
@@ -115,7 +113,6 @@ async function listingDetailPage(req, res, next) {
       listing,
       message: req.query.message || "",
       error: "",
-      cart: userId ? await cartModel.getCart(userId) : { items: [] },
     });
   } catch (error) {
     return next(error);
@@ -174,7 +171,7 @@ async function updateListing(req, res, next) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to update your listing."));
     }
 
-    const uploadedImage = persistentImageDataUrl(req.file);
+    const uploadedImage = publicImagePath(req.file);
     const result = await marketplaceModel.updateListing(userId, req.params.id, {
       title: req.body.title,
       description: req.body.description,

@@ -28,7 +28,6 @@ function normalizeListing(record = {}) {
     id: Number(record.id),
     businessId: Number(record.businessId || record.business_id || 0),
     userId: Number(record.userId || record.user_id || 0),
-    sellerId: Number(record.sellerId || record.seller_id || record.userId || record.user_id || 0),
     title: record.title || "Untitled listing",
     description: record.description || "",
     category: record.category || "General",
@@ -56,17 +55,6 @@ function validateMediaUpload(mediaEntries = []) {
   const maxSizeBytes = 2 * 1024 * 1024;
 
   for (const entry of mediaList) {
-    if (typeof entry === "string" && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(entry)) {
-      const encodedBytes = Buffer.byteLength(entry.slice(entry.indexOf(",") + 1), "base64");
-      if (encodedBytes > maxSizeBytes) {
-        return {
-          success: false,
-          message: "Listing media must be 2MB or smaller.",
-        };
-      }
-      continue;
-    }
-
     const sourceName = entry && entry.originalname ? entry.originalname : String(entry || "");
     const fileSize = entry && entry.size ? Number(entry.size) : 0;
     const extension = path.extname(sourceName || "").toLowerCase();
@@ -290,10 +278,7 @@ async function getMarketplaceListings(filters = {}) {
 
 async function getListingById(listingId) {
   const result = await pool.query(
-    `SELECT marketplace_listings.*, business_accounts.owner_id AS seller_id
-     FROM marketplace_listings
-     JOIN business_accounts ON business_accounts.id = marketplace_listings.business_id
-     WHERE marketplace_listings.id = $1 AND marketplace_listings.status <> 'deleted' LIMIT 1`,
+    "SELECT * FROM marketplace_listings WHERE id = $1 AND status <> 'deleted' LIMIT 1",
     [listingId]
   );
   return result.rows.length ? normalizeListing(result.rows[0]) : null;

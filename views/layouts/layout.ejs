@@ -28,14 +28,14 @@
               <div class="nav-menu__groups">
                 <div class="nav-menu__group"><span>Discover</span><a href="/dashboard">Dashboard<small>Your ACC overview</small></a><a href="/directory">Business directory<small>Find verified companies</small></a><a href="/network">Networking<small>Build valuable connections</small></a></div>
                 <div class="nav-menu__group"><span>Trade</span><a href="/marketplace">Marketplace<small>Buy and sell across Africa</small></a><a href="/procurement">Procurement<small>Source from trusted suppliers</small></a><a href="/contracts">Contracts<small>Manage signed agreements</small></a><a href="/logistics">Logistics<small>Track delivery and fulfillment</small></a><a href="/orders">Orders<small>Review commerce activity</small></a></div>
-                <div class="nav-menu__group"><span>Member services</span><a href="/subscriptions">Subscriptions<small>Plans, billing, and benefits</small></a><a href="/disputes">Dispute resolution<small>Protect a transaction</small></a><a href="/trust">Trust<small>Reputation and reviews</small></a><a href="/assistant">ACC Assistance<small>Get platform guidance</small></a></div>
+                <div class="nav-menu__group"><span>Member services</span><a href="/subscriptions">Subscriptions<small>Plans, billing, and benefits</small></a><a href="/analytics">Analytics<small>Business insights and reports</small></a><a href="/disputes">Dispute resolution<small>Protect a transaction</small></a><a href="/trust">Trust<small>Reputation and reviews</small></a><a href="/assistant">ACC Assistance<small>Get platform guidance</small></a></div>
               </div>
             </div>
           </div>
           <a href="/profile">My Profile</a>
           <a href="/messages">Messages</a>
           <a href="/notifications">Notifications</a>
-          <% if (user.roles && user.roles.some((role) => ['acc_management_admin', 'super_admin'].includes(role))) { %><a href="/admin/dashboard">ACC Management</a><% } %>
+          <% if (user.roles && user.roles.some((role) => ['acc_management_admin', 'system_admin', 'platform_admin', 'super_admin', 'moderator', 'support_staff', 'compliance_officer'].includes(role))) { %><a href="/admin/control-center">ACC Management</a><% } %>
           <a href="/logout">Logout</a>
         <% } else { %>
           <a href="/">Home</a>

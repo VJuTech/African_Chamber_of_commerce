@@ -6,7 +6,7 @@ const controller = require("../controllers/accManagementController");
 const router = express.Router();
 const managementAccess = [
   ensureAuthenticated,
-  requireRole("acc_management_admin", "super_admin"),
+  requireRole("acc_management_admin", "system_admin", "super_admin"),
   requirePermission("users.read"),
   requirePermission("requirements.read"),
   requirePermission("platform_overview.read"),
