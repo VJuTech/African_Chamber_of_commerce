@@ -164,10 +164,16 @@ async function getBusinessDirectoryEntry(businessId) {
   if (!businessId) return null;
 
   try {
-    const result = await pool.query(`SELECT * FROM business_accounts WHERE id = $1 LIMIT 1`, [businessId]);
+    const result = await pool.query(
+      `UPDATE business_accounts
+        SET view_count = COALESCE(view_count, 0) + 1
+       WHERE id = $1
+       RETURNING *`,
+      [businessId]
+    );
     if (result.rows.length > 0) {
       const listing = normalizeListing(result.rows[0]);
-      await logDirectoryActivity("directory_profile_viewed", { businessId, outcome: "success" });
+      await logDirectoryActivity("directory_profile_viewed", { businessId, viewCount: listing.viewCount, outcome: "success" });
       return listing;
     }
   } catch (error) {

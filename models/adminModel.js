@@ -100,9 +100,9 @@ async function updateBusiness(adminId, businessId, action, notes, request) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const result = await client.query(`UPDATE business_accounts SET status = $1, verification_status = $2,
-      verification_notes = COALESCE($3, verification_notes), verified_at = CASE WHEN $2 = 'approved' THEN CURRENT_TIMESTAMP ELSE verified_at END,
-      rejected_reason = CASE WHEN $2 = 'rejected' THEN $3 ELSE rejected_reason END, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING id, status, verification_status`, [status, verificationStatus, notes || null, Number(businessId)]);
+    const result = await client.query(`UPDATE business_accounts SET status = $1::varchar, verification_status = $2::varchar,
+      verification_notes = COALESCE($3::text, verification_notes), verified_at = CASE WHEN $2::varchar = 'approved' THEN CURRENT_TIMESTAMP ELSE verified_at END,
+      rejected_reason = CASE WHEN $2::varchar = 'rejected' THEN $3::text ELSE rejected_reason END, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING id, status, verification_status`, [status, verificationStatus, notes || null, Number(businessId)]);
     if (!result.rowCount) throw new Error("Business was not found.");
     await audit(client, adminId, `business_${action}`, "business", businessId, { action, notes }, request);
     await client.query("COMMIT");
