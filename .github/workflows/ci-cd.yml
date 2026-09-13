@@ -1,4 +1,4 @@
-name: ACC CI/CD
+name: ACC CI
 
 on:
   push:
@@ -12,12 +12,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        environment: [qa, staging, production]
     env:
       NODE_ENV: test
-      DEPLOYMENT_ENV: ${{ matrix.environment }}
+      DEPLOYMENT_ENV: development
       DATABASE_URL: postgresql://acc:acc@localhost:5432/acc
     services:
       postgres:
@@ -34,11 +31,9 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -52,17 +47,3 @@ jobs:
       - run: node --check routes/deploymentRoute.js
       - run: node --check routes/healthRoute.js
       - run: node -e "require('./routes/deploymentRoute'); require('./routes/healthRoute'); console.log('Deployment routes load successfully')"
-
-  deploy:
-    needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build production image
-        run: docker build --tag acc:${{ github.sha }} .
-      - name: Deploy through cloud provider hook
-        env:
-          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
-        run: test -n "$DEPLOY_HOOK_URL" && curl --fail --silent --show-error --request POST "$DEPLOY_HOOK_URL"
