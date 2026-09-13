@@ -15,6 +15,7 @@ require("dotenv").config();
 const accountRoutes = require("./routes/accountRoute");
 const pageRoutes = require("./routes/pageRoute");
 const dashboardRoutes = require("./routes/dashboardRoute");
+const workspaceRoutes = require("./routes/workspaceRoute");
 const profileRoutes = require("./routes/profileRoute");
 const membershipRoutes = require("./routes/membershipRoute");
 const businessRoutes = require("./routes/businessRoute");
@@ -30,6 +31,7 @@ const logisticsRoutes = require("./routes/logisticsRoute");
 const paymentRoutes = require("./routes/paymentRoute");
 const subscriptionRoutes = require("./routes/subscriptionRoute");
 const assistantRoutes = require("./routes/assistantRoute");
+const customerCareRoutes = require("./routes/customerCareRoute");
 // Load the Chapter 22 procurement route collection for authenticated buyers and suppliers.
 const procurementRoutes = require("./routes/procurementRoute");
 // Load the Chapter 23 contract route collection for authorized business parties.
@@ -213,6 +215,7 @@ async function initApp() {
   app.use("/", pageRoutes);
   app.use("/", accountRoutes);
   app.use("/", dashboardRoutes);
+  app.use("/", workspaceRoutes);
   app.use("/", profileRoutes);
   app.use("/", membershipRoutes);
   app.use("/", businessRoutes);
@@ -228,6 +231,7 @@ async function initApp() {
   app.use("/", paymentRoutes);
   app.use("/", subscriptionRoutes);
   app.use("/", assistantRoutes);
+  app.use("/", customerCareRoutes);
   // Mount procurement after the existing commerce routes without changing their behavior.
   app.use("/", procurementRoutes);
   // Mount contract management after procurement so awarded sourcing records can be referenced.

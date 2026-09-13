@@ -90,6 +90,8 @@ DROP TABLE IF EXISTS deployment_alerts CASCADE;
 DROP TABLE IF EXISTS deployment_metrics CASCADE;
 DROP TABLE IF EXISTS deployment_releases CASCADE;
 DROP TABLE IF EXISTS deployment_environments CASCADE;
+DROP TABLE IF EXISTS assistant_support_messages CASCADE;
+DROP TABLE IF EXISTS assistant_support_requests CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -367,6 +369,8 @@ VALUES
   ,('analytics.global.read', 'analytics', 'read', 'View global platform analytics.')
   ,('analytics.business.read', 'analytics', 'read', 'View authorized business analytics.')
   ,('analytics.reports.export', 'analytics_reports', 'manage', 'Generate and export analytics reports.')
+  ,('admin.support.read', 'admin_support', 'read', 'View customer-care handoffs created by the ACC Assistant.')
+  ,('admin.support.manage', 'admin_support', 'manage', 'Claim, respond to, and resolve customer-care handoffs.')
 ON CONFLICT (permission_key) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -424,6 +428,12 @@ ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.role_key = 'support_staff' AND p.permission_key IN ('admin.users.manage', 'admin.businesses.manage', 'admin.logs.read')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('support_staff', 'platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key IN ('admin.support.read', 'admin.support.manage')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
@@ -2086,6 +2096,36 @@ CREATE INDEX IF NOT EXISTS idx_message_deletions_user ON message_deletions(user_
 CREATE INDEX IF NOT EXISTS idx_messaging_blocks_user_target ON messaging_blocks(user_id, target_id);
 CREATE INDEX IF NOT EXISTS idx_messaging_audit_created ON messaging_audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messaging_notifications_user_created ON messaging_notifications(user_id, created_at DESC);
+
+-- Assistant handoffs keep customer-care context durable without exposing private data to the assistant.
+CREATE TABLE IF NOT EXISTS assistant_support_requests (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  visitor_name VARCHAR(200),
+  visitor_email VARCHAR(255),
+  question TEXT NOT NULL,
+  assistant_response TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'claimed', 'waiting', 'resolved', 'closed')),
+  priority VARCHAR(20) NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high')),
+  assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  claimed_at TIMESTAMP,
+  resolved_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS assistant_support_messages (
+  id BIGSERIAL PRIMARY KEY,
+  request_id BIGINT NOT NULL REFERENCES assistant_support_requests(id) ON DELETE CASCADE,
+  author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  author_type VARCHAR(20) NOT NULL CHECK (author_type IN ('assistant', 'customer', 'agent')),
+  message TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_assistant_support_requests_queue ON assistant_support_requests(status, priority, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assistant_support_requests_assigned ON assistant_support_requests(assigned_to, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_assistant_support_messages_request ON assistant_support_messages(request_id, created_at);
 
 -- Seed the four Chapter 20 plans and their feature-access metadata.
 INSERT INTO membership_tiers (tier_name, tier_level, description, pricing, billing_cycle)

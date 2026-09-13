@@ -133,25 +133,25 @@
 
     <div class="platform-paths__grid">
       <a class="platform-path" href="/directory">
-        <span class="platform-path__number">01</span>
+        <span class="platform-path__number" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5h16v14H4Zm3-4h3m-3-4h7m-7-4h10" /></svg></span>
         <strong>Find businesses</strong>
         <span>Search verified companies by country, industry, and business type.</span>
         <span class="platform-path__link">Open directory <span aria-hidden="true">&rarr;</span></span>
       </a>
       <a class="platform-path" href="/marketplace">
-        <span class="platform-path__number">02</span>
+        <span class="platform-path__number" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 7h14l-1 13H6L5 7Zm3 0a4 4 0 0 1 8 0M8 11h.01M16 11h.01" /></svg></span>
         <strong>Browse the marketplace</strong>
         <span>Discover products and services from businesses across Africa.</span>
         <span class="platform-path__link">Browse marketplace <span aria-hidden="true">&rarr;</span></span>
       </a>
       <a class="platform-path" href="/events">
-        <span class="platform-path__number">03</span>
+        <span class="platform-path__number" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6h14v14H5V6Zm3-3v6m8-6v6M5 10h14M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" /></svg></span>
         <strong>Join business events</strong>
         <span>Find engagements, registration opportunities, and chamber activity.</span>
         <span class="platform-path__link">View events <span aria-hidden="true">&rarr;</span></span>
       </a>
       <a class="platform-path" href="/register">
-        <span class="platform-path__number">04</span>
+        <span class="platform-path__number" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 20h16M6 20V7l6-3 6 3v13M9 10h2m2 0h2m-6 4h2m2 0h2" /></svg></span>
         <strong>Enter the member workspace</strong>
         <span>Unlock networking, procurement, analytics, contracts, and trade tools.</span>
         <span class="platform-path__link">Create account <span aria-hidden="true">&rarr;</span></span>
@@ -168,7 +168,7 @@
 
     <div class="opportunity__list">
       <div class="opportunity__item">
-        <span>01</span>
+        <span class="opportunity__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M16 20v-1.5A3.5 3.5 0 0 0 12.5 15h-5A3.5 3.5 0 0 0 4 18.5V20m6-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5-5a2.5 2.5 0 1 1 0 5m1 4h1.5A2.5 2.5 0 0 1 20 17.5V20" /></svg></span>
         <div>
           <h3>Find the right partners</h3>
           <p>Match with businesses aligned to your industry, growth stage, and market focus.</p>
@@ -176,7 +176,7 @@
       </div>
 
       <div class="opportunity__item">
-        <span>02</span>
+        <span class="opportunity__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Zm0 5v5m0 0 3 2m-3-2-3 2" /></svg></span>
         <div>
           <h3>Trade with confidence</h3>
           <p>Reduce uncertainty with verified profiles, rich business details, and structured trust signals.</p>
@@ -184,7 +184,7 @@
       </div>
 
       <div class="opportunity__item">
-        <span>03</span>
+        <span class="opportunity__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5h16v14H4Zm3-4h3m-3-4h7m-7-4h10" /></svg></span>
         <div>
           <h3>Expand regionally</h3>
           <p>Move beyond local markets through cross-border discovery and professional introductions.</p>
@@ -201,14 +201,14 @@
     </div>
 
     <div class="categories__grid">
-      <span>Agri-business</span>
-      <span>Technology</span>
-      <span>Manufacturing</span>
-      <span>Logistics</span>
-      <span>Construction</span>
-      <span>Healthcare</span>
-      <span>Finance</span>
-      <span>Energy</span>
+      <a href="/directory?industry=<%= encodeURIComponent('Agri-business') %>&sort=alphabetical">Agri-business</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Technology') %>&sort=alphabetical">Technology</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Manufacturing') %>&sort=alphabetical">Manufacturing</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Logistics') %>&sort=alphabetical">Logistics</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Construction') %>&sort=alphabetical">Construction</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Healthcare') %>&sort=alphabetical">Healthcare</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Finance') %>&sort=alphabetical">Finance</a>
+      <a href="/directory?industry=<%= encodeURIComponent('Energy') %>&sort=alphabetical">Energy</a>
     </div>
   </section>
 

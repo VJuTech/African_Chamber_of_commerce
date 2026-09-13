@@ -61,21 +61,23 @@
             <strong>ACC workspace</strong>
           </div>
           <nav class="workspace-sidebar__nav">
-            <a class="workspace-sidebar__link" href="/dashboard"><span class="workspace-sidebar__icon" aria-hidden="true">01</span><span>Overview</span></a>
+            <% const hasManagementAccess = user.roles && user.roles.some((role) => ['acc_management_admin', 'system_admin', 'platform_admin', 'super_admin', 'moderator', 'support_staff', 'compliance_officer'].includes(role)); %>
+            <a class="workspace-sidebar__link" href="<%= hasManagementAccess ? '/admin/dashboard' : '/dashboard' %>"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" /></svg></span><span>Dashboard</span></a>
+            <a class="workspace-sidebar__link" href="/workspace"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13ZM7 7h10M7 11h10M7 15h6" /></svg></span><span>Workspace</span></a>
             <div class="workspace-sidebar__group" data-sidebar-group>
-              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceTrade"><span><span class="workspace-sidebar__icon" aria-hidden="true">02</span>Commerce</span><span aria-hidden="true">+</span></button>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceTrade"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 7h14l-1 13H6L5 7Zm3 0a4 4 0 0 1 8 0M8 11h.01M16 11h.01" /></svg></span>Commerce</span><span aria-hidden="true">+</span></button>
               <div class="workspace-sidebar__submenu" id="workspaceTrade"><a href="/marketplace">Marketplace</a><a href="/marketplace/my-listings">My listings</a><a href="/procurement">Procurement &amp; sourcing</a><a href="/contracts">Contracts</a><a href="/orders">Orders</a><a href="/logistics">Logistics &amp; delivery</a><a href="/payments">Payments</a></div>
             </div>
             <div class="workspace-sidebar__group" data-sidebar-group>
-              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceCommunity"><span><span class="workspace-sidebar__icon" aria-hidden="true">03</span>Community</span><span aria-hidden="true">+</span></button>
+                <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceCommunity"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M16 20v-1.5A3.5 3.5 0 0 0 12.5 15h-5A3.5 3.5 0 0 0 4 18.5V20m6-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5-5a2.5 2.5 0 1 1 0 5m1 4h1.5A2.5 2.5 0 0 1 20 17.5V20" /></svg></span>Community</span><span aria-hidden="true">+</span></button>
               <div class="workspace-sidebar__submenu" id="workspaceCommunity"><a href="/directory">Business directory</a><a href="/network">Networking</a><a href="/messages">Messages</a><a href="/notifications">Notifications</a><a href="/events">Events</a></div>
             </div>
             <div class="workspace-sidebar__group" data-sidebar-group>
-              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceAccount"><span><span class="workspace-sidebar__icon" aria-hidden="true">04</span>Account</span><span aria-hidden="true">+</span></button>
+                <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceAccount"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" /></svg></span>Account</span><span aria-hidden="true">+</span></button>
               <div class="workspace-sidebar__submenu" id="workspaceAccount"><a href="/profile">My profile</a><a href="/business/register">Register a business</a><a href="/subscriptions">Subscriptions &amp; billing</a><a href="/trust">Trust centre</a></div>
             </div>
-            <a class="workspace-sidebar__link" href="/disputes"><span class="workspace-sidebar__icon" aria-hidden="true">05</span><span>Dispute resolution</span></a>
-            <a class="workspace-sidebar__link" href="/assistant"><span class="workspace-sidebar__icon" aria-hidden="true">06</span><span>ACC Assistance</span></a>
+            <a class="workspace-sidebar__link" href="/disputes"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v11H9l-4 4V5Zm4 5h6m-6 3h4" /></svg></span><span>Dispute resolution</span></a>
+            <a class="workspace-sidebar__link" href="/assistant"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H12l-4 4v-4h-.5A2.5 2.5 0 0 1 5 12.5v-6ZM9 9h6m-6 3h4" /></svg></span><span>ACC Assistance</span></a>
           </nav>
           <a class="workspace-sidebar__signout" href="/logout">Sign out <span aria-hidden="true">&rarr;</span></a>
         </aside>
@@ -103,6 +105,7 @@
           <button type="button" class="assistant-quick-chip" data-question="How do I join ACC?">How do I join ACC?</button>
           <button type="button" class="assistant-quick-chip" data-question="How do I connect with businesses?">Connect with businesses</button>
           <button type="button" class="assistant-quick-chip" data-question="How do I register a business?">Register a business</button>
+          <button type="button" class="assistant-quick-chip assistant-quick-chip--care" data-escalate="true">Speak with customer care</button>
         </div>
         <div class="global-assistant-messages">
           <div class="assistant-message assistant-message--bot">Hello! Ask me about ACC membership, networking, or business growth.</div>
@@ -110,6 +113,8 @@
         <form class="global-assistant-form" id="globalAssistantForm">
           <textarea name="question" rows="3" placeholder="Ask ACC..." required></textarea>
           <button type="submit">Send</button>
+          <button type="button" class="global-assistant-care" id="globalAssistantCare">Speak with customer care</button>
+          <p class="assistant-status" id="globalAssistantStatus" role="status" aria-live="polite"></p>
         </form>
       </div>
     </div>
@@ -124,6 +129,10 @@
         const closeButton = document.querySelector('.global-assistant-close');
         const form = document.getElementById('globalAssistantForm');
         const messages = document.querySelector('.global-assistant-messages');
+        const careButton = document.getElementById('globalAssistantCare');
+        const status = document.getElementById('globalAssistantStatus');
+        let lastQuestion = '';
+        let lastAnswer = '';
 
         if (widget && toggle && panel && form && messages) {
           toggle.addEventListener('click', function () {
@@ -161,6 +170,8 @@
 
             const data = await response.json();
             typing.remove();
+            lastQuestion = value;
+            lastAnswer = data.answer || '';
 
             const botMessage = document.createElement('div');
             botMessage.className = 'assistant-message assistant-message--bot';
@@ -168,6 +179,21 @@
             messages.appendChild(botMessage);
             messages.scrollTop = messages.scrollHeight;
           };
+
+          const requestCare = async function () {
+            if (!lastQuestion) {
+              if (status) status.textContent = 'Ask a question first so customer care can see the context.';
+              return;
+            }
+            careButton.disabled = true;
+            if (status) status.textContent = 'Sending your request to customer care...';
+            const response = await fetch('/assistant/escalate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ question: lastQuestion, assistantResponse: lastAnswer }) });
+            const data = await response.json();
+            if (status) status.textContent = data.message || 'Customer care has been notified.';
+            careButton.disabled = false;
+          };
+
+          if (careButton) careButton.addEventListener('click', requestCare);
 
           form.addEventListener('submit', async function (event) {
             event.preventDefault();
@@ -183,6 +209,7 @@
             chip.addEventListener('click', function () {
               const question = chip.getAttribute('data-question') || chip.textContent;
               if (!question) return;
+              if (chip.getAttribute('data-escalate') === 'true') { requestCare(); return; }
               sendMessage(question);
             });
           });

@@ -1,0 +1,31 @@
+<section class="customer-care-page" aria-labelledby="customer-care-title">
+  <header class="customer-care-hero">
+    <div>
+      <p class="admin-eyebrow">Member experience</p>
+      <h1 id="customer-care-title">Customer care queue</h1>
+      <p>Review assistant handoffs, continue conversations, and close requests with a clear operational record.</p>
+    </div>
+    <a class="customer-care-back" href="/admin/dashboard">Back to dashboard</a>
+  </header>
+
+  <nav class="customer-care-filters" aria-label="Customer-care request status">
+    <% [['open', 'Open'], ['claimed', 'Claimed'], ['waiting', 'Waiting'], ['resolved', 'Resolved'], ['all', 'All requests']].forEach(([value, label]) => { %>
+      <a class="<%= selectedStatus === value ? 'is-active' : '' %>" href="/admin/customer-care?status=<%= value %>"><%= label %></a>
+    <% }); %>
+  </nav>
+
+  <% if (message) { %><p class="customer-care-alert" role="status"><%= message %></p><% } %>
+  <div class="customer-care-list">
+    <% requests.forEach((request) => { %>
+      <a class="customer-care-row" href="/admin/customer-care/<%= request.id %>">
+        <div class="customer-care-row__main">
+          <span class="customer-care-status customer-care-status--<%= request.status %>"><%= request.status %></span>
+          <h2><%= request.question %></h2>
+          <p><%= request.account_name || request.visitor_name || 'Guest visitor' %> &middot; <%= new Date(request.created_at).toLocaleString() %></p>
+        </div>
+        <div class="customer-care-row__meta"><strong><%= request.assigned_name || 'Unassigned' %></strong><span><%= request.priority %> priority</span><span aria-hidden="true">&rarr;</span></div>
+      </a>
+    <% }); %>
+    <% if (!requests.length) { %><div class="customer-care-empty"><strong>No requests in this view.</strong><p>New assistant handoffs will appear here as soon as a visitor requests customer care.</p></div><% } %>
+  </div>
+</section>

@@ -1,0 +1,37 @@
+<section class="customer-care-page" aria-labelledby="customer-care-detail-title">
+  <a class="customer-care-back" href="/admin/customer-care">&larr; Back to queue</a>
+  <header class="customer-care-detail-hero">
+    <div>
+      <p class="admin-eyebrow">Customer-care handoff #<%= request.id %></p>
+      <h1 id="customer-care-detail-title"><%= request.question %></h1>
+      <p><%= request.account_name || request.visitor_name || 'Guest visitor' %> &middot; <%= new Date(request.created_at).toLocaleString() %></p>
+    </div>
+    <span class="customer-care-status customer-care-status--<%= request.status %>"><%= request.status %></span>
+  </header>
+
+  <% if (message) { %><p class="customer-care-alert" role="status"><%= message %></p><% } %>
+  <div class="customer-care-detail-grid">
+    <section class="customer-care-conversation" aria-labelledby="conversation-title">
+      <h2 id="conversation-title">Conversation context</h2>
+      <div class="customer-care-messages">
+        <% messages.forEach((item) => { %>
+          <article class="customer-care-message customer-care-message--<%= item.author_type %>"><span><%= item.author_type === 'agent' ? 'Customer care' : 'ACC Assistant' %></span><p><%= item.message %></p><small><%= new Date(item.created_at).toLocaleString() %></small></article>
+        <% }); %>
+      </div>
+    </section>
+
+    <aside class="customer-care-actions">
+      <h2>Request actions</h2>
+      <p>Assigned agent: <strong><%= request.assigned_name || 'Unassigned' %></strong></p>
+      <form method="post" action="/admin/customer-care/<%= request.id %>/action">
+        <label for="careMessage">Reply to the member</label>
+        <textarea id="careMessage" name="message" rows="6" maxlength="4000" placeholder="Write a clear, helpful response..."></textarea>
+        <div class="customer-care-action-buttons">
+          <button type="submit" name="action" value="claim">Claim</button>
+          <button type="submit" name="action" value="waiting">Mark waiting</button>
+          <button type="submit" name="action" value="resolve">Resolve</button>
+        </div>
+      </form>
+    </aside>
+  </div>
+</section>

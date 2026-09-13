@@ -38,10 +38,23 @@
 }
 
 .platform-path__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
   color: var(--acc-purple);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+}
+
+.platform-path__number svg,
+.opportunity__icon svg {
+  width: 1.45rem;
+  height: 1.45rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
 }
 
 .platform-path strong {

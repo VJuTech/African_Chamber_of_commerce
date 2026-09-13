@@ -695,11 +695,16 @@ img {
   font-weight: 700;
 }
 
+.opportunity__item .opportunity__icon {
+  flex: 0 0 44px;
+  font-size: 0;
+}
+
 .categories__grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.categories__grid span {
+.categories__grid a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -709,6 +714,16 @@ img {
   padding: 0.9rem 1rem;
   color: var(--acc-navy);
   font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.categories__grid a:hover,
+.categories__grid a:focus-visible {
+  background: rgba(109, 61, 180, 0.14);
+  border-color: rgba(109, 61, 180, 0.35);
+  color: var(--acc-purple);
+  transform: translateY(-2px);
 }
 
 .testimonials__grid {

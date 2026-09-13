@@ -1,0 +1,28 @@
+<section class="workspace-page" aria-labelledby="workspace-title">
+  <header class="workspace-page__hero">
+    <div>
+      <p class="workspace-page__eyebrow">ACC workspace</p>
+      <h1 id="workspace-title">Your work, gathered in one place.</h1>
+      <p class="workspace-page__intro">Move between the tools that help you build relationships, trade with confidence, and keep your ACC presence current.</p>
+    </div>
+    <a class="workspace-page__hero-action" href="<%= hasManagementAccess ? '/admin/dashboard' : '/dashboard' %>">Open dashboard <span aria-hidden="true">&rarr;</span></a>
+  </header>
+
+  <section class="workspace-page__section" aria-labelledby="workspace-discover-title">
+    <div class="workspace-page__section-heading">
+      <div><p class="workspace-page__eyebrow">Start anywhere</p><h2 id="workspace-discover-title">Your ACC toolkit</h2></div>
+      <span>Built for everyday progress</span>
+    </div>
+    <div class="workspace-page__grid">
+      <a class="workspace-tile workspace-tile--teal" href="/directory"><span class="workspace-tile__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19V5h16v14H4Zm3-4h3m-3-4h7m-7-4h10" /></svg></span><strong>Find businesses</strong><small>Discover companies, suppliers, and potential partners across Africa.</small><span class="workspace-tile__arrow" aria-hidden="true">&rarr;</span></a>
+      <a class="workspace-tile workspace-tile--coral" href="/marketplace"><span class="workspace-tile__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 7h14l-1 13H6L5 7Zm3 0a4 4 0 0 1 8 0M8 11h.01M16 11h.01" /></svg></span><strong>Explore marketplace</strong><small>Browse products and services, or manage your own listings.</small><span class="workspace-tile__arrow" aria-hidden="true">&rarr;</span></a>
+      <a class="workspace-tile workspace-tile--gold" href="/network"><span class="workspace-tile__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M16 20v-1.5A3.5 3.5 0 0 0 12.5 15h-5A3.5 3.5 0 0 0 4 18.5V20m6-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5-5a2.5 2.5 0 1 1 0 5m1 4h1.5A2.5 2.5 0 0 1 20 17.5V20" /></svg></span><strong>Grow your network</strong><small>Build trusted connections and keep important conversations moving.</small><span class="workspace-tile__arrow" aria-hidden="true">&rarr;</span></a>
+      <a class="workspace-tile workspace-tile--ink" href="/business/register"><span class="workspace-tile__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 20h16M6 20V7l6-3 6 3v13M9 10h2m2 0h2m-6 4h2m2 0h2" /></svg></span><strong>Register a business</strong><small>Create a stronger public presence and unlock business workflows.</small><span class="workspace-tile__arrow" aria-hidden="true">&rarr;</span></a>
+    </div>
+  </section>
+
+  <section class="workspace-page__lower-grid" aria-label="Workspace services">
+    <article class="workspace-page__panel"><p class="workspace-page__eyebrow">Keep momentum</p><h2>Member services</h2><div class="workspace-page__links"><a href="/events"><span>Events</span><small>Meet the community</small><span aria-hidden="true">&rarr;</span></a><a href="/messages"><span>Messages</span><small>Continue your conversations</small><span aria-hidden="true">&rarr;</span></a><a href="/subscriptions"><span>Subscriptions</span><small>Review plans and benefits</small><span aria-hidden="true">&rarr;</span></a><a href="/assistant"><span>ACC Assistance</span><small>Get platform guidance</small><span aria-hidden="true">&rarr;</span></a></div></article>
+    <article class="workspace-page__panel workspace-page__panel--note"><p class="workspace-page__eyebrow">A clearer route through ACC</p><h2>One workspace, many opportunities.</h2><p>Use the sidebar whenever you need to return here, open your dashboard, or move directly into a specific ACC service.</p><a class="workspace-page__text-link" href="/profile">Complete your profile <span aria-hidden="true">&rarr;</span></a></article>
+  </section>
+</section>
