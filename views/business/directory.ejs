@@ -72,11 +72,13 @@
               <div class="listing-actions">
                 <a href="/directory/<%= business.id %>" class="button secondary">View profile</a>
                 <% if (business.isVerified) { %>
-                  <% if (user) { %>
+                  <% if (canConnectWithBusinesses) { %>
                     <form method="post" action="/directory/<%= business.id %>/connect">
                       <input type="hidden" name="message" value="Hello, I would like to connect through the ACC directory." />
                       <button type="submit" class="button primary">Connect</button>
                     </form>
+                  <% } else if (user) { %>
+                    <a href="/business/register" class="button primary">Register to connect</a>
                   <% } else { %>
                     <a href="/login?message=Please%20sign%20in%20to%20connect%20with%20verified%20businesses." class="button primary">Sign in to connect</a>
                   <% } %>

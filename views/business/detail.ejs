@@ -30,12 +30,14 @@
           <section class="connect-panel" aria-labelledby="connect-business-title">
             <h2 id="connect-business-title">Connect with this business</h2>
             <p>Send a connection request to start a professional conversation through ACC.</p>
-            <% if (user) { %>
+            <% if (canConnectWithBusinesses) { %>
               <form method="post" action="/directory/<%= business.id %>/connect" class="connect-form">
                 <label for="connectionMessage">Optional message</label>
                 <textarea id="connectionMessage" name="message" rows="3" maxlength="1000" placeholder="Tell them why you would like to connect.">Hello, I would like to connect through the ACC directory.</textarea>
                 <button type="submit" class="button primary">Send connection request</button>
               </form>
+            <% } else if (user) { %>
+              <a class="button primary" href="/business/register">Register a business to connect</a>
             <% } else { %>
               <a class="button primary" href="/login?message=Please%20sign%20in%20to%20connect%20with%20verified%20businesses.">Sign in to connect</a>
             <% } %>

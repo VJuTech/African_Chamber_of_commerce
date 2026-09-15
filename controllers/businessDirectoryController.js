@@ -15,10 +15,13 @@ async function directoryPage(req, res, next) {
 
     const sort = req.query.sort || "relevance";
     const result = await businessDirectoryModel.searchBusinesses(keyword, filters, { page, limit, sort });
+    const user = req.session && req.session.user ? req.session.user : null;
+    const canConnectWithBusinesses = await businessDirectoryModel.userCanConnectWithBusinesses(user && user.id);
 
     return res.render("business/directory", {
       title: "Business Directory",
-      user: req.session && req.session.user ? req.session.user : null,
+      user,
+      canConnectWithBusinesses,
       listings: result.listings || [],
       total: result.total || 0,
       page: result.page || 1,
@@ -39,6 +42,10 @@ async function connectFromDirectory(req, res, next) {
     const senderId = req.session && req.session.user ? req.session.user.id : null;
     if (!senderId) {
       return res.redirect(`/login?message=${encodeURIComponent("Please sign in to connect with a verified business.")}`);
+    }
+
+    if (!await businessDirectoryModel.userCanConnectWithBusinesses(senderId)) {
+      return res.redirect(`/directory/${encodeURIComponent(req.params.id)}?message=${encodeURIComponent("Register a business before connecting with verified businesses and professionals.")}`);
     }
 
     const target = await businessDirectoryModel.getVerifiedBusinessConnectionTarget(req.params.id);
@@ -69,10 +76,14 @@ async function businessDetailPage(req, res, next) {
       });
     }
 
+    const user = req.session && req.session.user ? req.session.user : null;
+    const canConnectWithBusinesses = await businessDirectoryModel.userCanConnectWithBusinesses(user && user.id);
+
     return res.render("business/detail", {
       title: listing.businessName,
-      user: req.session && req.session.user ? req.session.user : null,
+      user,
       business: listing,
+      canConnectWithBusinesses,
       message: req.query.message || "",
       error: "",
     });

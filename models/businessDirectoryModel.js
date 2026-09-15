@@ -1,4 +1,12 @@
 const pool = require("../database/connection");
+const VERIFIED_BUSINESS_STATUSES = ["verified", "approved"];
+
+function isVerifiedBusiness(record = {}) {
+  const status = String(record.status || "").toLowerCase();
+  const verificationStatus = String(record.verification_status || record.verificationStatus || "").toLowerCase();
+  return Boolean(record.is_verified) || status === "verified" || VERIFIED_BUSINESS_STATUSES.includes(verificationStatus);
+}
+
 async function logDirectoryActivity(eventType, details = {}) {
   const result = await pool.query(
     "INSERT INTO business_audit_logs (user_id, business_id, event_type, outcome, details) VALUES ($1, $2, $3, $4, $5) RETURNING id, event_type, outcome, details, created_at",
@@ -30,7 +38,7 @@ function normalizeListing(record = {}) {
     membershipLevel: record.membership_level || record.membershipLevel || "Basic",
     viewCount: Number(record.view_count || record.viewCount || 0),
     updatedAt: record.updated_at || record.updatedAt || new Date().toISOString(),
-    isVerified: Boolean(record.is_verified || record.verification_status === "verified" || record.verificationStatus === "verified"),
+    isVerified: isVerifiedBusiness(record),
     active: record.active !== false,
   };
 }
@@ -98,7 +106,7 @@ async function getDirectoryListings(options = {}) {
           ? "ORDER BY b.updated_at DESC"
           : sort === "most_viewed"
             ? "ORDER BY COALESCE(b.view_count, 0) DESC"
-            : "ORDER BY CASE WHEN b.verification_status = 'verified' THEN 0 ELSE 1 END, COALESCE(b.view_count, 0) DESC, b.updated_at DESC";
+            : "ORDER BY CASE WHEN b.status = 'verified' OR b.verification_status IN ('verified', 'approved') THEN 0 ELSE 1 END, COALESCE(b.view_count, 0) DESC, b.updated_at DESC";
 
     const countQuery = `SELECT COUNT(*)::int AS total FROM business_accounts b ${whereClause}`;
     const countResult = await pool.query(countQuery, values);
@@ -190,7 +198,7 @@ async function getVerifiedBusinessConnectionTarget(businessId) {
     `SELECT id, owner_id, business_name
        FROM business_accounts
       WHERE id = $1
-        AND verification_status = 'verified'
+        AND (status = 'verified' OR verification_status IN ('verified', 'approved'))
         AND COALESCE(status, 'active') NOT IN ('suspended', 'rejected')
       LIMIT 1`,
     [businessId]
@@ -206,11 +214,28 @@ async function getVerifiedBusinessConnectionTarget(businessId) {
   };
 }
 
+async function userCanConnectWithBusinesses(userId) {
+  if (!userId) return false;
+
+  const result = await pool.query(
+    `SELECT EXISTS(
+       SELECT 1
+       FROM business_accounts
+       WHERE owner_id = $1
+         AND COALESCE(status, 'active') NOT IN ('rejected', 'suspended')
+     ) AS eligible`,
+    [userId]
+  );
+
+  return Boolean(result.rows[0] && result.rows[0].eligible);
+}
+
 module.exports = {
   getDirectoryListings,
   searchBusinesses,
   getBusinessDirectoryEntry,
   getVerifiedBusinessConnectionTarget,
+  userCanConnectWithBusinesses,
   logDirectoryActivity,
   logSearchAnalytics,
 };
