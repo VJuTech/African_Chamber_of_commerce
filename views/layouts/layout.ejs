@@ -4,7 +4,8 @@
     <!-- Include the shared head partial with metadata and styling. -->
     <%- include('../Partials/head') %>
   </head>
-  <body>
+  <body class="<%= typeof uxPreferences !== 'undefined' && uxPreferences && uxPreferences.highContrast ? 'ux-high-contrast' : '' %> <%= typeof uxPreferences !== 'undefined' && uxPreferences && uxPreferences.reducedMotion ? 'ux-reduced-motion' : '' %>">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <!-- Shared navigation bar for the application shell. -->
     <nav class="navbar" aria-label="Main navigation">
       <a class="brand" href="/" aria-label="African Chamber of Commerce home">
@@ -73,21 +74,39 @@
               <div class="workspace-sidebar__submenu" id="workspaceCommunity"><a href="/directory">Business directory</a><a href="/network">Networking</a><a href="/messages">Messages</a><a href="/notifications">Notifications</a><a href="/events">Events</a></div>
             </div>
             <div class="workspace-sidebar__group" data-sidebar-group>
-                <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceAccount"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" /></svg></span>Account</span><span aria-hidden="true">+</span></button>
-              <div class="workspace-sidebar__submenu" id="workspaceAccount"><a href="/profile">My profile</a><a href="/business/register">Register a business</a><a href="/subscriptions">Subscriptions &amp; billing</a><a href="/trust">Trust centre</a></div>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceAccount"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" /></svg></span>Account</span><span aria-hidden="true">+</span></button>
+              <div class="workspace-sidebar__submenu" id="workspaceAccount"><a href="/business/register">Register a business</a><a href="/trust">Trust centre</a></div>
+            </div>
+            <div class="workspace-sidebar__group" data-sidebar-group>
+              <button class="workspace-sidebar__toggle" type="button" aria-expanded="false" aria-controls="workspaceSettings"><span><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M3 12h2m14 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg></span>Settings</span><span aria-hidden="true">+</span></button>
+              <div class="workspace-sidebar__submenu" id="workspaceSettings"><a href="/settings">Settings overview</a><a href="/profile">Profile &amp; account</a><a href="/notifications">Notifications</a><a href="/security/settings">Security &amp; MFA</a><a href="/subscriptions">Subscriptions &amp; billing</a><a href="/workspace#ux-preferences">Accessibility</a></div>
             </div>
             <a class="workspace-sidebar__link" href="/disputes"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v11H9l-4 4V5Zm4 5h6m-6 3h4" /></svg></span><span>Dispute resolution</span></a>
             <a class="workspace-sidebar__link" href="/assistant"><span class="workspace-sidebar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H12l-4 4v-4h-.5A2.5 2.5 0 0 1 5 12.5v-6ZM9 9h6m-6 3h4" /></svg></span><span>ACC Assistance</span></a>
           </nav>
+          <details class="ux-preferences" id="ux-preferences">
+            <summary>Accessibility</summary>
+            <form method="post" action="/preferences">
+              <label><input type="checkbox" name="highContrast" <%= typeof uxPreferences !== 'undefined' && uxPreferences && uxPreferences.highContrast ? 'checked' : '' %> /> High contrast</label>
+              <label><input type="checkbox" name="reducedMotion" <%= typeof uxPreferences !== 'undefined' && uxPreferences && uxPreferences.reducedMotion ? 'checked' : '' %> /> Reduce motion</label>
+              <button type="submit" class="ux-preferences__submit">Save preferences</button>
+            </form>
+          </details>
           <a class="workspace-sidebar__signout" href="/logout">Sign out <span aria-hidden="true">&rarr;</span></a>
         </aside>
-        <main class="container workspace-main">
+        <main class="container workspace-main" id="main-content">
+          <% if (breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
+          <% if (feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
+          <% if (feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
           <%- body %>
         </main>
       </div>
     <% } else { %>
       <!-- Main content area where public page-specific templates are rendered. -->
-      <main class="container">
+      <main class="container" id="main-content">
+        <% if (breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
+        <% if (feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
+        <% if (feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
         <%- body %>
       </main>
     <% } %>

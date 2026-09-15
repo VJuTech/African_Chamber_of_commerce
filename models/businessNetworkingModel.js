@@ -40,6 +40,10 @@ async function sendConnectionRequest(senderId, targetId, payload = {}) {
     return { success: false, message: "Sender and target are required." };
   }
 
+  if (Number(senderId) === Number(targetId)) {
+    return { success: false, message: "You cannot send a connection request to yourself." };
+  }
+
   const targetType = payload.targetType || "user";
   const message = String(payload.message || "").trim();
   const blocked = await pool.query(`SELECT 1 FROM business_connection_blocks WHERE user_id = $1 AND target_id = $2 LIMIT 1`, [senderId, targetId]);

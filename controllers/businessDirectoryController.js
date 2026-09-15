@@ -1,4 +1,5 @@
 const businessDirectoryModel = require("../models/businessDirectoryModel");
+const businessNetworkingModel = require("../models/businessNetworkingModel");
 
 async function directoryPage(req, res, next) {
   try {
@@ -25,9 +26,32 @@ async function directoryPage(req, res, next) {
       keyword,
       filters,
       sort,
-      message: result.message || "",
+      message: req.query.message || result.message || "",
       error: "",
     });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function connectFromDirectory(req, res, next) {
+  try {
+    const senderId = req.session && req.session.user ? req.session.user.id : null;
+    if (!senderId) {
+      return res.redirect(`/login?message=${encodeURIComponent("Please sign in to connect with a verified business.")}`);
+    }
+
+    const target = await businessDirectoryModel.getVerifiedBusinessConnectionTarget(req.params.id);
+    if (!target || !target.targetId) {
+      return res.redirect(`/directory?message=${encodeURIComponent("This verified business is not available for connection requests.")}`);
+    }
+
+    const result = await businessNetworkingModel.sendConnectionRequest(senderId, target.targetId, {
+      targetType: target.targetType,
+      message: String(req.body.message || "").trim(),
+    });
+
+    return res.redirect(`/directory/${target.businessId}?message=${encodeURIComponent(result.message)}`);
   } catch (error) {
     return next(error);
   }
@@ -49,7 +73,7 @@ async function businessDetailPage(req, res, next) {
       title: listing.businessName,
       user: req.session && req.session.user ? req.session.user : null,
       business: listing,
-      message: "",
+      message: req.query.message || "",
       error: "",
     });
   } catch (error) {
@@ -60,4 +84,5 @@ async function businessDetailPage(req, res, next) {
 module.exports = {
   directoryPage,
   businessDetailPage,
+  connectFromDirectory,
 };

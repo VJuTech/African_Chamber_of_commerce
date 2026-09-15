@@ -30,7 +30,7 @@ function normalizeListing(record = {}) {
     membershipLevel: record.membership_level || record.membershipLevel || "Basic",
     viewCount: Number(record.view_count || record.viewCount || 0),
     updatedAt: record.updated_at || record.updatedAt || new Date().toISOString(),
-    isVerified: Boolean(record.is_verified ?? (record.verification_status === "verified" || record.verificationStatus === "verified")),
+    isVerified: Boolean(record.is_verified || record.verification_status === "verified" || record.verificationStatus === "verified"),
     active: record.active !== false,
   };
 }
@@ -183,10 +183,34 @@ async function getBusinessDirectoryEntry(businessId) {
   return null;
 }
 
+async function getVerifiedBusinessConnectionTarget(businessId) {
+  if (!businessId) return null;
+
+  const result = await pool.query(
+    `SELECT id, owner_id, business_name
+       FROM business_accounts
+      WHERE id = $1
+        AND verification_status = 'verified'
+        AND COALESCE(status, 'active') NOT IN ('suspended', 'rejected')
+      LIMIT 1`,
+    [businessId]
+  );
+
+  if (!result.rows.length) return null;
+
+  return {
+    businessId: result.rows[0].id,
+    targetId: result.rows[0].owner_id,
+    businessName: result.rows[0].business_name,
+    targetType: "business",
+  };
+}
+
 module.exports = {
   getDirectoryListings,
   searchBusinesses,
   getBusinessDirectoryEntry,
+  getVerifiedBusinessConnectionTarget,
   logDirectoryActivity,
   logSearchAnalytics,
 };

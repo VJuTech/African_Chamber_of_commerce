@@ -22,6 +22,26 @@
         <h2>Overview</h2>
         <p><%= business.businessDescription || 'No overview provided.' %></p>
 
+        <% if (message) { %>
+          <div class="message success" role="status"><%= message %></div>
+        <% } %>
+
+        <% if (business.isVerified) { %>
+          <section class="connect-panel" aria-labelledby="connect-business-title">
+            <h2 id="connect-business-title">Connect with this business</h2>
+            <p>Send a connection request to start a professional conversation through ACC.</p>
+            <% if (user) { %>
+              <form method="post" action="/directory/<%= business.id %>/connect" class="connect-form">
+                <label for="connectionMessage">Optional message</label>
+                <textarea id="connectionMessage" name="message" rows="3" maxlength="1000" placeholder="Tell them why you would like to connect.">Hello, I would like to connect through the ACC directory.</textarea>
+                <button type="submit" class="button primary">Send connection request</button>
+              </form>
+            <% } else { %>
+              <a class="button primary" href="/login?message=Please%20sign%20in%20to%20connect%20with%20verified%20businesses.">Sign in to connect</a>
+            <% } %>
+          </section>
+        <% } %>
+
         <ul class="info-list">
           <li><strong>Industry:</strong> <%= business.industryCategory %></li>
           <li><strong>Business type:</strong> <%= business.businessType %></li>
@@ -108,6 +128,41 @@
     border-radius: 14px;
     background: #f9fbff;
     padding: 1.25rem;
+  }
+  .connect-panel {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    border: 1px solid #cfe0f8;
+    border-radius: 12px;
+    background: #f3f8ff;
+  }
+  .connect-panel h2 {
+    margin-top: 0;
+  }
+  .connect-form {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .connect-form label {
+    font-weight: 600;
+  }
+  .connect-form textarea {
+    width: 100%;
+    border: 1px solid #ccd8ea;
+    border-radius: 10px;
+    padding: 0.7rem 0.8rem;
+    font: inherit;
+    resize: vertical;
+  }
+  .message {
+    margin: 1rem 0;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .message.success {
+    background: #ebfff5;
+    color: #0f6a3a;
   }
   .info-list {
     list-style: none;

@@ -92,6 +92,7 @@ DROP TABLE IF EXISTS deployment_releases CASCADE;
 DROP TABLE IF EXISTS deployment_environments CASCADE;
 DROP TABLE IF EXISTS assistant_support_messages CASCADE;
 DROP TABLE IF EXISTS assistant_support_requests CASCADE;
+DROP TABLE IF EXISTS user_ux_preferences CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -144,6 +145,16 @@ CREATE TABLE users (
   locked_until TIMESTAMP NULL,
   mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CHAPTER 31: durable user experience preferences and onboarding state.
+CREATE TABLE user_ux_preferences (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  high_contrast BOOLEAN NOT NULL DEFAULT FALSE,
+  reduced_motion BOOLEAN NOT NULL DEFAULT FALSE,
+  onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  onboarding_step INTEGER NOT NULL DEFAULT 0 CHECK (onboarding_step >= 0),
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -280,6 +291,76 @@ ON CONFLICT (requirement_id, framework, control_key) DO NOTHING;
 
 INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary)
 SELECT id, version, 'created', 'Initial Chapter 5 traceability baseline.' FROM requirements
+ON CONFLICT (requirement_id, version) DO NOTHING;
+
+-- Chapter 31: User experience and interface requirements.
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies)
+VALUES
+  ('FR-UX-001', 'Intuitive navigation', 'Users can find platform features through logical navigation within three clicks.', 'Any platform user', 'The user can access the public or authenticated application shell.', 'Primary platform destinations are reachable through navigation, workspace, or dashboard links.', 'critical', 'functional', ARRAY['navigation', 'workspace', 'dashboard']),
+  ('FR-UX-002', 'Responsive design', 'The interface adapts to desktop, tablet, and mobile screen sizes without breaking workflows.', 'Any platform user', 'The user accesses the platform from a supported viewport.', 'Content, controls, and navigation remain usable at the selected viewport.', 'critical', 'non_functional', ARRAY['responsive_styles', 'navigation']),
+  ('FR-UX-003', 'Consistent UI design', 'Shared colors, typography, controls, and layout conventions are used across platform modules.', 'Any platform user', 'A platform page is rendered through the shared application shell.', 'The page uses the ACC design system and shared interaction patterns.', 'high', 'non_functional', ARRAY['shared_layout', 'shared_styles']),
+  ('FR-UX-004', 'Form validation and error handling', 'Forms validate required and invalid input and present clear feedback to users.', 'Any platform user', 'A user submits a form or workflow action.', 'The user receives field or workflow feedback and invalid data is not silently accepted.', 'critical', 'functional', ARRAY['validation', 'feedback']),
+  ('FR-UX-005', 'User feedback mechanism', 'The system provides immediate accessible feedback for successful, pending, and failed actions.', 'Any platform user', 'A user performs a platform action.', 'A status, success, error, loading, or alert response is visible to the user.', 'critical', 'functional', ARRAY['notifications', 'feedback']),
+  ('FR-UX-006', 'Accessibility compliance', 'The interface supports screen readers, keyboard navigation, high contrast, and reduced motion preferences.', 'Any platform user', 'A user accesses a supported platform page.', 'Accessible structure, focus treatment, and durable accessibility preferences are available.', 'high', 'non_functional', ARRAY['accessibility', 'user_ux_preferences']),
+  ('FR-UX-007', 'Dashboard usability', 'Dashboards present key metrics and direct actions in a clear, scannable layout.', 'Authenticated user', 'The user is authenticated and opens a dashboard.', 'The user can understand account or management status and reach common actions quickly.', 'high', 'functional', ARRAY['dashboard', 'metrics', 'workspace']),
+  ('FR-UX-008', 'Minimize user actions', 'The platform reduces unnecessary steps through quick actions, saved preferences, and guided entry points.', 'Authenticated user', 'The user begins a common platform task.', 'The user can start or resume a task from a nearby action or saved preference.', 'high', 'functional', ARRAY['quick_actions', 'user_ux_preferences', 'onboarding']),
+  ('FR-UX-009', 'Search and filtering', 'Directory and module search interfaces return accurate filtered results.', 'Any platform user', 'The relevant searchable records are available.', 'The user can search, filter, sort, and paginate matching results.', 'critical', 'functional', ARRAY['business_directory', 'search_filters']),
+  ('FR-UX-010', 'User onboarding experience', 'New authenticated users receive a guided workspace setup path with clear next steps.', 'New authenticated user', 'The user has not completed workspace onboarding.', 'The user can follow setup links and persist completion state in PostgreSQL.', 'high', 'functional', ARRAY['workspace', 'onboarding', 'user_ux_preferences'])
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT r.id, v.user_story, v.ui_reference, v.api_reference, v.database_objects, v.test_case, 'Experience', '1.0', v.coverage_status, v.notes
+FROM requirements r
+JOIN (VALUES
+  ('FR-UX-001', 'As a platform user, I want logical navigation so I can find features quickly.', 'views/layouts/layout.ejs, views/workspace.ejs, views/admin/dashboard.ejs', 'Shared navigation and workspace links', ARRAY['user_ux_preferences'], 'Shared navigation and breadcrumb acceptance checks', 'complete', 'Shared navbar, sidebar, workspace, and breadcrumbs are implemented.'),
+  ('FR-UX-002', 'As a user on any device, I want the interface to remain usable.', 'public/styles/small.css, public/styles/medium.css, public/styles/large.css, public/styles/ux.css', 'Responsive HTML views', ARRAY['system_settings'], 'Responsive viewport acceptance checks', 'complete', 'Existing responsive styles plus Chapter 31 UX responsive rules are loaded globally.'),
+  ('FR-UX-003', 'As a user, I want a consistent visual language across ACC.', 'views/Partials/head.ejs, public/styles/base.css, public/styles/ux.css', 'Shared layout stylesheet pipeline', ARRAY['system_settings'], 'Shared design system acceptance checks', 'complete', 'Shared styles are loaded through the common head partial.'),
+  ('FR-UX-004', 'As a user, I want invalid form input explained clearly.', 'views/accounts, views/profile.ejs, views/* forms', 'Existing module form POST routes', ARRAY['audit_logs'], 'Validation and error feedback acceptance checks', 'complete', 'Existing module validation remains in place and shared error feedback is now announced.'),
+  ('FR-UX-005', 'As a user, I want immediate feedback after an action.', 'views/layouts/layout.ejs, views/notifications/index.ejs', 'Existing module action routes and query feedback', ARRAY['notifications','notification_deliveries'], 'Feedback announcement acceptance checks', 'complete', 'Shared status and alert live regions preserve redirect feedback.'),
+  ('FR-UX-006', 'As a user with accessibility needs, I want controls that respect my preferences.', 'views/layouts/layout.ejs, public/styles/ux.css', 'POST /preferences', ARRAY['user_ux_preferences'], 'Accessibility preference acceptance checks', 'complete', 'Skip navigation, focus states, high contrast, reduced motion, and persistence are implemented.'),
+  ('FR-UX-007', 'As an authenticated user, I want dashboards to show status and next actions.', 'views/dashboard.ejs, views/admin/dashboard.ejs, views/workspace.ejs', 'GET /dashboard, GET /admin/dashboard, GET /workspace', ARRAY['requirements','analytics_events'], 'Dashboard usability acceptance checks', 'complete', 'Member and management dashboards expose metrics and direct navigation.'),
+  ('FR-UX-008', 'As a member, I want quick actions and saved preferences to reduce repetition.', 'views/dashboard.ejs, views/workspace.ejs, views/layouts/layout.ejs', 'POST /preferences', ARRAY['user_ux_preferences'], 'Quick action and saved preference acceptance checks', 'complete', 'Workspace actions, onboarding links, and persisted accessibility preferences are available.'),
+  ('FR-UX-009', 'As a user, I want accurate search and filters.', 'views/business/directory.ejs', 'GET /directory?keyword=&industry=&country=&sort=', ARRAY['business_accounts','business_directory_search_logs'], 'Directory filtering acceptance checks', 'complete', 'Directory search, exact industry filtering, sorting, and pagination are database-backed.'),
+  ('FR-UX-010', 'As a new member, I want guided setup steps.', 'views/workspace.ejs', 'POST /onboarding/complete', ARRAY['user_ux_preferences'], 'Onboarding completion acceptance checks', 'complete', 'Onboarding state and completion are persisted in PostgreSQL.' )
+) AS v(requirement_key, user_story, ui_reference, api_reference, database_objects, test_case, coverage_status, notes) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_validation_rules (requirement_id, field_name, rule_key, rule_description, error_message)
+SELECT r.id, v.field_name, v.rule_key, v.rule_description, v.error_message
+FROM requirements r
+JOIN (VALUES
+  ('FR-UX-001', 'navigationTarget', 'reachable_path', 'Navigation targets must resolve to an application path.', 'Choose a valid destination.'),
+  ('FR-UX-002', 'viewport', 'supported_layout', 'Responsive layouts must remain usable across supported viewport sizes.', 'This layout is not available at the current size.'),
+  ('FR-UX-003', 'component', 'shared_style', 'Shared controls must use the ACC design system.', 'Use the shared ACC component style.'),
+  ('FR-UX-004', 'formField', 'required_or_valid', 'Required and invalid fields must return clear validation feedback.', 'Check the highlighted field and try again.'),
+  ('FR-UX-005', 'feedback', 'announced_status', 'Action feedback must be available through an accessible status or alert region.', 'The action status could not be displayed.'),
+  ('FR-UX-006', 'preference', 'persisted_boolean', 'Accessibility preferences must be persisted as boolean values for the user.', 'Choose a valid accessibility preference.'),
+  ('FR-UX-007', 'dashboardMetric', 'visible_summary', 'Dashboard metrics must expose a readable label and value.', 'The dashboard summary is unavailable.'),
+  ('FR-UX-008', 'quickAction', 'reachable_workflow', 'Quick actions must link to an existing workflow entry point.', 'Choose an available action.'),
+  ('FR-UX-009', 'filter', 'database_backed', 'Search and filter values must be applied by the database query.', 'Enter a valid search or filter.'),
+  ('FR-UX-010', 'onboardingStep', 'bounded_step', 'Onboarding steps must remain within the supported workflow range.', 'Choose a valid onboarding step.')
+) AS v(requirement_key, field_name, rule_key, rule_description, error_message) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, field_name, rule_key) DO NOTHING;
+
+INSERT INTO requirement_compliance_controls (requirement_id, framework, control_key, control_description, status, evidence_reference)
+SELECT r.id, v.framework, v.control_key, v.control_description, v.status, v.evidence_reference
+FROM requirements r
+JOIN (VALUES
+  ('FR-UX-001', 'Usability', 'UX-NAV-01', 'Primary destinations are reachable through shared navigation and workspace links.', 'implemented', 'shared layout and workspace'),
+  ('FR-UX-002', 'Usability', 'UX-RESP-01', 'Responsive breakpoint styles preserve usable layouts across desktop, tablet, and mobile.', 'implemented', 'small.css, medium.css, large.css, ux.css'),
+  ('FR-UX-003', 'Usability', 'UX-CONS-01', 'Common styles and components are loaded through the shared head partial.', 'implemented', 'views/Partials/head.ejs'),
+  ('FR-UX-004', 'Accessibility', 'UX-FORM-01', 'Validation and feedback paths prevent silent failure and explain user action errors.', 'implemented', 'module validation utilities and shared feedback'),
+  ('FR-UX-005', 'Accessibility', 'UX-FEED-01', 'Status and alert feedback uses semantic live regions.', 'implemented', 'views/layouts/layout.ejs'),
+  ('FR-UX-006', 'Accessibility', 'UX-A11Y-01', 'Keyboard, screen-reader, high-contrast, and reduced-motion support are available.', 'implemented', 'ux.css and user_ux_preferences'),
+  ('FR-UX-007', 'Usability', 'UX-DASH-01', 'Dashboards expose metrics and direct actions for member and management roles.', 'implemented', 'dashboard and admin dashboard views'),
+  ('FR-UX-008', 'Usability', 'UX-EFF-01', 'Quick actions and preferences reduce repeated navigation and configuration.', 'implemented', 'workspace, dashboard, and preferences'),
+  ('FR-UX-009', 'Data quality', 'UX-SEARCH-01', 'Directory search and filters execute against PostgreSQL records and retain query analytics.', 'implemented', 'businessDirectoryModel.js'),
+  ('FR-UX-010', 'Usability', 'UX-ONBOARD-01', 'Onboarding progress is durable and can be completed through an authenticated workflow.', 'implemented', 'user_ux_preferences and POST /onboarding/complete')
+) AS v(requirement_key, framework, control_key, control_description, status, evidence_reference) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, framework, control_key) DO NOTHING;
+
+INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary)
+SELECT id, version, 'created', 'Chapter 31 UX and interface baseline.' FROM requirements WHERE requirement_id LIKE 'FR-UX-%'
 ON CONFLICT (requirement_id, version) DO NOTHING;
 
 -- ========================================

@@ -1,0 +1,251 @@
+.skip-link {
+  position: fixed;
+  top: -4rem;
+  left: 1rem;
+  z-index: 100;
+  padding: .7rem 1rem;
+  background: #172033;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.breadcrumbs {
+  max-width: 1140px;
+  margin: 1rem auto 0;
+  color: var(--acc-muted);
+  font-size: .8rem;
+}
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.breadcrumbs li {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.breadcrumbs li:not(:last-child)::after {
+  content: "/";
+  color: var(--acc-muted);
+}
+
+.breadcrumbs a {
+  color: var(--acc-purple-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible {
+  text-decoration: underline;
+}
+
+.ux-feedback {
+  max-width: 1140px;
+  margin: 1rem auto;
+  padding: .85rem 1rem;
+  border-left: 4px solid;
+  font-size: .9rem;
+}
+
+.ux-feedback--success {
+  border-color: #16794c;
+  background: #ecf8f1;
+  color: #145c3c;
+}
+
+.ux-feedback--error {
+  border-color: #b42318;
+  background: #fff1f0;
+  color: #8c1d18;
+}
+
+.ux-preferences {
+  margin: 1rem .75rem;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  padding-top: .75rem;
+  color: #fff;
+  font-size: .8rem;
+}
+
+.ux-preferences summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.ux-preferences form {
+  display: grid;
+  gap: .55rem;
+  padding-top: .7rem;
+}
+
+.ux-preferences label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.ux-preferences input {
+  accent-color: var(--acc-gold);
+}
+
+.ux-preferences__submit {
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 5px;
+  padding: .55rem .65rem;
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.ux-preferences__submit:hover,
+.ux-preferences__submit:focus-visible {
+  background: rgba(255, 255, 255, .2);
+}
+
+.ux-onboarding {
+  display: grid;
+  grid-template-columns: minmax(220px, .85fr) minmax(0, 1.5fr) auto;
+  gap: 1.25rem;
+  align-items: center;
+  margin: 0 0 1.5rem;
+  padding: 1.35rem;
+  border: 1px solid #c8e2e4;
+  border-left: 4px solid var(--dashboard-teal, #087f8c);
+  background: #f3fbfb;
+}
+
+.ux-onboarding h2,
+.ux-onboarding p {
+  margin-top: 0;
+}
+
+.ux-onboarding p:last-child {
+  margin-bottom: 0;
+  color: var(--dashboard-muted, #647086);
+  line-height: 1.5;
+}
+
+.ux-onboarding__steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ux-onboarding__steps a {
+  display: block;
+  height: 100%;
+  padding: .85rem;
+  border: 1px solid #d8e8e9;
+  background: #fff;
+  color: #172033;
+  text-decoration: none;
+}
+
+.ux-onboarding__steps a:hover,
+.ux-onboarding__steps a:focus-visible {
+  border-color: #087f8c;
+  transform: translateY(-2px);
+}
+
+.ux-onboarding__steps strong,
+.ux-onboarding__steps span {
+  display: block;
+}
+
+.ux-onboarding__steps strong {
+  font-size: .86rem;
+}
+
+.ux-onboarding__steps span {
+  margin-top: .35rem;
+  color: #647086;
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+.ux-onboarding__complete {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.ux-high-contrast {
+  --acc-text: #000;
+  --acc-muted: #1f2937;
+  --acc-border: #111;
+  --acc-purple: #3a006b;
+  --acc-purple-dark: #16002b;
+}
+
+.ux-high-contrast body,
+body.ux-high-contrast {
+  background: #fff;
+  color: #000;
+}
+
+.ux-high-contrast a:focus-visible,
+.ux-high-contrast button:focus-visible,
+.ux-high-contrast input:focus-visible,
+.ux-high-contrast select:focus-visible,
+.ux-high-contrast textarea:focus-visible {
+  outline: 3px solid #000;
+  outline-offset: 3px;
+}
+
+.ux-reduced-motion *,
+.ux-reduced-motion *::before,
+.ux-reduced-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
+}
+
+@media (max-width: 900px) {
+  .ux-onboarding {
+    grid-template-columns: 1fr;
+  }
+
+  .ux-onboarding__complete {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .breadcrumbs {
+    margin-top: .7rem;
+  }
+
+  .ux-onboarding__steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}

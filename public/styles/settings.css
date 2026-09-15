@@ -1,0 +1,147 @@
+.settings-page {
+  max-width: 1140px;
+  margin: 2rem auto 1rem;
+  color: #172033;
+}
+
+.settings-page__hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.25rem 0 2rem;
+}
+
+.settings-page__eyebrow {
+  margin: 0 0 .55rem;
+  color: #087f8c;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.settings-page h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.settings-page__hero p:last-child {
+  max-width: 650px;
+  margin: .9rem 0 0;
+  color: #647086;
+  line-height: 1.65;
+}
+
+.settings-page__back,
+.settings-card__link {
+  color: #087f8c;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.settings-page__back {
+  flex: 0 0 auto;
+  padding: .85rem 1rem;
+  border: 1px solid #c8e2e4;
+  background: #f3fbfb;
+}
+
+.settings-page__back span,
+.settings-card__link span {
+  margin-left: .4rem;
+}
+
+.settings-page__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.settings-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .55rem 1rem;
+  min-height: 190px;
+  padding: 1.35rem;
+  border: 1px solid #dce3eb;
+  background: #fff;
+  color: #172033;
+  text-decoration: none;
+  box-shadow: 0 7px 20px rgba(31, 46, 67, .05);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.settings-card:hover,
+.settings-card:focus-visible {
+  border-color: #087f8c;
+  box-shadow: 0 12px 28px rgba(31, 46, 67, .1);
+  transform: translateY(-2px);
+}
+
+.settings-card__icon {
+  display: inline-flex;
+  grid-row: span 3;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 8px;
+  background: #e8f6f6;
+  color: #087f8c;
+}
+
+.settings-card__icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.settings-card strong {
+  align-self: end;
+  font-size: 1.05rem;
+}
+
+.settings-card > span:not(.settings-card__icon):not(.settings-card__link) {
+  color: #647086;
+  font-size: .88rem;
+  line-height: 1.55;
+}
+
+.settings-card__link {
+  align-self: start;
+  font-size: .82rem;
+}
+
+.settings-card--management {
+  border-top: 3px solid #d98b18;
+}
+
+.settings-card--management .settings-card__icon {
+  background: #fff5df;
+  color: #98630c;
+}
+
+@media (max-width: 700px) {
+  .settings-page {
+    margin-top: 1rem;
+  }
+
+  .settings-page__hero {
+    display: block;
+  }
+
+  .settings-page__back {
+    display: inline-block;
+    margin-top: 1.1rem;
+  }
+
+  .settings-page__grid {
+    grid-template-columns: 1fr;
+  }
+}

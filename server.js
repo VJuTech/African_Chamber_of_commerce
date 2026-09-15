@@ -51,8 +51,11 @@ const apiRoutes = require("./routes/apiRoute");
 const apiAdminRoutes = require("./routes/apiAdminRoute");
 const deploymentRoutes = require("./routes/deploymentRoute");
 const healthRoutes = require("./routes/healthRoute");
+const uxRoutes = require("./routes/uxRoute");
 const analyticsModel = require("./models/analyticsModel");
 const securityModel = require("./models/securityModel");
+const uxModel = require("./models/uxModel");
+const { loadUserUx } = require("./controllers/uxController");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
 // Create the Express application instance.
@@ -146,6 +149,7 @@ async function createSessionStore() {
 
 async function initApp() {
   const store = await createSessionStore();
+  await uxModel.ensureSchema();
 
   // Set up session support for authentication and user state.
   app.use(
@@ -206,6 +210,40 @@ async function initApp() {
     next();
   });
 
+  // Load durable UX preferences once for every request after session state exists.
+  app.use(loadUserUx);
+  app.use((req, res, next) => {
+    const labels = {
+      admin: "ACC Management",
+      business: "Business",
+      directory: "Business Directory",
+      marketplace: "Marketplace",
+      procurement: "Procurement",
+      contracts: "Contracts",
+      orders: "Orders",
+      logistics: "Logistics",
+      profile: "Profile",
+      workspace: "Workspace",
+      dashboard: "Dashboard",
+      notifications: "Notifications",
+      messages: "Messages",
+      events: "Events",
+      subscriptions: "Subscriptions",
+      disputes: "Disputes",
+      assistant: "ACC Assistance",
+    };
+    const segments = req.path.split("/").filter(Boolean);
+    res.locals.breadcrumbs = segments.length
+      ? [{ label: "Home", href: "/" }, ...segments.map((segment, index) => ({
+        label: labels[segment] || segment.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        href: index === segments.length - 1 ? "" : `/${segments.slice(0, index + 1).join("/")}`,
+      }))]
+      : [];
+    res.locals.feedbackMessage = req.query.message || "";
+    res.locals.feedbackError = req.query.error || "";
+    next();
+  });
+
   // If running behind a proxy (e.g., in production with a load balancer), enable trust proxy
   if (process.env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
@@ -245,6 +283,7 @@ async function initApp() {
   app.use("/", apiAdminRoutes);
   app.use("/", deploymentRoutes);
   app.use("/", healthRoutes);
+  app.use("/", uxRoutes);
   // Mount Chapter 3 role and permission administration after authenticated routes.
   app.use("/", rbacRoutes);
   app.use("/", requirementsRoutes);

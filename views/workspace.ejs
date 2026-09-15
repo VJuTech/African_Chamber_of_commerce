@@ -8,6 +8,22 @@
     <a class="workspace-page__hero-action" href="<%= hasManagementAccess ? '/admin/dashboard' : '/dashboard' %>">Open dashboard <span aria-hidden="true">&rarr;</span></a>
   </header>
 
+  <% if (typeof uxPreferences === 'undefined' || !uxPreferences || !uxPreferences.onboardingCompleted) { %>
+    <section class="ux-onboarding" aria-labelledby="onboarding-title">
+      <div>
+        <p class="workspace-page__eyebrow">A quick start</p>
+        <h2 id="onboarding-title">Set up your ACC workspace</h2>
+        <p>Start with your profile, discover businesses, and return here whenever you need your next action.</p>
+      </div>
+      <ol class="ux-onboarding__steps">
+        <li><a href="/profile"><strong>Complete your profile</strong><span>Add the details partners use to trust your business.</span></a></li>
+        <li><a href="/directory"><strong>Explore the directory</strong><span>Find companies by industry, country, and business type.</span></a></li>
+        <li><a href="/business/register"><strong>Register a business</strong><span>Create your public business presence when ready.</span></a></li>
+      </ol>
+      <form method="post" action="/onboarding/complete"><button class="workspace-page__text-link ux-onboarding__complete" type="submit">Mark setup complete <span aria-hidden="true">&rarr;</span></button></form>
+    </section>
+  <% } %>
+
   <section class="workspace-page__section" aria-labelledby="workspace-discover-title">
     <div class="workspace-page__section-heading">
       <div><p class="workspace-page__eyebrow">Start anywhere</p><h2 id="workspace-discover-title">Your ACC toolkit</h2></div>

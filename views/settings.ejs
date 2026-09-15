@@ -1,0 +1,51 @@
+<section class="settings-page" aria-labelledby="settings-title">
+  <header class="settings-page__hero">
+    <div>
+      <p class="settings-page__eyebrow">Account centre</p>
+      <h1 id="settings-title">Settings</h1>
+      <p>Manage your ACC profile, notifications, security, billing, and accessibility preferences from one place.</p>
+    </div>
+    <a class="settings-page__back" href="/workspace">Back to workspace <span aria-hidden="true">&rarr;</span></a>
+  </header>
+
+  <div class="settings-page__grid">
+    <a class="settings-card" href="/profile">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" /></svg></span>
+      <strong>Profile &amp; account</strong>
+      <span>Update your personal details, contact information, password, sessions, and communication preferences.</span>
+      <span class="settings-card__link">Manage profile <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    <a class="settings-card" href="/notifications">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 12h4" /></svg></span>
+      <strong>Notifications</strong>
+      <span>Choose delivery channels, alert categories, frequency, and notification limits.</span>
+      <span class="settings-card__link">Manage notifications <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    <a class="settings-card" href="/security/settings">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Zm0 5v5m0 0 3 2m-3-2-3 2" /></svg></span>
+      <strong>Security &amp; MFA</strong>
+      <span>Protect sign-in with multi-factor authentication and review account security activity.</span>
+      <span class="settings-card__link">Review security <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    <a class="settings-card" href="/subscriptions">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16v13H4V7Zm3-4h10v4H7V3Zm1 9h8m-8 4h5" /></svg></span>
+      <strong>Subscriptions &amp; billing</strong>
+      <span>Review plans, membership benefits, billing cycles, invoices, and subscription status.</span>
+      <span class="settings-card__link">Manage billing <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    <a class="settings-card" href="/workspace#ux-preferences">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M3 12h2m14 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg></span>
+      <strong>Accessibility</strong>
+      <span>Adjust high contrast and reduced motion preferences for your ACC experience.</span>
+      <span class="settings-card__link">Open accessibility controls <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    <% if (hasManagementSettings) { %>
+      <a class="settings-card settings-card--management" href="/admin/settings">
+        <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M3 12h2m14 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg></span>
+        <strong>System configuration</strong>
+        <span>Manage platform settings and feature flags available to authorized administrators.</span>
+        <span class="settings-card__link">Open management settings <span aria-hidden="true">&rarr;</span></span>
+      </a>
+    <% } %>
+  </div>
+</section>
