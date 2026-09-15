@@ -2,6 +2,7 @@
  * paymentController.js - Payment processing actions for ACC Chapter 19.
  *******************************************/
 const paymentModel = require("../models/paymentModel");
+const complianceModel = require("../models/complianceModel");
 const webhookService = require("../utility/webhookService");
 
 async function paymentDashboardPage(req, res, next) {
@@ -51,6 +52,11 @@ async function initiatePayment(req, res, next) {
     const userId = req.session && req.session.user ? req.session.user.id : null;
     if (!userId) {
       return res.redirect("/login?message=" + encodeURIComponent("Please sign in to make a payment."));
+    }
+
+    const restriction = await complianceModel.hasActiveRestriction(userId, req.body.businessId || null);
+    if (restriction) {
+      return res.status(403).json({ success: false, message: `Payment blocked by an active compliance restriction: ${restriction.reason}` });
     }
 
     const result = await paymentModel.initiatePayment(userId, {

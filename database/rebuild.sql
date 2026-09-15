@@ -48,6 +48,29 @@ DROP TABLE IF EXISTS notification_preferences CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS compliance_audit_logs CASCADE;
+DROP TABLE IF EXISTS compliance_regulatory_reports CASCADE;
+DROP TABLE IF EXISTS compliance_cross_border_rules CASCADE;
+DROP TABLE IF EXISTS compliance_aml_restrictions CASCADE;
+DROP TABLE IF EXISTS compliance_transaction_flags CASCADE;
+DROP TABLE IF EXISTS compliance_business_cases CASCADE;
+DROP TABLE IF EXISTS compliance_kyc_documents CASCADE;
+DROP TABLE IF EXISTS compliance_kyc_cases CASCADE;
+DROP TABLE IF EXISTS user_consent_records CASCADE;
+DROP TABLE IF EXISTS compliance_policy_versions CASCADE;
+DROP TABLE IF EXISTS compliance_policies CASCADE;
+DROP TABLE IF EXISTS data_management_audit_logs CASCADE;
+DROP TABLE IF EXISTS data_recovery_requests CASCADE;
+DROP TABLE IF EXISTS data_backup_schedules CASCADE;
+DROP TABLE IF EXISTS data_versions CASCADE;
+DROP TABLE IF EXISTS data_archives CASCADE;
+DROP TABLE IF EXISTS data_integrity_checks CASCADE;
+DROP TABLE IF EXISTS data_catalog_resources CASCADE;
+DROP TABLE IF EXISTS performance_optimization_actions CASCADE;
+DROP TABLE IF EXISTS performance_peak_load_checks CASCADE;
+DROP TABLE IF EXISTS performance_cache_entries CASCADE;
+DROP TABLE IF EXISTS performance_capacity_profiles CASCADE;
+DROP TABLE IF EXISTS performance_request_metrics CASCADE;
 DROP TABLE IF EXISTS messaging_notifications CASCADE;
 DROP TABLE IF EXISTS messaging_audit_logs CASCADE;
 DROP TABLE IF EXISTS message_deletions CASCADE;
@@ -93,6 +116,12 @@ DROP TABLE IF EXISTS deployment_environments CASCADE;
 DROP TABLE IF EXISTS assistant_support_messages CASCADE;
 DROP TABLE IF EXISTS assistant_support_requests CASCADE;
 DROP TABLE IF EXISTS user_ux_preferences CASCADE;
+DROP TABLE IF EXISTS localization_audit_logs CASCADE;
+DROP TABLE IF EXISTS user_localization_preferences CASCADE;
+DROP TABLE IF EXISTS localization_exchange_rates CASCADE;
+DROP TABLE IF EXISTS localization_translations CASCADE;
+DROP TABLE IF EXISTS localization_currencies CASCADE;
+DROP TABLE IF EXISTS localization_languages CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -158,13 +187,98 @@ CREATE TABLE user_ux_preferences (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- CHAPTER 33: localization and multi-language support.
+CREATE TABLE localization_languages (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(12) UNIQUE NOT NULL,
+  display_name VARCHAR(120) NOT NULL,
+  native_name VARCHAR(120) NOT NULL,
+  text_direction VARCHAR(3) NOT NULL DEFAULT 'ltr' CHECK (text_direction IN ('ltr', 'rtl')),
+  is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE localization_currencies (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(3) UNIQUE NOT NULL,
+  display_name VARCHAR(120) NOT NULL,
+  symbol VARCHAR(12) NOT NULL,
+  decimal_places SMALLINT NOT NULL DEFAULT 2 CHECK (decimal_places BETWEEN 0 AND 6),
+  is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE localization_translations (
+  id SERIAL PRIMARY KEY,
+  locale VARCHAR(12) NOT NULL,
+  translation_key VARCHAR(180) NOT NULL,
+  translation_value TEXT NOT NULL,
+  context VARCHAR(180),
+  version INTEGER NOT NULL DEFAULT 1,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (locale, translation_key)
+);
+CREATE TABLE localization_exchange_rates (
+  id SERIAL PRIMARY KEY,
+  base_currency VARCHAR(3) NOT NULL REFERENCES localization_currencies(code),
+  target_currency VARCHAR(3) NOT NULL REFERENCES localization_currencies(code),
+  rate NUMERIC(20, 10) NOT NULL CHECK (rate > 0),
+  source VARCHAR(120) NOT NULL DEFAULT 'admin',
+  effective_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (base_currency, target_currency, effective_at)
+);
+CREATE TABLE user_localization_preferences (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  language_code VARCHAR(12) NOT NULL DEFAULT 'en' REFERENCES localization_languages(code),
+  locale VARCHAR(12) NOT NULL DEFAULT 'en-NG',
+  currency_code VARCHAR(3) NOT NULL DEFAULT 'NGN' REFERENCES localization_currencies(code),
+  region_code VARCHAR(12) NOT NULL DEFAULT 'NG',
+  time_format VARCHAR(3) NOT NULL DEFAULT '24h' CHECK (time_format IN ('12h', '24h')),
+  date_format VARCHAR(24) NOT NULL DEFAULT 'dd/MM/yyyy',
+  auto_detect BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE localization_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(80) NOT NULL,
+  locale VARCHAR(12),
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ip_address INET,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO localization_languages (code, display_name, native_name, text_direction, is_default) VALUES
+  ('en', 'English', 'English', 'ltr', TRUE), ('fr', 'French', 'Francais', 'ltr', FALSE), ('ar', 'Arabic', 'العربية', 'rtl', FALSE), ('pt', 'Portuguese', 'Portugues', 'ltr', FALSE);
+INSERT INTO localization_currencies (code, display_name, symbol, decimal_places) VALUES
+  ('NGN', 'Nigerian naira', '₦', 2), ('GHS', 'Ghanaian cedi', 'GH₵', 2), ('ZAR', 'South African rand', 'R', 2), ('USD', 'US dollar', '$', 2);
+INSERT INTO localization_translations (locale, translation_key, translation_value) VALUES
+  ('en', 'navigation.settings', 'Settings'), ('en', 'navigation.localization', 'Language and region'),
+  ('en', 'localization.title', 'Language and region'), ('en', 'localization.description', 'Choose the language, currency, region, and time format used across ACC.'),
+  ('en', 'localization.save', 'Save preferences'), ('en', 'notification.orderPlaced.title', 'Order placed'),
+  ('en', 'notification.orderPlaced.message', 'Order #{orderId} has been placed.'), ('en', 'notification.paymentCompleted.title', 'Payment completed'),
+  ('en', 'notification.paymentCompleted.message', 'Payment for order #{orderId} was completed.'), ('en', 'notification.newMessage.title', 'New message'),
+  ('en', 'notification.newMessage.message', '{text}'), ('en', 'notification.eventRegistration.title', 'Event registration confirmed'),
+  ('en', 'notification.eventRegistration.message', '{title} registration was recorded.'), ('en', 'notification.eventReminder.title', 'Event reminder'),
+  ('en', 'notification.eventReminder.message', '{title} is coming up.'), ('en', 'notification.generic.title', 'ACC update'),
+  ('en', 'notification.generic.message', 'There is a new {event} update.');
+INSERT INTO localization_exchange_rates (base_currency, target_currency, rate, source) VALUES
+  ('NGN', 'NGN', 1, 'system'), ('GHS', 'GHS', 1, 'system'), ('ZAR', 'ZAR', 1, 'system'), ('USD', 'USD', 1, 'system');
+
 -- ========================================
 -- CHAPTER 5: REQUIREMENTS & TRACEABILITY
 -- ========================================
 
 CREATE TABLE requirements (
   id SERIAL PRIMARY KEY,
-  requirement_id VARCHAR(40) NOT NULL UNIQUE CHECK (requirement_id ~ '^FR-[A-Z0-9]+-[0-9]{3}$'),
+  requirement_id VARCHAR(40) NOT NULL UNIQUE CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-PERF)-[0-9]{3}$'),
   name VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   actor VARCHAR(200) NOT NULL,
@@ -363,6 +477,160 @@ INSERT INTO requirement_changes (requirement_id, version, change_type, change_su
 SELECT id, version, 'created', 'Chapter 31 UX and interface baseline.' FROM requirements WHERE requirement_id LIKE 'FR-UX-%'
 ON CONFLICT (requirement_id, version) DO NOTHING;
 
+-- Chapter 33: Localization and multi-language support traceability.
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies)
+VALUES
+  ('FR-LOC-001', 'Supported language catalog', 'Members can select an enabled ACC language from the PostgreSQL language catalog.', 'Authenticated member', 'The member can access Settings.', 'The selected enabled language is applied to subsequent views.', 'critical', 'functional', ARRAY['localization_languages', 'user_localization_preferences']),
+  ('FR-LOC-002', 'Translation fallback', 'Missing translations resolve to the default English catalog or the translation key without breaking rendering.', 'Any platform user', 'A translation key is requested.', 'The interface renders a safe readable value.', 'critical', 'functional', ARRAY['localization_translations']),
+  ('FR-LOC-003', 'Regional formatting', 'Dates, numbers, time, and currency are formatted using the member locale and preferences.', 'Authenticated member', 'The member has a locale preference or browser locale.', 'Display formatting follows the selected locale.', 'high', 'functional', ARRAY['user_localization_preferences']),
+  ('FR-LOC-004', 'Currency catalog and conversion', 'Supported currencies and administrator-managed exchange rates are available for display conversion.', 'Member and administrator', 'Currencies and rates exist in PostgreSQL.', 'Display conversions retain source and target currency context without changing settlement records.', 'critical', 'functional', ARRAY['localization_currencies', 'localization_exchange_rates']),
+  ('FR-LOC-005', 'Language and region settings', 'Members can persist language, locale, currency, region, date, time, and auto-detection preferences.', 'Authenticated member', 'The member submits valid settings.', 'Preferences are upserted and audited in PostgreSQL.', 'critical', 'functional', ARRAY['user_localization_preferences', 'localization_audit_logs']),
+  ('FR-LOC-006', 'Guest locale detection', 'Guest requests use Accept-Language detection with a safe English fallback.', 'Guest user', 'The request includes an optional browser language header.', 'The request receives a supported locale without creating persistence.', 'high', 'functional', ARRAY['localization_languages']),
+  ('FR-LOC-007', 'Localized notifications', 'Event-generated notifications are translated for each recipient and retain the locale used in audit metadata.', 'Notification service', 'A notification event has one or more recipients.', 'Localized title and message are stored in PostgreSQL and delivered through existing channels.', 'critical', 'functional', ARRAY['notifications', 'localization_translations', 'localization_audit_logs']),
+  ('FR-LOC-008', 'Administrator localization management', 'Authorized administrators can manage language availability, translations, and exchange rates.', 'Authorized administrator', 'The administrator has admin.settings.manage.', 'Changes are persisted and audited.', 'critical', 'functional', ARRAY['localization_languages', 'localization_translations', 'localization_exchange_rates']),
+  ('FR-LOC-009', 'Localization auditability', 'Preference, catalog, rate, and notification locale changes produce durable audit records.', 'System and administrator', 'A localization operation completes.', 'An audit row records actor, event, locale, details, and request metadata.', 'high', 'security', ARRAY['localization_audit_logs']),
+  ('FR-LOC-010', 'Localization resilience', 'Unsupported or unavailable localization values do not break existing member, payment, subscription, or notification workflows.', 'Any platform user', 'A locale, rate, or translation may be unavailable.', 'Existing workflows remain available with safe default presentation.', 'critical', 'non_functional', ARRAY['localization', 'payments', 'subscriptions', 'notifications'])
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT r.id, v.user_story, v.ui_reference, v.api_reference, v.database_objects, v.test_case, 'Localization', '1.0', 'complete', v.notes
+FROM requirements r JOIN (VALUES
+  ('FR-LOC-001', 'As a member, I want to select my ACC language.', 'views/localization/settings.ejs', 'POST /settings/localization', ARRAY['localization_languages','user_localization_preferences'], 'Language selection acceptance checks', 'Enabled catalog values are validated and persisted.'),
+  ('FR-LOC-002', 'As a user, I want missing translations to remain readable.', 'server.js, models/localizationModel.js', 'Shared translation helper', ARRAY['localization_translations'], 'Translation fallback acceptance checks', 'English and key fallback behavior is centralized.'),
+  ('FR-LOC-003', 'As a member, I want dates and currency formatted for my region.', 'views/localization/settings.ejs, shared locals', 'formatCurrency, formatDate, formatNumber', ARRAY['user_localization_preferences'], 'Regional formatting acceptance checks', 'Intl formatters use the request locale.'),
+  ('FR-LOC-004', 'As a member, I want display currency conversion without altering payment settlement.', 'models/localizationModel.js', 'convertCurrency, getExchangeRate', ARRAY['localization_currencies','localization_exchange_rates'], 'Currency conversion acceptance checks', 'Conversion is display-only and rate-backed.'),
+  ('FR-LOC-005', 'As a member, I want language and region choices to persist.', 'views/localization/settings.ejs', 'POST /settings/localization', ARRAY['user_localization_preferences','localization_audit_logs'], 'Preference persistence acceptance checks', 'Upsert and audit operations use PostgreSQL.'),
+  ('FR-LOC-006', 'As a guest, I want ACC to respect my browser language.', 'server.js', 'Accept-Language request middleware', ARRAY['localization_languages'], 'Guest locale detection acceptance checks', 'Supported language family detection falls back to English.'),
+  ('FR-LOC-007', 'As a member, I want notification events in my language.', 'models/notificationModel.js', 'generateFromEvent', ARRAY['notifications','localization_translations','localization_audit_logs'], 'Localized notification acceptance checks', 'Recipient preferences determine stored notification text.'),
+  ('FR-LOC-008', 'As an administrator, I want to maintain localization catalogs.', 'views/admin/localization.ejs', 'POST /admin/localization/*', ARRAY['localization_languages','localization_translations','localization_exchange_rates'], 'Admin localization acceptance checks', 'Existing admin.settings.manage protects mutations.'),
+  ('FR-LOC-009', 'As an auditor, I want localization changes to be reviewable.', 'views/admin/localization.ejs', 'Localization audit queries', ARRAY['localization_audit_logs'], 'Localization audit acceptance checks', 'Actor and request metadata are stored.'),
+  ('FR-LOC-010', 'As a platform user, I want localization failures not to break workflows.', 'views/layouts/layout.ejs, payment and subscription views', 'Shared fallback and existing module routes', ARRAY['localization_translations','localization_exchange_rates'], 'Localization resilience regression checks', 'Existing callers remain compatible and fallback is safe.')
+) AS v(requirement_key, user_story, ui_reference, api_reference, database_objects, test_case, notes) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO requirement_validation_rules (requirement_id, field_name, rule_key, rule_description, error_message)
+SELECT r.id, v.field_name, v.rule_key, v.rule_description, v.error_message FROM requirements r JOIN (VALUES
+  ('FR-LOC-001','languageCode','enabled_language','Language must be enabled in PostgreSQL.','Choose an available language.'),
+  ('FR-LOC-002','translationKey','fallback_value','A missing key must resolve to English or its key.','The translation is unavailable.'),
+  ('FR-LOC-003','locale','supported_locale','Locale must be supported by the formatting runtime.','Choose a supported region.'),
+  ('FR-LOC-004','rate','positive_rate','Exchange rates must be positive numeric values.','Enter a valid positive exchange rate.'),
+  ('FR-LOC-005','preferences','persisted_preferences','Valid preference fields must be persisted for the authenticated user.','Check your language and region choices.'),
+  ('FR-LOC-006','acceptLanguage','safe_detection','Unsupported browser language must fall back safely.','The browser language could not be detected.'),
+  ('FR-LOC-007','recipientId','localized_recipient','Each notification recipient must resolve a locale before event insertion.','The notification recipient is invalid.'),
+  ('FR-LOC-008','permission','admin_settings_manage','Catalog mutation requires the existing management permission.','You are not authorized to manage localization.'),
+  ('FR-LOC-009','auditEvent','durable_audit','Localization mutations must create an audit record.','The audit record could not be created.'),
+  ('FR-LOC-010','fallback','workflow_safe','Unavailable localization data must not prevent the base workflow.','Use the default display settings and try again.')
+) AS v(requirement_key, field_name, rule_key, rule_description, error_message) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, field_name, rule_key) DO NOTHING;
+
+INSERT INTO requirement_compliance_controls (requirement_id, framework, control_key, control_description, status, evidence_reference)
+SELECT r.id, v.framework, v.control_key, v.control_description, 'implemented', v.evidence_reference FROM requirements r JOIN (VALUES
+  ('FR-LOC-001','Localization','LOC-LANG-01','Supported languages are cataloged and enabled in PostgreSQL.','localization_languages'),
+  ('FR-LOC-002','Localization','LOC-FALLBACK-01','Translation lookup uses English and key fallback.','models/localizationModel.js'),
+  ('FR-LOC-003','Localization','LOC-FORMAT-01','Shared Intl formatters use the request locale.','server.js shared locals'),
+  ('FR-LOC-004','Financial display','LOC-RATE-01','Exchange rates are stored with source and effective time.','localization_exchange_rates'),
+  ('FR-LOC-005','Privacy','LOC-PREF-01','Member choices are durable and user-scoped.','user_localization_preferences'),
+  ('FR-LOC-006','Usability','LOC-DETECT-01','Guest detection does not create persistence.','server.js middleware'),
+  ('FR-LOC-007','Notifications','LOC-NOTIFY-01','Localized notification content is stored with locale audit metadata.','notification_audit_logs'),
+  ('FR-LOC-008','Access control','LOC-ADMIN-01','Localization mutations require admin.settings.manage.','routes/adminRoute.js'),
+  ('FR-LOC-009','Audit','LOC-AUDIT-01','Localization operations record actor and request metadata.','localization_audit_logs'),
+  ('FR-LOC-010','Reliability','LOC-RESILIENCE-01','Fallbacks preserve existing workflows.','shared localization model and callers')
+) AS v(requirement_key, framework, control_key, control_description, evidence_reference) ON r.requirement_id = v.requirement_key
+ON CONFLICT (requirement_id, framework, control_key) DO NOTHING;
+
+INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary)
+SELECT id, 1, 'created', 'Chapter 33 localization and multi-language support baseline.' FROM requirements WHERE requirement_id LIKE 'FR-LOC-%'
+ON CONFLICT (requirement_id, version) DO NOTHING;
+
+-- Chapter 35: Data management and database requirements.
+CREATE TABLE IF NOT EXISTS data_catalog_resources (id BIGSERIAL PRIMARY KEY, resource_key VARCHAR(120) NOT NULL UNIQUE, category VARCHAR(40) NOT NULL, table_name VARCHAR(120) NOT NULL, description TEXT NOT NULL, retention_days INTEGER NOT NULL CHECK (retention_days > 0), sensitive BOOLEAN NOT NULL DEFAULT FALSE, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS data_integrity_checks (id BIGSERIAL PRIMARY KEY, check_key VARCHAR(120) NOT NULL, status VARCHAR(30) NOT NULL CHECK (status IN ('passed','warning','failed')), findings JSONB NOT NULL DEFAULT '{}'::jsonb, rows_checked INTEGER NOT NULL DEFAULT 0, checked_by BIGINT REFERENCES users(id) ON DELETE SET NULL, checked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS data_archives (id BIGSERIAL PRIMARY KEY, resource_key VARCHAR(120) NOT NULL REFERENCES data_catalog_resources(resource_key) ON DELETE RESTRICT, table_name VARCHAR(120) NOT NULL, record_id VARCHAR(120) NOT NULL, archived_data JSONB NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'archived' CHECK (status IN ('archived','restored','purged')), reason TEXT NOT NULL, archived_by BIGINT REFERENCES users(id) ON DELETE SET NULL, restored_by BIGINT REFERENCES users(id) ON DELETE SET NULL, archived_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, restored_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS data_versions (id BIGSERIAL PRIMARY KEY, resource_key VARCHAR(120) NOT NULL REFERENCES data_catalog_resources(resource_key) ON DELETE RESTRICT, record_id VARCHAR(120) NOT NULL, version_number INTEGER NOT NULL CHECK (version_number > 0), change_type VARCHAR(30) NOT NULL CHECK (change_type IN ('created','updated','deleted','restored')), snapshot JSONB NOT NULL, changed_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (resource_key, record_id, version_number));
+CREATE TABLE IF NOT EXISTS data_backup_schedules (id BIGSERIAL PRIMARY KEY, schedule_key VARCHAR(120) NOT NULL UNIQUE, frequency VARCHAR(40) NOT NULL CHECK (frequency IN ('hourly','daily','weekly','monthly')), retention_days INTEGER NOT NULL CHECK (retention_days > 0), storage_provider VARCHAR(80) NOT NULL, storage_reference TEXT, encrypted BOOLEAN NOT NULL DEFAULT TRUE, active BOOLEAN NOT NULL DEFAULT TRUE, last_run_at TIMESTAMPTZ, next_run_at TIMESTAMPTZ, updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS data_recovery_requests (id BIGSERIAL PRIMARY KEY, backup_id BIGINT, target_resource VARCHAR(120), target_environment VARCHAR(40) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','approved','in_progress','completed','rejected')), reason TEXT NOT NULL, requested_by BIGINT REFERENCES users(id) ON DELETE SET NULL, approved_by BIGINT REFERENCES users(id) ON DELETE SET NULL, requested_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMPTZ, notes TEXT);
+CREATE TABLE IF NOT EXISTS data_management_audit_logs (id BIGSERIAL PRIMARY KEY, actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, event_type VARCHAR(120) NOT NULL, resource_key VARCHAR(120), record_id VARCHAR(120), outcome VARCHAR(30) NOT NULL DEFAULT 'success', details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS data_integrity_checks_key_idx ON data_integrity_checks(check_key, checked_at DESC);
+CREATE INDEX IF NOT EXISTS data_archives_resource_idx ON data_archives(resource_key, status, archived_at DESC);
+CREATE INDEX IF NOT EXISTS data_versions_record_idx ON data_versions(resource_key, record_id, version_number DESC);
+CREATE INDEX IF NOT EXISTS data_audit_created_idx ON data_management_audit_logs(created_at DESC);
+INSERT INTO data_catalog_resources (resource_key, category, table_name, description, retention_days, sensitive) VALUES
+ ('users','user','users','Profiles, authentication state, preferences, and consent metadata.',3650,TRUE), ('business_accounts','business','business_accounts','Business registration, verification, ownership, and lifecycle data.',3650,FALSE), ('marketplace_listings','business','marketplace_listings','Business listings and publishing state.',1825,FALSE), ('orders','transaction','orders','Commerce order records and lifecycle state.',3650,TRUE), ('payments','transaction','payments','Payment records, gateway status, and settlement references.',3650,TRUE), ('procurement_rfqs','transaction','procurement_rfqs','Procurement requests and sourcing records.',3650,FALSE), ('audit_logs','system','audit_logs','Core application audit events.',3650,TRUE), ('analytics_events','system','analytics_events','Product activity and reporting events.',1095,TRUE), ('notifications','system','notifications','Member notifications and delivery state.',1095,TRUE)
+ON CONFLICT (resource_key) DO NOTHING;
+INSERT INTO data_backup_schedules (schedule_key, frequency, retention_days, storage_provider, encrypted, active) VALUES ('primary-postgresql-daily','daily',35,'encrypted-object-storage',TRUE,TRUE) ON CONFLICT (schedule_key) DO NOTHING;
+
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies)
+VALUES
+ ('FR-DATA-001','Structured data storage','Platform data is organized in PostgreSQL tables with a catalog of user, business, transaction, and system resources.','Platform','PostgreSQL is available.','Data categories have durable table metadata.','critical','functional',ARRAY['data_catalog_resources','users','business_accounts','orders','payments']),
+ ('FR-DATA-002','Data integrity enforcement','Constraints and validation checks reject or identify invalid relationships and records.','Platform','A data operation or integrity check executes.','Invalid records are prevented or surfaced with findings.','critical','security',ARRAY['foreign_keys','data_integrity_checks']),
+ ('FR-DATA-003','Efficient data retrieval','Indexes support efficient integrity, archive, version, and audit queries.','Platform','Catalog and audit data exists.','Operational queries use indexed access paths.','high','performance',ARRAY['data_integrity_checks_key_idx','data_versions_record_idx']),
+ ('FR-DATA-004','Data update and modification','Authorized data-management actions update operational records and persist the resulting evidence.','Administrator','The administrator has data-management permission.','Updates and actions are reflected in PostgreSQL audit records.','critical','functional',ARRAY['data_management_audit_logs','permissions']),
+ ('FR-DATA-005','Deletion and archiving','Critical records can be archived with a JSON snapshot, reason, actor, and lifecycle status.','Administrator','The resource is cataloged.','Archived evidence is retained and searchable.','high','functional',ARRAY['data_archives','data_catalog_resources']),
+ ('FR-DATA-006','Scheduled data backup','Backup schedules define frequency, retention, encrypted storage, and operational evidence.','Operations administrator','A production environment and storage target exist.','Backup requests and schedule metadata are persisted.','critical','functional',ARRAY['data_backup_schedules','deployment_backups']),
+ ('FR-DATA-007','Data recovery','Authorized administrators can submit recovery requests against a backup and target environment.','Operations administrator','A failure or restoration need is identified.','A recovery request is tracked through a durable status lifecycle.','critical','functional',ARRAY['data_recovery_requests','deployment_backups']),
+ ('FR-DATA-008','Data security','Sensitive resources are cataloged and protected by authenticated permission checks and encrypted backup requirements.','Security and operations administrator','RBAC and PostgreSQL are available.','Unauthorized data-management actions are denied.','critical','security',ARRAY['data_catalog_resources','permissions','data_backup_schedules']),
+ ('FR-DATA-009','Data versioning','Critical record snapshots are retained as ordered versions with change types and actors.','Administrator','The resource is cataloged.','Change history can be retrieved by resource and record.','medium','functional',ARRAY['data_versions']),
+ ('FR-DATA-010','Data audit logging','Data creation, update, archive, backup, recovery, integrity, and version activities are audited.','System and administrator','A data activity occurs.','Actor, event, resource, outcome, and details are retained.','critical','security',ARRAY['data_management_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT r.id, v.user_story, v.ui_reference, v.api_reference, v.database_objects, v.test_case, 'Data backbone', '1.0', 'complete', v.notes FROM requirements r JOIN (VALUES
+ ('FR-DATA-001','As an administrator, I want a catalog of structured platform data.','views/admin/data-management.ejs','GET /admin/data-management',ARRAY['data_catalog_resources','users','business_accounts','orders','payments'],'Chapter 35 data catalog checks','PostgreSQL resource catalog and existing business tables are visible.'),
+ ('FR-DATA-002','As an administrator, I want invalid data relationships identified.','views/admin/data-management.ejs','POST /admin/data-management/integrity-checks',ARRAY['data_integrity_checks'],'Chapter 35 integrity checks','Foreign keys and repeatable checks enforce data quality.'),
+ ('FR-DATA-003','As an operator, I want indexed data-management queries.','views/admin/data-management.ejs','Data-management model queries',ARRAY['data_integrity_checks_key_idx','data_versions_record_idx','data_audit_created_idx'],'Chapter 35 query performance checks','Operational query indexes are created.'),
+ ('FR-DATA-004','As an administrator, I want authorized data changes to persist correctly.','views/admin/data-management.ejs','POST /admin/data-management/*',ARRAY['data_management_audit_logs','permissions'],'Chapter 35 mutation checks','Mutations require admin.data.manage.'),
+ ('FR-DATA-005','As an administrator, I want records archived with evidence.','views/admin/data-management.ejs','POST /admin/data-management/archive',ARRAY['data_archives'],'Chapter 35 archive checks','JSON snapshots and reasons are retained.'),
+ ('FR-DATA-006','As an operations administrator, I want scheduled encrypted backups recorded.','views/admin/data-management.ejs, views/admin/deployment.ejs','POST /admin/data-management/backups',ARRAY['data_backup_schedules','deployment_backups'],'Chapter 35 backup checks','Schedule and backup evidence are PostgreSQL-backed.'),
+ ('FR-DATA-007','As an operations administrator, I want recovery requests tracked.','views/admin/data-management.ejs','POST /admin/data-management/recovery',ARRAY['data_recovery_requests'],'Chapter 35 recovery checks','Recovery target and status are persisted.'),
+ ('FR-DATA-008','As a security administrator, I want sensitive data controls and protected actions.','views/admin/data-management.ejs','RBAC middleware and encrypted schedule metadata',ARRAY['data_catalog_resources','permissions'],'Chapter 35 security checks','Private admin routes deny unauthorized users.'),
+ ('FR-DATA-009','As an administrator, I want critical record changes versioned.','views/admin/data-management.ejs','POST /admin/data-management/versions',ARRAY['data_versions'],'Chapter 35 version checks','Snapshots receive ordered versions.'),
+ ('FR-DATA-010','As an auditor, I want data activity searchable by event and resource.','views/admin/data-management.ejs','Data-management audit queries',ARRAY['data_management_audit_logs'],'Chapter 35 audit checks','Data-management actions create audit evidence.')
+) AS v(requirement_key,user_story,ui_reference,api_reference,database_objects,test_case,notes) ON r.requirement_id=v.requirement_key ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary) SELECT id, version, 'created', 'Chapter 35 data management and database baseline.' FROM requirements WHERE requirement_id LIKE 'FR-DATA-%' ON CONFLICT (requirement_id, version) DO NOTHING;
+
+-- Chapter 36: Performance and scalability requirements.
+CREATE TABLE IF NOT EXISTS performance_request_metrics (id BIGSERIAL PRIMARY KEY, request_id VARCHAR(120), method VARCHAR(10) NOT NULL, path VARCHAR(500) NOT NULL, status_code INTEGER NOT NULL, response_time_ms INTEGER NOT NULL CHECK (response_time_ms >= 0), is_api BOOLEAN NOT NULL DEFAULT FALSE, error BOOLEAN NOT NULL DEFAULT FALSE, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, environment_key VARCHAR(30) NOT NULL DEFAULT 'development', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS performance_capacity_profiles (id BIGSERIAL PRIMARY KEY, environment_key VARCHAR(30) NOT NULL UNIQUE, load_balancer_enabled BOOLEAN NOT NULL DEFAULT FALSE, horizontal_scaling_enabled BOOLEAN NOT NULL DEFAULT FALSE, vertical_scaling_enabled BOOLEAN NOT NULL DEFAULT FALSE, cdn_enabled BOOLEAN NOT NULL DEFAULT FALSE, cache_enabled BOOLEAN NOT NULL DEFAULT FALSE, target_concurrency INTEGER NOT NULL DEFAULT 100 CHECK (target_concurrency > 0), cpu_limit_percent NUMERIC(5,2) NOT NULL DEFAULT 80 CHECK (cpu_limit_percent > 0 AND cpu_limit_percent <= 100), memory_limit_percent NUMERIC(5,2) NOT NULL DEFAULT 80 CHECK (memory_limit_percent > 0 AND memory_limit_percent <= 100), cache_provider VARCHAR(80) NOT NULL DEFAULT 'PostgreSQL shared cache', cdn_provider VARCHAR(120), updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS performance_cache_entries (cache_key VARCHAR(240) PRIMARY KEY, payload JSONB NOT NULL, expires_at TIMESTAMPTZ NOT NULL, hit_count INTEGER NOT NULL DEFAULT 0 CHECK (hit_count >= 0), created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS performance_peak_load_checks (id BIGSERIAL PRIMARY KEY, environment_key VARCHAR(30) NOT NULL, requested_concurrency INTEGER NOT NULL CHECK (requested_concurrency > 0), observed_requests INTEGER NOT NULL DEFAULT 0, average_response_time_ms INTEGER, error_rate NUMERIC(7,4), status VARCHAR(30) NOT NULL CHECK (status IN ('passed','warning','failed')), findings JSONB NOT NULL DEFAULT '{}'::jsonb, checked_by INTEGER REFERENCES users(id) ON DELETE SET NULL, checked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS performance_optimization_actions (id BIGSERIAL PRIMARY KEY, title VARCHAR(200) NOT NULL, area VARCHAR(80) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','in_progress','completed','rejected')), baseline_response_time_ms INTEGER, measured_response_time_ms INTEGER, notes TEXT, owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMPTZ);
+CREATE INDEX IF NOT EXISTS performance_metrics_created_idx ON performance_request_metrics(created_at DESC);
+CREATE INDEX IF NOT EXISTS performance_metrics_path_idx ON performance_request_metrics(path, created_at DESC);
+CREATE INDEX IF NOT EXISTS performance_metrics_api_idx ON performance_request_metrics(is_api, created_at DESC);
+CREATE INDEX IF NOT EXISTS performance_peak_checks_created_idx ON performance_peak_load_checks(checked_at DESC);
+INSERT INTO performance_capacity_profiles (environment_key, load_balancer_enabled, horizontal_scaling_enabled, vertical_scaling_enabled, cdn_enabled, cache_enabled, target_concurrency, cache_provider, cdn_provider) VALUES ('development', FALSE, TRUE, TRUE, FALSE, TRUE, 50, 'PostgreSQL shared cache', NULL), ('staging', TRUE, TRUE, TRUE, TRUE, TRUE, 500, 'PostgreSQL shared cache', 'Configured deployment CDN'), ('production', TRUE, TRUE, TRUE, TRUE, TRUE, 2000, 'PostgreSQL shared cache', 'Configured deployment CDN') ON CONFLICT (environment_key) DO NOTHING;
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies) VALUES
+ ('ACC-FRS-PERF-001','Fast response time','Pages target 3000 ms and APIs target 500 ms average response time.','Operations administrator','PostgreSQL and application telemetry are available.','Response evidence is persisted and reviewable.','critical','non_functional',ARRAY['performance_request_metrics']),
+ ('ACC-FRS-PERF-002','Concurrent user support','The platform measures concurrent request activity and capacity posture.','Operations administrator','Telemetry is available.','Concurrent-user evidence is recorded.','critical','non_functional',ARRAY['performance_request_metrics','performance_capacity_profiles']),
+ ('ACC-FRS-PERF-003','Load balancing','Traffic distribution and proxy posture are recorded for operations review.','Operations administrator','An environment profile exists.','Load-balancer posture is visible.','high','non_functional',ARRAY['performance_capacity_profiles']),
+ ('ACC-FRS-PERF-004','Horizontal scaling','Environment instance ranges support adding application servers without downtime.','Operations administrator','Deployment environments are configured.','Horizontal scaling posture is recorded.','critical','non_functional',ARRAY['deployment_environments','performance_capacity_profiles']),
+ ('ACC-FRS-PERF-005','Vertical scaling','CPU and memory capacity targets are recorded for resource upgrades.','Operations administrator','Runtime resource metrics are available.','Vertical scaling limits are reviewable.','high','non_functional',ARRAY['deployment_metrics','performance_capacity_profiles']),
+ ('ACC-FRS-PERF-006','Caching mechanism','Frequently accessed data can use a PostgreSQL-backed cache with TTL and hit tracking.','Platform','A cache profile is enabled.','Cache entries and hits are durable.','high','performance',ARRAY['performance_cache_entries']),
+ ('ACC-FRS-PERF-007','CDN integration','Static asset delivery posture and cache policy are visible to operators.','Operations administrator','A CDN provider is configured.','CDN readiness is reviewable per environment.','medium','non_functional',ARRAY['performance_capacity_profiles']),
+ ('ACC-FRS-PERF-008','Performance monitoring','Response time, error rate, throughput, and resource metrics are persisted.','Platform','Requests are processed.','Performance metrics are queryable in real time.','critical','performance',ARRAY['performance_request_metrics','deployment_metrics']),
+ ('ACC-FRS-PERF-009','Peak load handling','Peak-load checks record capacity results and findings.','Operations administrator','A capacity target exists.','Peak-load evidence is stored with status.','critical','performance',ARRAY['performance_peak_load_checks']),
+ ('ACC-FRS-PERF-010','Performance optimization','Optimization actions are tracked with measured before and after evidence.','Operations administrator','A performance improvement is identified.','Optimization history is reviewable.','high','performance',ARRAY['performance_optimization_actions'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT r.id, 'As an operations administrator, I want durable performance controls and evidence.', 'views/admin/performance.ejs', 'GET /admin/performance and POST /admin/performance/*', ARRAY['performance_request_metrics','performance_capacity_profiles','performance_cache_entries','performance_peak_load_checks','performance_optimization_actions'], 'Chapter 36 performance control checks', 'Growth readiness', '1.0', 'complete', 'Performance telemetry and capacity controls are PostgreSQL-backed.' FROM requirements r WHERE r.requirement_id LIKE 'ACC-FRS-PERF-%' ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_validation_rules (requirement_id, field_name, rule_key, rule_description, error_message)
+SELECT r.id, v.field_name, v.rule_key, v.rule_description, v.error_message FROM requirements r JOIN (VALUES
+ ('ACC-FRS-PERF-001','responseTimeMs','page_or_api_target','Page response targets are 3000 ms and API response targets are 500 ms average.','The response time is above the configured target.'),
+ ('ACC-FRS-PERF-002','targetConcurrency','positive_capacity','Concurrency targets must be positive integers.','Enter a valid concurrency target.'),
+ ('ACC-FRS-PERF-003','loadBalancerEnabled','proxy_posture','Production traffic distribution must record load-balancer posture.','Configure the load-balancer posture.'),
+ ('ACC-FRS-PERF-004','horizontalScalingEnabled','multi_instance_posture','Scalable environments must record horizontal scaling readiness.','Configure horizontal scaling readiness.'),
+ ('ACC-FRS-PERF-005','cpuLimitPercent','bounded_resource_limit','CPU and memory thresholds must be between 1 and 100 percent.','Enter a resource threshold between 1 and 100.'),
+ ('ACC-FRS-PERF-006','cacheKey','ttl_cache_entry','Cache entries require a key, JSON payload, and positive TTL.','Enter a valid cache entry.'),
+ ('ACC-FRS-PERF-007','cdnProvider','delivery_provider','CDN-enabled environments must identify a delivery provider.','Identify the CDN provider.'),
+ ('ACC-FRS-PERF-008','requestMetric','durable_metric','Request metrics must persist response time, status, error, and timestamp.','The performance metric is incomplete.'),
+ ('ACC-FRS-PERF-009','requestedConcurrency','peak_check','Peak-load checks require a positive requested concurrency and recorded result.','Enter a valid peak-load check.'),
+ ('ACC-FRS-PERF-010','optimizationAction','measured_improvement','Optimization actions should retain baseline and measured evidence when completed.','Add before-and-after performance evidence.')
+) AS v(requirement_key, field_name, rule_key, rule_description, error_message) ON r.requirement_id = v.requirement_key ON CONFLICT (requirement_id, field_name, rule_key) DO NOTHING;
+INSERT INTO requirement_compliance_controls (requirement_id, framework, control_key, control_description, status, evidence_reference)
+SELECT r.id, 'Performance operations', v.control_key, v.control_description, 'implemented', v.evidence_reference FROM requirements r JOIN (VALUES
+ ('ACC-FRS-PERF-001','PERF-RESP-01','Response targets are visible and supported by request timing telemetry.','performance_request_metrics'), ('ACC-FRS-PERF-002','PERF-CONC-01','Concurrency capacity is explicitly configured by environment.','performance_capacity_profiles'), ('ACC-FRS-PERF-003','PERF-LB-01','Load-balancer readiness is recorded per environment.','performance_capacity_profiles'), ('ACC-FRS-PERF-004','PERF-HS-01','Horizontal scaling posture is recorded alongside deployment instance ranges.','performance_capacity_profiles and deployment_environments'), ('ACC-FRS-PERF-005','PERF-VS-01','Vertical resource thresholds are recorded and reviewable.','performance_capacity_profiles and deployment_metrics'), ('ACC-FRS-PERF-006','PERF-CACHE-01','Cache payloads, TTLs, and hits are persisted in PostgreSQL.','performance_cache_entries'), ('ACC-FRS-PERF-007','PERF-CDN-01','CDN provider and enabled state are visible to operators.','performance_capacity_profiles'), ('ACC-FRS-PERF-008','PERF-MON-01','Latency, throughput, error, and resource metrics are queryable.','performance_request_metrics and deployment_metrics'), ('ACC-FRS-PERF-009','PERF-PEAK-01','Peak-load checks retain status, concurrency, latency, and error evidence.','performance_peak_load_checks'), ('ACC-FRS-PERF-010','PERF-OPT-01','Optimization actions retain measurable before-and-after evidence.','performance_optimization_actions')
+) AS v(requirement_key, control_key, control_description, evidence_reference) ON r.requirement_id = v.requirement_key ON CONFLICT (requirement_id, framework, control_key) DO NOTHING;
+INSERT INTO requirement_changes (requirement_id, version, change_type, change_summary) SELECT id, version, 'created', 'Chapter 36 performance and scalability baseline.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-PERF-%' ON CONFLICT (requirement_id, version) DO NOTHING;
+
 -- ========================================
 -- CHAPTER 3: ROLE-BASED ACCESS CONTROL
 -- ========================================
@@ -452,7 +720,17 @@ VALUES
   ,('analytics.reports.export', 'analytics_reports', 'manage', 'Generate and export analytics reports.')
   ,('admin.support.read', 'admin_support', 'read', 'View customer-care handoffs created by the ACC Assistant.')
   ,('admin.support.manage', 'admin_support', 'manage', 'Claim, respond to, and resolve customer-care handoffs.')
+  ,('admin.data.read', 'admin_data', 'read', 'View data catalog, integrity, lifecycle, backup, recovery, and audit evidence.')
+  ,('admin.data.manage', 'admin_data', 'manage', 'Manage data integrity checks, archives, versions, backups, and recovery requests.')
+  ,('admin.performance.read', 'admin_performance', 'read', 'View performance telemetry, capacity, scaling, caching, CDN, and optimization evidence.')
+  ,('admin.performance.manage', 'admin_performance', 'manage', 'Manage performance profiles, peak-load checks, and optimization actions.')
 ON CONFLICT (permission_key) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('compliance_officer', 'platform_admin', 'system_admin', 'acc_management_admin', 'super_admin')
+  AND p.permission_key IN ('admin.data.read', 'admin.data.manage', 'admin.performance.read', 'admin.performance.manage')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
@@ -850,6 +1128,10 @@ CREATE TABLE deployment_backups (
   requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   notes TEXT
 );
+
+ALTER TABLE data_recovery_requests
+  ADD CONSTRAINT data_recovery_requests_backup_id_fkey
+  FOREIGN KEY (backup_id) REFERENCES deployment_backups(id) ON DELETE SET NULL;
 
 CREATE TABLE deployment_audit_logs (
   id BIGSERIAL PRIMARY KEY,
@@ -2336,3 +2618,34 @@ VALUES
   ('events', 'Events', TRUE, 'Events and registration workflows.'),
   ('payments', 'Payments', TRUE, 'Payment and transaction workflows.')
 ON CONFLICT (feature_key) DO NOTHING;
+
+-- Chapter 34: Compliance and regulatory controls.
+CREATE TABLE IF NOT EXISTS compliance_policies (id BIGSERIAL PRIMARY KEY, policy_key VARCHAR(80) NOT NULL UNIQUE, name VARCHAR(180) NOT NULL, description TEXT, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS compliance_policy_versions (id BIGSERIAL PRIMARY KEY, policy_id BIGINT NOT NULL REFERENCES compliance_policies(id) ON DELETE CASCADE, version VARCHAR(40) NOT NULL, content TEXT NOT NULL, effective_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, published_by BIGINT REFERENCES users(id) ON DELETE SET NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (policy_id, version));
+CREATE TABLE IF NOT EXISTS user_consent_records (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, policy_id BIGINT NOT NULL REFERENCES compliance_policies(id) ON DELETE RESTRICT, policy_version_id BIGINT NOT NULL REFERENCES compliance_policy_versions(id) ON DELETE RESTRICT, consented BOOLEAN NOT NULL, ip_address INET, user_agent TEXT, consented_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS compliance_kyc_cases (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, status VARCHAR(30) NOT NULL DEFAULT 'not_started', risk_level VARCHAR(20) NOT NULL DEFAULT 'unknown', reviewer_id BIGINT REFERENCES users(id) ON DELETE SET NULL, decision_notes TEXT, submitted_at TIMESTAMPTZ, reviewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS compliance_kyc_documents (id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES compliance_kyc_cases(id) ON DELETE CASCADE, document_type VARCHAR(60) NOT NULL, storage_path TEXT NOT NULL, original_name TEXT NOT NULL, mime_type VARCHAR(120) NOT NULL, file_size INTEGER NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'pending', reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL, review_notes TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, reviewed_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS compliance_business_cases (id BIGSERIAL PRIMARY KEY, business_id BIGINT NOT NULL UNIQUE REFERENCES business_accounts(id) ON DELETE CASCADE, status VARCHAR(30) NOT NULL DEFAULT 'submitted', risk_level VARCHAR(20) NOT NULL DEFAULT 'unknown', reviewer_id BIGINT REFERENCES users(id) ON DELETE SET NULL, decision_notes TEXT, submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, reviewed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS compliance_transaction_flags (id BIGSERIAL PRIMARY KEY, payment_id BIGINT REFERENCES payments(id) ON DELETE SET NULL, order_id BIGINT REFERENCES orders(id) ON DELETE SET NULL, user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, rule_key VARCHAR(100) NOT NULL, severity VARCHAR(20) NOT NULL DEFAULT 'medium', reason TEXT NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'open', reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL, resolution_notes TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS compliance_aml_restrictions (id BIGSERIAL PRIMARY KEY, user_id BIGINT REFERENCES users(id) ON DELETE CASCADE, business_id BIGINT REFERENCES business_accounts(id) ON DELETE CASCADE, reason TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'active', created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, lifted_by BIGINT REFERENCES users(id) ON DELETE SET NULL, lifted_at TIMESTAMPTZ, CHECK (user_id IS NOT NULL OR business_id IS NOT NULL));
+CREATE TABLE IF NOT EXISTS compliance_cross_border_rules (id BIGSERIAL PRIMARY KEY, origin_country VARCHAR(3) NOT NULL, destination_country VARCHAR(3) NOT NULL, action VARCHAR(30) NOT NULL DEFAULT 'review', reason TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (origin_country, destination_country));
+CREATE TABLE IF NOT EXISTS compliance_regulatory_reports (id BIGSERIAL PRIMARY KEY, report_type VARCHAR(80) NOT NULL, filters JSONB NOT NULL DEFAULT '{}'::jsonb, row_count INTEGER NOT NULL DEFAULT 0, generated_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS compliance_audit_logs (id BIGSERIAL PRIMARY KEY, actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, subject_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, event_type VARCHAR(120) NOT NULL, entity_type VARCHAR(80), entity_id BIGINT, outcome VARCHAR(30) NOT NULL DEFAULT 'success', details JSONB NOT NULL DEFAULT '{}'::jsonb, ip_address INET, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT INTO compliance_policies (policy_key, name, description) VALUES ('terms','Terms of Service','The terms governing use of the ACC platform.'), ('privacy','Privacy Policy','How ACC collects, uses, stores, and protects personal data.'), ('aml','AML and Sanctions Policy','Anti-money laundering, counter-terrorist financing, and sanctions controls.') ON CONFLICT (policy_key) DO NOTHING;
+INSERT INTO compliance_policy_versions (policy_id, version, content) SELECT id, '1.0', name || E'\n\n' || description FROM compliance_policies ON CONFLICT (policy_id, version) DO NOTHING;
+CREATE INDEX IF NOT EXISTS compliance_flags_status_idx ON compliance_transaction_flags(status, severity);
+CREATE INDEX IF NOT EXISTS compliance_audit_created_idx ON compliance_audit_logs(created_at DESC);
+
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies)
+VALUES
+ ('FR-COMP-001','Consent and policy versioning','Users can review active legal policies and durable consent history is recorded by version.','Member','Active policy versions exist.','Consent records are persisted and auditable.','critical','functional',ARRAY['users','compliance_policies','user_consent_records']),
+ ('FR-COMP-002','Privacy and data protection','Personal data processing is presented through an accessible privacy policy and protected workflows.','Member','User is authenticated for private data.','Access is authenticated and policy activity is audited.','critical','security',ARRAY['compliance_policies','compliance_audit_logs']),
+ ('FR-COMP-003','Identity KYC workflow','Members can submit identity documents and authorized staff can review the KYC case.','Member and compliance reviewer','Member has an account.','KYC status and document metadata are persisted.','critical','functional',ARRAY['compliance_kyc_cases','compliance_kyc_documents']),
+ ('FR-COMP-004','Business verification controls','Business verification submissions create a reviewable compliance case.','Business owner and compliance reviewer','Business registration exists.','Business compliance status is queued and audited.','critical','functional',ARRAY['business_accounts','compliance_business_cases']),
+ ('FR-COMP-005','Transaction monitoring','Risk signals can be recorded against payments and orders for review.','Compliance reviewer','Payment or order exists.','Flags have severity, reason, status, and audit history.','critical','functional',ARRAY['payments','orders','compliance_transaction_flags']),
+ ('FR-COMP-006','AML restrictions','Active AML restrictions prevent restricted users or businesses from initiating payments.','Compliance reviewer','A restriction is active.','Restricted payment requests are denied and auditable.','critical','security',ARRAY['compliance_aml_restrictions','payments']),
+ ('FR-COMP-007','Regulatory reporting','Report metadata can be persisted for regulatory reporting and traceability.','Compliance reviewer','Authorized report access exists.','Report generation is attributable and retained.','high','functional',ARRAY['compliance_regulatory_reports','compliance_audit_logs']),
+ ('FR-COMP-008','Cross-border controls','Origin and destination rules can be catalogued for cross-border review decisions.','Compliance reviewer','A country rule is configured.','Cross-border controls are durable and active-aware.','high','functional',ARRAY['compliance_cross_border_rules']),
+ ('FR-COMP-009','Compliance audit logging','Compliance actions record actor, subject, entity, outcome, and details.','Compliance reviewer','Compliance operation executes.','Audit events are retained in PostgreSQL.','critical','security',ARRAY['compliance_audit_logs']),
+ ('FR-COMP-010','Compliance operations access','Compliance queues and decisions are restricted to authorized administrators.','ACC administrator','RBAC access context exists.','Unauthorized access is denied.','critical','security',ARRAY['permissions','compliance_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;

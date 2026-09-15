@@ -28,6 +28,8 @@
           <a href="/admin/deployment" data-management-link="/admin/deployment"><span class="management-menu__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg></span><span><strong>Deployment &amp; infrastructure</strong><small>Environments, health, and recovery</small></span><span aria-hidden="true">&rarr;</span></a>
           <a href="/admin/customer-care" data-management-link="/admin/customer-care"><span class="management-menu__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H12l-4 4v-4h-.5A2.5 2.5 0 0 1 5 12.5v-6ZM9 9h6m-6 3h4" /></svg></span><span><strong>Customer care</strong><small>Assistant handoffs and replies</small></span><span aria-hidden="true">&rarr;</span></a>
           <a href="/admin/settings" data-management-link="/admin/settings"><span class="management-menu__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M3 12h2m14 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg></span><span><strong>System settings</strong><small>Platform configuration and feature flags</small></span><span aria-hidden="true">&rarr;</span></a>
+          <a href="/admin/data-management" data-management-link="/admin/data-management"><span class="management-menu__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v4H5V5Zm0 6h14v4H5v-4Zm0 6h14v2H5v-2Z" /></svg></span><span><strong>Data management</strong><small>Integrity, lifecycle, backups, and recovery</small></span><span aria-hidden="true">&rarr;</span></a>
+          <a href="/admin/performance" data-management-link="/admin/performance"><span class="management-menu__index" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4" /></svg></span><span><strong>Performance</strong><small>Latency, capacity, scaling, and peak load</small></span><span aria-hidden="true">&rarr;</span></a>
         </nav>
       </div>
     </div>
@@ -78,12 +80,36 @@
       <a class="management-card__link" href="/admin/system-overview">Open system overview <span aria-hidden="true">&rarr;</span></a>
     </article>
 
+    <article class="management-card management-card--requirements">
+      <div class="management-card__top"><span class="management-card__number">04</span><span class="management-card__status"><%= metrics.openComplianceFlags %> open flags</span></div>
+      <h2>Compliance operations</h2>
+      <p>Review KYC and business verification queues, AML signals, restrictions, and compliance audit activity.</p>
+      <div class="management-card__summary"><strong><%= metrics.pendingKyc + metrics.pendingBusiness %></strong><span>verification cases pending</span></div>
+      <a class="management-card__link" href="/admin/compliance">Open compliance operations <span aria-hidden="true">&rarr;</span></a>
+    </article>
+
+    <article class="management-card management-card--system">
+      <div class="management-card__top"><span class="management-card__number">05</span><span class="management-card__status"><%= metrics.integrityWarnings %> warnings</span></div>
+      <h2>Data management</h2>
+      <p>Monitor structured storage, integrity checks, retention, backups, recovery requests, and change history.</p>
+      <div class="management-card__summary"><strong><%= metrics.recoveryRequests %></strong><span>recovery requests requiring attention</span></div>
+      <a class="management-card__link" href="/admin/data-management">Open data management <span aria-hidden="true">&rarr;</span></a>
+    </article>
+
     <article class="management-card management-card--access">
-      <div class="management-card__top"><span class="management-card__number">04</span><span class="management-card__status">Support</span></div>
+      <div class="management-card__top"><span class="management-card__number">07</span><span class="management-card__status">Support</span></div>
       <h2>Customer care</h2>
       <p>Continue assistant conversations and respond to members who request an authorized ACC representative.</p>
       <div class="management-card__summary"><strong>&rarr;</strong><span>Open the customer-care queue</span></div>
       <a class="management-card__link" href="/admin/customer-care">Open customer care <span aria-hidden="true">&rarr;</span></a>
+    </article>
+
+    <article class="management-card management-card--system">
+      <div class="management-card__top"><span class="management-card__number">06</span><span class="management-card__status"><%= metrics.performanceErrorRate %>% errors</span></div>
+      <h2>Performance &amp; scalability</h2>
+      <p>Track response targets, throughput, concurrency, scaling posture, caching, CDN delivery, and optimization evidence.</p>
+      <div class="management-card__summary"><strong><%= metrics.performanceApiLatency %> ms</strong><span>average API response over 24 hours</span></div>
+      <a class="management-card__link" href="/admin/performance">Open performance controls <span aria-hidden="true">&rarr;</span></a>
     </article>
   </div>
 

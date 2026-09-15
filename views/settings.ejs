@@ -39,7 +39,19 @@
       <span>Adjust high contrast and reduced motion preferences for your ACC experience.</span>
       <span class="settings-card__link">Open accessibility controls <span aria-hidden="true">&rarr;</span></span>
     </a>
+    <a class="settings-card" href="/settings/localization">
+      <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 5h16M4 19h16M7 5c0 5 2 9 5 14m5-14c0 5-2 9-5 14M5 12h14" /></svg></span>
+      <strong><%= typeof t === 'function' ? t('navigation.localization') : 'Language and region' %></strong>
+      <span>Choose your display language, regional format, currency, and time preferences.</span>
+      <span class="settings-card__link">Manage language and region <span aria-hidden="true">&rarr;</span></span>
+    </a>
     <% if (hasManagementSettings) { %>
+      <a class="settings-card settings-card--management" href="/admin/localization">
+        <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 5h16M4 19h16M7 5c0 5 2 9 5 14m5-14c0 5-2 9-5 14M5 12h14" /></svg></span>
+        <strong>Localization management</strong>
+        <span>Manage enabled languages, translations, exchange rates, and localization audit activity.</span>
+        <span class="settings-card__link">Open localization management <span aria-hidden="true">&rarr;</span></span>
+      </a>
       <a class="settings-card settings-card--management" href="/admin/settings">
         <span class="settings-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-5v2m0 14v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M3 12h2m14 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg></span>
         <strong>System configuration</strong>

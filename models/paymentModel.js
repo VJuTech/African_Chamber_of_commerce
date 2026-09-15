@@ -3,6 +3,7 @@
  * Supports initiation, gateway processing, order linkage, refunds, audit logging, and multi-currency tracking.
  *******************************************/
 const pool = require("../database/connection");
+const complianceModel = require("./complianceModel");
 
 function normalizePayment(record = {}) {
   return {

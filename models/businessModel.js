@@ -1,6 +1,7 @@
 const pool = require("../database/connection");
 const notificationModel = require("./notificationModel");
 const rbacModel = require("./rbacModel");
+const complianceModel = require("./complianceModel");
 const { validateBusinessPayload } = require("../utility/account-validation");
 
 // This helper records registration, verification, duplicate, and lifecycle events
@@ -241,6 +242,7 @@ async function submitBusinessForVerification(userId, businessId) {
       businessId,
       outcome: "submitted",
     });
+    await complianceModel.createBusinessCase(businessId, userId);
     await sendBusinessRegistrationNotification(userId, result.rows[0].business_name, "email", "verification_submitted");
     await sendBusinessRegistrationNotification(userId, result.rows[0].business_name, "in-app", "verification_submitted");
 

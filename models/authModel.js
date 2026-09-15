@@ -9,6 +9,7 @@ const {
   generateVerificationCode,
 } = require("../utility/emailService");
 const securityModel = require("./securityModel");
+const complianceModel = require("./complianceModel");
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 10 * 60 * 1000;
@@ -167,6 +168,8 @@ async function createUser(userData) {
     ];
     const insertRes = await client.query(insertText, vals);
     const created = insertRes.rows[0];
+    await complianceModel.recordConsent(created.id, "terms", null, null);
+    await complianceModel.recordConsent(created.id, "privacy", null, null);
     const verificationCode = generateVerificationCode();
     const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 

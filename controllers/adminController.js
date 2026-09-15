@@ -1,4 +1,5 @@
 const adminModel = require("../models/adminModel");
+const localizationModel = require("../models/localizationModel");
 
 function requestMeta(req) {
   return { ip: req.ip, userAgent: req.get("user-agent") };
@@ -31,6 +32,18 @@ async function moderationAction(req, res, next) {
 async function settings(req, res, next) {
   try { return res.render("admin/settings", { title: "System settings", user: user(req), ...(await adminModel.getSettings()), message: req.query.message || "" }); } catch (error) { return next(error); }
 }
+async function localization(req, res, next) {
+  try { return res.render("admin/localization", { title: "Localization management", user: user(req), ...(await localizationModel.getAdminData()), message: req.query.message || "" }); } catch (error) { return next(error); }
+}
+async function localizationLanguageUpdate(req, res, next) {
+  try { await localizationModel.updateLanguage(req.session.user.id, req.params.code, req.body.enabled === "true", requestMeta(req)); return redirectWithMessage(res, "/admin/localization", "Language availability updated."); } catch (error) { return next(error); }
+}
+async function localizationTranslationUpdate(req, res, next) {
+  try { await localizationModel.upsertTranslation(req.session.user.id, req.body.locale, req.body.translationKey, req.body.translationValue, req.body.context, requestMeta(req)); return redirectWithMessage(res, "/admin/localization", "Translation saved."); } catch (error) { return next(error); }
+}
+async function localizationRateUpdate(req, res, next) {
+  try { await localizationModel.upsertExchangeRate(req.session.user.id, req.body.baseCurrency, req.body.targetCurrency, req.body.rate, req.body.source, requestMeta(req)); return redirectWithMessage(res, "/admin/localization", "Exchange rate recorded."); } catch (error) { return next(error); }
+}
 async function settingUpdate(req, res, next) {
   try { await adminModel.updateSetting(req.session.user.id, req.params.key, JSON.parse(req.body.value), requestMeta(req)); return redirectWithMessage(res, "/admin/settings", "System setting updated."); } catch (error) { return next(error); }
 }
@@ -53,4 +66,4 @@ async function report(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { dashboard, users, userStatus, businesses, businessAction, moderation, moderationAction, settings, settingUpdate, featureUpdate, logs, report };
+module.exports = { dashboard, users, userStatus, businesses, businessAction, moderation, moderationAction, settings, localization, localizationLanguageUpdate, localizationTranslationUpdate, localizationRateUpdate, settingUpdate, featureUpdate, logs, report };

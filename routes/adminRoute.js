@@ -14,6 +14,10 @@ router.post("/admin/businesses/:id/action", ...authenticated, requirePermission(
 router.get("/admin/moderation", ...authenticated, requirePermission("admin.moderation.manage"), adminController.moderation);
 router.post("/admin/moderation/:id/action", ...authenticated, requirePermission("admin.moderation.manage"), adminController.moderationAction);
 router.get("/admin/settings", ...authenticated, requirePermission("admin.settings.manage"), adminController.settings);
+router.get("/admin/localization", ...authenticated, requirePermission("admin.settings.manage"), adminController.localization);
+router.post("/admin/localization/languages/:code", ...authenticated, requirePermission("admin.settings.manage"), adminController.localizationLanguageUpdate);
+router.post("/admin/localization/translations", ...authenticated, requirePermission("admin.settings.manage"), adminController.localizationTranslationUpdate);
+router.post("/admin/localization/rates", ...authenticated, requirePermission("admin.settings.manage"), adminController.localizationRateUpdate);
 router.post("/admin/settings/:key", ...authenticated, requirePermission("admin.settings.manage"), adminController.settingUpdate);
 router.post("/admin/features/:key", ...authenticated, requirePermission("admin.settings.manage"), adminController.featureUpdate);
 router.get("/admin/logs", ...authenticated, requirePermission("admin.logs.read"), adminController.logs);

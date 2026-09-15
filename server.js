@@ -52,9 +52,17 @@ const apiAdminRoutes = require("./routes/apiAdminRoute");
 const deploymentRoutes = require("./routes/deploymentRoute");
 const healthRoutes = require("./routes/healthRoute");
 const uxRoutes = require("./routes/uxRoute");
+const localizationRoutes = require("./routes/localizationRoute");
+const complianceRoutes = require("./routes/complianceRoute");
 const analyticsModel = require("./models/analyticsModel");
 const securityModel = require("./models/securityModel");
 const uxModel = require("./models/uxModel");
+const localizationModel = require("./models/localizationModel");
+const complianceModel = require("./models/complianceModel");
+const dataManagementModel = require("./models/dataManagementModel");
+const dataManagementRoutes = require("./routes/dataManagementRoute");
+const performanceModel = require("./models/performanceModel");
+const performanceRoutes = require("./routes/performanceRoute");
 const { loadUserUx } = require("./controllers/uxController");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
@@ -150,6 +158,10 @@ async function createSessionStore() {
 async function initApp() {
   const store = await createSessionStore();
   await uxModel.ensureSchema();
+  await localizationModel.ensureSchema();
+  await complianceModel.ensureSchema();
+  await dataManagementModel.ensureSchema();
+  await performanceModel.ensureSchema();
 
   // Set up session support for authentication and user state.
   app.use(
@@ -212,6 +224,37 @@ async function initApp() {
 
   // Load durable UX preferences once for every request after session state exists.
   app.use(loadUserUx);
+  app.use(performanceModel.requestMiddleware());
+  app.use(async (req, res, next) => {
+    try {
+      const user = req.session && req.session.user ? req.session.user : null;
+      const savedPreferences = user ? await localizationModel.getUserPreferences(user.id) : null;
+      const locale = savedPreferences ? savedPreferences.locale : localizationModel.detectLocale(req.get("accept-language"));
+      const preferences = savedPreferences || {
+        language_code: locale.split("-")[0],
+        locale,
+        currency_code: "NGN",
+        region_code: locale.split("-")[1] || "NG",
+        time_format: "24h",
+        date_format: "dd/MM/yyyy",
+        auto_detect: true,
+      };
+      const translations = await localizationModel.getTranslations(locale);
+      res.locals.localization = { ...preferences, locale, translations };
+      res.locals.locale = locale;
+      res.locals.currency = preferences.currency_code;
+      res.locals.t = (key, variables = {}) => {
+        const value = translations[key] || key;
+        return String(value).replace(/\{(\w+)\}/g, (match, keyName) => Object.prototype.hasOwnProperty.call(variables, keyName) ? String(variables[keyName]) : match);
+      };
+      res.locals.formatCurrency = (amount, currency = preferences.currency_code) => localizationModel.formatCurrency(amount, currency, locale);
+      res.locals.formatDate = (value, options = {}) => localizationModel.formatDate(value, locale, options);
+      res.locals.formatNumber = (value, options = {}) => localizationModel.formatNumber(value, locale, options);
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  });
   app.use((req, res, next) => {
     const labels = {
       admin: "ACC Management",
@@ -284,6 +327,10 @@ async function initApp() {
   app.use("/", deploymentRoutes);
   app.use("/", healthRoutes);
   app.use("/", uxRoutes);
+  app.use("/", localizationRoutes);
+  app.use("/", complianceRoutes);
+  app.use("/", dataManagementRoutes);
+  app.use("/", performanceRoutes);
   // Mount Chapter 3 role and permission administration after authenticated routes.
   app.use("/", rbacRoutes);
   app.use("/", requirementsRoutes);

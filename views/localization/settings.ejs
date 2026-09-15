@@ -1,0 +1,23 @@
+<section class="localization-page" aria-labelledby="localization-title">
+  <header class="localization-page__hero">
+    <div>
+      <p class="localization-page__eyebrow"><%= typeof t === 'function' ? t('navigation.settings') : 'Settings' %> / Preferences</p>
+      <h1 id="localization-title"><%= typeof t === 'function' ? t('localization.title') : 'Language and region' %></h1>
+      <p><%= typeof t === 'function' ? t('localization.description') : 'Choose the language, currency, region, and time format used across ACC.' %></p>
+    </div>
+    <a class="localization-page__back" href="/settings">Back to settings <span aria-hidden="true">&rarr;</span></a>
+  </header>
+
+  <form class="localization-form" method="post" action="/settings/localization">
+    <div class="localization-form__grid">
+      <label><span>Language</span><select name="languageCode" required><% languages.forEach((language) => { %><option value="<%= language.code %>" <%= preferences.language_code === language.code ? 'selected' : '' %>><%= language.display_name %> / <%= language.native_name %></option><% }); %></select></label>
+      <label><span>Locale</span><select name="locale" required><option value="en-NG" <%= preferences.locale === 'en-NG' ? 'selected' : '' %>>English - Nigeria</option><option value="fr-FR" <%= preferences.locale === 'fr-FR' ? 'selected' : '' %>>Francais - France</option><option value="ar-EG" <%= preferences.locale === 'ar-EG' ? 'selected' : '' %>>العربية - Egypt</option><option value="pt-PT" <%= preferences.locale === 'pt-PT' ? 'selected' : '' %>>Portugues - Portugal</option></select></label>
+      <label><span>Display currency</span><select name="currencyCode" required><% currencies.forEach((currency) => { %><option value="<%= currency.code %>" <%= preferences.currency_code === currency.code ? 'selected' : '' %>><%= currency.code %> - <%= currency.display_name %></option><% }); %></select></label>
+      <label><span>Region code</span><input name="regionCode" value="<%= preferences.region_code %>" maxlength="12" required></label>
+      <label><span>Time format</span><select name="timeFormat"><option value="24h" <%= preferences.time_format === '24h' ? 'selected' : '' %>>24-hour</option><option value="12h" <%= preferences.time_format === '12h' ? 'selected' : '' %>>12-hour</option></select></label>
+      <label><span>Date format</span><select name="dateFormat"><option value="dd/MM/yyyy" <%= preferences.date_format === 'dd/MM/yyyy' ? 'selected' : '' %>>Day / month / year</option><option value="MM/dd/yyyy" <%= preferences.date_format === 'MM/dd/yyyy' ? 'selected' : '' %>>Month / day / year</option><option value="yyyy-MM-dd" <%= preferences.date_format === 'yyyy-MM-dd' ? 'selected' : '' %>>Year-month-day</option></select></label>
+    </div>
+    <label class="localization-form__toggle"><input type="checkbox" name="autoDetect" <%= preferences.auto_detect ? 'checked' : '' %>><span>Automatically detect language and region for new sessions</span></label>
+    <div class="localization-form__actions"><button type="submit"><%= typeof t === 'function' ? t('localization.save') : 'Save preferences' %></button></div>
+  </form>
+</section>

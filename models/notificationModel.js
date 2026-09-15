@@ -1,6 +1,7 @@
 /* Chapter 25 notification service. PostgreSQL is the source of truth. */
 const EventEmitter = require("events");
 const pool = require("../database/connection");
+const localizationModel = require("./localizationModel");
 
 const notificationEvents = new EventEmitter();
 const supportedChannels = ["in_app", "email", "sms", "push"];
@@ -61,7 +62,7 @@ async function generateNotification(payload = {}) {
       await client.query("INSERT INTO notification_deliveries (notification_id, channel) VALUES ($1, $2) ON CONFLICT DO NOTHING", [notification.id, channel]);
       await writeAudit("delivery_queued", { notificationId: notification.id, channel }, notification.id, userId, channel, client);
     }
-    await writeAudit("notification_generated", { notificationId: notification.id, userId, type }, notification.id, userId, null, client);
+    await writeAudit("notification_generated", { notificationId: notification.id, userId, type, locale: payload.locale || null }, notification.id, userId, null, client);
     await client.query("COMMIT");
     notificationEvents.emit(`user:${userId}`, notification);
     return { success: true, notification };
@@ -75,9 +76,23 @@ async function generateNotification(payload = {}) {
 
 async function generateFromEvent(eventName, payload = {}) {
   const recipients = [...new Set([payload.userId, payload.recipientId, payload.senderId, payload.buyerId, payload.sellerId].map(Number).filter(Boolean))];
-  const definitions = { order_placed: { type: "transaction", title: "Order placed", message: `Order #${payload.orderId || ""} has been placed.` }, payment_completed: { type: "transaction", title: "Payment completed", message: `Payment for order #${payload.orderId || ""} was completed.` }, new_message: { type: "social", title: "New message", message: payload.text || "You received a new message." }, event_registration: { type: "event", title: "Event registration confirmed", message: `${payload.title || "An event"} registration was recorded.` }, event_reminder: { type: "event", title: "Event reminder", message: `${payload.title || "Your event"} is coming up.` } };
-  const definition = definitions[eventName] || { type: "system", title: "ACC update", message: `There is a new ${eventName.replace(/_/g, " ")} update.` };
-  return Promise.all(recipients.map((userId) => generateNotification({ ...definition, userId, eventKey: eventName, dedupeKey: `${eventName}:${payload.orderId || payload.eventId || payload.conversationId || userId}`, priority: eventName === "payment_completed" ? "high" : "normal" })));
+  const definitions = {
+    order_placed: { type: "transaction", titleKey: "notification.orderPlaced.title", messageKey: "notification.orderPlaced.message", variables: { orderId: payload.orderId || "" } },
+    payment_completed: { type: "transaction", titleKey: "notification.paymentCompleted.title", messageKey: "notification.paymentCompleted.message", variables: { orderId: payload.orderId || "" } },
+    new_message: { type: "social", titleKey: "notification.newMessage.title", messageKey: "notification.newMessage.message", variables: { text: payload.text || "You received a new message." } },
+    event_registration: { type: "event", titleKey: "notification.eventRegistration.title", messageKey: "notification.eventRegistration.message", variables: { title: payload.title || "An event" } },
+    event_reminder: { type: "event", titleKey: "notification.eventReminder.title", messageKey: "notification.eventReminder.message", variables: { title: payload.title || "Your event" } },
+  };
+  const definition = definitions[eventName] || { type: "system", titleKey: "notification.generic.title", messageKey: "notification.generic.message", variables: { event: eventName.replace(/_/g, " ") } };
+  return Promise.all(recipients.map(async (userId) => {
+    const preferences = await localizationModel.getUserPreferences(userId);
+    const locale = preferences ? preferences.locale : localizationModel.DEFAULT_LOCALE;
+    const [title, message] = await Promise.all([
+      localizationModel.translate(definition.titleKey, locale, definition.variables),
+      localizationModel.translate(definition.messageKey, locale, definition.variables),
+    ]);
+    return generateNotification({ title, message, type: definition.type, locale, userId, eventKey: eventName, dedupeKey: `${eventName}:${payload.orderId || payload.eventId || payload.conversationId || userId}`, priority: eventName === "payment_completed" ? "high" : "normal" });
+  }));
 }
 
 async function getNotificationsForUser(userId, limit = 50) { const result = await pool.query("SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2", [Number(userId), Number(limit)]); return result.rows.map(mapNotification); }

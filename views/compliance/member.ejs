@@ -1,0 +1,25 @@
+<main class="compliance-page">
+  <header class="compliance-hero">
+    <div><p class="compliance-eyebrow">Chapter 34</p><h1>Compliance centre</h1><p>Review the policies that govern your ACC account and submit the information needed for identity and business verification.</p></div>
+    <a class="compliance-button" href="/profile">Return to profile</a>
+  </header>
+  <% if (message) { %><p class="compliance-alert"><%= message %></p><% } %>
+  <% if (error) { %><p class="compliance-alert"><%= error %></p><% } %>
+  <section class="compliance-grid" aria-label="Compliance status">
+    <article class="compliance-panel"><h2>Identity verification</h2><p class="compliance-status"><%= compliance.kyc ? compliance.kyc.status.replace(/_/g, ' ') : 'Not started' %></p><p>Identity documents are reviewed by authorized ACC administrators.</p></article>
+    <article class="compliance-panel"><h2>Business verification</h2><p class="compliance-status"><%= compliance.businesses.length ? compliance.businesses.filter((business) => business.complianceStatus === 'approved').length + ' approved' : 'No businesses yet' %></p><p>Business verification follows your business registration submission.</p></article>
+    <article class="compliance-panel"><h2>Consent records</h2><p class="compliance-status"><%= compliance.consents.length %> recorded</p><p>Your policy acceptance history is stored in PostgreSQL.</p></article>
+  </section>
+  <section class="compliance-panel">
+    <h2>Submit identity documents</h2>
+    <p>Accepted formats: PDF, JPEG, or PNG. Maximum 5 MB per document.</p>
+    <form class="compliance-form" action="/compliance/kyc" method="post" enctype="multipart/form-data">
+      <label for="documents">Identity documents</label><input id="documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png" multiple required />
+      <label for="documentType">Document type</label><select id="documentType" name="documentType"><option value="identity">Government identity document</option><option value="address">Proof of address</option><option value="business_authority">Business authority document</option></select>
+      <button class="compliance-button" type="submit">Submit for review</button>
+    </form>
+  </section>
+  <section class="compliance-panel"><h2>Current policies</h2><table class="compliance-table"><thead><tr><th>Policy</th><th>Version</th><th>Effective</th><th>Accepted</th></tr></thead><tbody>
+    <% policies.forEach((policy) => { const consent = compliance.consents.find((item) => item.policyKey === policy.policyKey); %><tr><td><strong><%= policy.name %></strong><br><small><%= policy.description %></small></td><td><%= policy.version || 'Pending publication' %></td><td><%= policy.effectiveAt ? formatDate(policy.effectiveAt) : 'Pending' %></td><td><%= consent ? formatDate(consent.consentedAt) : 'Action required' %></td></tr><% }) %>
+  </tbody></table></section>
+</main>
