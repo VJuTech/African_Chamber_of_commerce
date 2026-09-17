@@ -162,7 +162,7 @@ img {
 
 .site-footer {
   margin-top: 2rem;
-  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+  background: #172033;
   color: var(--acc-white);
   box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);
 }

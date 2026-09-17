@@ -57,7 +57,7 @@
 
   <div class="management-card-grid">
     <article class="management-card management-card--access">
-      <div class="management-card__top"><span class="management-card__number">01</span><span class="management-card__status">RBAC</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Zm0 5v5m0 0 3 2m-3-2-3 2" /></svg></span><span class="management-card__status">RBAC</span></div>
       <h2>Access control</h2>
       <p>Review users, assign normalized roles, and inspect the latest audit activity.</p>
       <div class="management-card__summary"><strong><%= access.users.length %></strong><span>users shown in access review</span></div>
@@ -65,7 +65,7 @@
     </article>
 
     <article class="management-card management-card--requirements">
-      <div class="management-card__top"><span class="management-card__number">02</span><span class="management-card__status"><%= metrics.completeRequirements %> complete</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4 4L19 6M4 4h16v16H4V4Z" /></svg></span><span class="management-card__status"><%= metrics.completeRequirements %> complete</span></div>
       <h2>Requirements</h2>
       <p>Track functional coverage, validation rules, compliance controls, and change history.</p>
       <div class="management-card__summary"><strong><%= metrics.requirements %></strong><span>active requirements in traceability</span></div>
@@ -73,7 +73,7 @@
     </article>
 
     <article class="management-card management-card--system">
-      <div class="management-card__top"><span class="management-card__number">03</span><span class="management-card__status"><%= metrics.healthyIntegrations %> healthy</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4" /></svg></span><span class="management-card__status"><%= metrics.healthyIntegrations %> healthy</span></div>
       <h2>System overview</h2>
       <p>Monitor architecture layers, external services, live platform counts, and operational status.</p>
       <div class="management-card__summary"><strong><%= metrics.integrations %></strong><span>registered platform integrations</span></div>
@@ -81,7 +81,7 @@
     </article>
 
     <article class="management-card management-card--requirements">
-      <div class="management-card__top"><span class="management-card__number">04</span><span class="management-card__status"><%= metrics.openComplianceFlags %> open flags</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 3h9l3 3v15H6V3Zm9 0v4h3M9 12h6m-6 4h4" /></svg></span><span class="management-card__status"><%= metrics.openComplianceFlags %> open flags</span></div>
       <h2>Compliance operations</h2>
       <p>Review KYC and business verification queues, AML signals, restrictions, and compliance audit activity.</p>
       <div class="management-card__summary"><strong><%= metrics.pendingKyc + metrics.pendingBusiness %></strong><span>verification cases pending</span></div>
@@ -89,7 +89,7 @@
     </article>
 
     <article class="management-card management-card--system">
-      <div class="management-card__top"><span class="management-card__number">05</span><span class="management-card__status"><%= metrics.integrityWarnings %> warnings</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 5h14v4H5V5Zm0 6h14v4H5v-4Zm0 6h14v2H5v-2Z" /></svg></span><span class="management-card__status"><%= metrics.integrityWarnings %> warnings</span></div>
       <h2>Data management</h2>
       <p>Monitor structured storage, integrity checks, retention, backups, recovery requests, and change history.</p>
       <div class="management-card__summary"><strong><%= metrics.recoveryRequests %></strong><span>recovery requests requiring attention</span></div>
@@ -97,7 +97,7 @@
     </article>
 
     <article class="management-card management-card--access">
-      <div class="management-card__top"><span class="management-card__number">07</span><span class="management-card__status">Support</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6a2.5 2.5 0 0 1-2.5 2.5H12l-4 4v-4h-.5A2.5 2.5 0 0 1 5 12.5v-6ZM9 9h6m-6 3h4" /></svg></span><span class="management-card__status">Support</span></div>
       <h2>Customer care</h2>
       <p>Continue assistant conversations and respond to members who request an authorized ACC representative.</p>
       <div class="management-card__summary"><strong>&rarr;</strong><span>Open the customer-care queue</span></div>
@@ -105,7 +105,7 @@
     </article>
 
     <article class="management-card management-card--system">
-      <div class="management-card__top"><span class="management-card__number">06</span><span class="management-card__status"><%= metrics.performanceErrorRate %>% errors</span></div>
+      <div class="management-card__top"><span class="management-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 19h16M6 16V9m6 7V5m6 11v-4" /></svg></span><span class="management-card__status"><%= metrics.performanceErrorRate %>% errors</span></div>
       <h2>Performance &amp; scalability</h2>
       <p>Track response targets, throughput, concurrency, scaling posture, caching, CDN delivery, and optimization evidence.</p>
       <div class="management-card__summary"><strong><%= metrics.performanceApiLatency %> ms</strong><span>average API response over 24 hours</span></div>
