@@ -1,0 +1,15 @@
+const express = require("express");
+const { ensureAuthenticated, ensureVerifiedAccount } = require("../controllers/accountController");
+const controller = require("../controllers/mobileController");
+const { mobileUpload } = require("../utility/mobileUpload");
+const router = express.Router();
+const mobileAuth = [ensureAuthenticated, ensureVerifiedAccount];
+router.get("/mobile", ...mobileAuth, controller.mobileAccess);
+router.get("/api/mobile/security-capabilities", ...mobileAuth, controller.securityCapabilities);
+router.post("/api/mobile/devices", ...mobileAuth, controller.registerDevice);
+router.post("/api/mobile/push-subscriptions", ...mobileAuth, controller.savePushSubscription);
+router.post("/api/mobile/sync/queue", ...mobileAuth, controller.queueAction);
+router.post("/api/mobile/sync", ...mobileAuth, controller.syncActions);
+router.post("/api/mobile/location", ...mobileAuth, controller.recordLocation);
+router.post("/api/mobile/uploads", ...mobileAuth, mobileUpload.single("document"), controller.uploadDocument);
+module.exports = router;

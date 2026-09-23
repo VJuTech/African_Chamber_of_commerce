@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const deploymentModel = require(path.join(root, "models", "deploymentModel"));
+const route = fs.readFileSync(path.join(root, "routes", "deploymentRoute.js"), "utf8");
+const controller = fs.readFileSync(path.join(root, "controllers", "deploymentController.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["getDashboard", "recordMetric", "updateEnvironment", "createRelease", "createBackup", "acknowledgeAlert"]) assert.equal(typeof deploymentModel[method], "function", `${method} should be exported`);
+for (const table of ["deployment_environments", "deployment_releases", "deployment_metrics", "deployment_alerts", "deployment_backups", "deployment_audit_logs"]) assert.ok(rebuildSql.includes(table), `Missing deployment table: ${table}`);
+for (const routePath of ["/admin/deployment", "/admin/deployment/environments/:id", "/admin/deployment/releases", "/admin/deployment/backups", "/admin/deployment/alerts/:id"]) assert.ok(route.includes(routePath), `Missing deployment route: ${routePath}`);
+assert.ok(route.includes("admin.deployment.read") && route.includes("admin.deployment.manage"));
+assert.ok(controller.includes("deploymentModel"));
+assert.ok(fs.existsSync(path.join(root, "views", "admin", "deployment.ejs")));
+console.log("Chapter 30 deployment contract: PASS");

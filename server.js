@@ -63,6 +63,26 @@ const dataManagementModel = require("./models/dataManagementModel");
 const dataManagementRoutes = require("./routes/dataManagementRoute");
 const performanceModel = require("./models/performanceModel");
 const performanceRoutes = require("./routes/performanceRoute");
+const mobileRoutes = require("./routes/mobileRoute");
+const mobileModel = require("./models/mobileModel");
+const availabilityRoutes = require("./routes/availabilityRoute");
+const availabilityModel = require("./models/availabilityModel");
+const supportRoutes = require("./routes/supportRoute");
+const supportModel = require("./models/supportModel");
+const loggingRoutes = require("./routes/loggingRoute");
+const loggingModel = require("./models/loggingModel");
+const qaRoutes = require("./routes/qaRoute");
+const qaModel = require("./models/qaModel");
+const releaseRoutes = require("./routes/releaseRoute");
+const releaseModel = require("./models/releaseModel");
+const onboardingRoutes = require("./routes/onboardingRoute");
+const onboardingModel = require("./models/onboardingModel");
+const aiRoutes = require("./routes/aiRoute");
+const aiModel = require("./models/aiModel");
+const partnershipRoutes = require("./routes/partnershipRoute");
+const partnershipModel = require("./models/partnershipModel");
+const roadmapRoutes = require("./routes/roadmapRoute");
+const roadmapModel = require("./models/roadmapModel");
 const { loadUserUx } = require("./controllers/uxController");
 const { notFoundHandler, globalErrorHandler } = require("./middleware/errorHandler");
 
@@ -162,6 +182,17 @@ async function initApp() {
   await complianceModel.ensureSchema();
   await dataManagementModel.ensureSchema();
   await performanceModel.ensureSchema();
+  await mobileModel.ensureSchema();
+  await availabilityModel.ensureSchema();
+  await supportModel.ensureSchema();
+  await loggingModel.ensureSchema();
+  await qaModel.ensureSchema();
+  await releaseModel.ensureSchema();
+  await onboardingModel.ensureSchema();
+  await aiModel.ensureSchema();
+  await aiModel.ensureMemberPermissions();
+  await partnershipModel.ensureSchema();
+  await roadmapModel.ensureSchema();
 
   // Set up session support for authentication and user state.
   app.use(
@@ -331,6 +362,16 @@ async function initApp() {
   app.use("/", complianceRoutes);
   app.use("/", dataManagementRoutes);
   app.use("/", performanceRoutes);
+  app.use("/", mobileRoutes);
+  app.use("/", availabilityRoutes);
+  app.use("/", supportRoutes);
+  app.use("/", loggingRoutes);
+  app.use("/", qaRoutes);
+  app.use("/", releaseRoutes);
+  app.use("/", onboardingRoutes);
+  app.use("/", aiRoutes);
+  app.use("/", partnershipRoutes);
+  app.use("/", roadmapRoutes);
   // Mount Chapter 3 role and permission administration after authenticated routes.
   app.use("/", rbacRoutes);
   app.use("/", requirementsRoutes);
@@ -352,6 +393,7 @@ async function initApp() {
   // Start the server and listen for incoming requests.
   app.listen(PORT, HOST, () => {
     console.log(`ACC server running on http://${HOST}:${PORT}`);
+    availabilityModel.startMonitor();
   });
 }
 

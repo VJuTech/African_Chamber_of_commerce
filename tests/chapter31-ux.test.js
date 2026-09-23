@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const uxModel = require(path.join(root, "models", "uxModel"));
+const route = fs.readFileSync(path.join(root, "routes", "uxRoute.js"), "utf8");
+const controller = fs.readFileSync(path.join(root, "controllers", "uxController.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["ensureSchema", "getPreferences", "savePreferences"]) assert.equal(typeof uxModel[method], "function", `${method} should be exported`);
+assert.deepEqual(uxModel.defaultPreferences, { highContrast: false, reducedMotion: false, onboardingCompleted: false, onboardingStep: 0 });
+assert.ok(rebuildSql.includes("user_ux_preferences"));
+for (const routePath of ["/settings", "/preferences", "/onboarding/complete"]) assert.ok(route.includes(routePath), `Missing UX route: ${routePath}`);
+assert.ok(controller.includes("settingsPage") && controller.includes("completeOnboarding"));
+for (const stylesheet of ["ux.css", "settings.css"]) assert.ok(fs.existsSync(path.join(root, "public", "styles", stylesheet)));
+console.log("Chapter 31 UX contract: PASS");

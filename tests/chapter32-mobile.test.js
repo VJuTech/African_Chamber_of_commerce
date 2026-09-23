@@ -1,0 +1,22 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const model = require(path.join(root, "models", "mobileModel"));
+const controller = require(path.join(root, "controllers", "mobileController"));
+const routeSource = fs.readFileSync(path.join(root, "routes", "mobileRoute.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+const mobileScript = fs.readFileSync(path.join(root, "public", "scripts", "mobile.js"), "utf8");
+const serviceWorker = fs.readFileSync(path.join(root, "public", "scripts", "service-worker.js"), "utf8");
+
+for (const method of ["ensureSchema", "registerDevice", "savePushSubscription", "queueAction", "syncActions", "recordLocation", "recordUpload", "getMobileSummary"]) assert.equal(typeof model[method], "function");
+for (const method of ["mobileAccess", "registerDevice", "savePushSubscription", "queueAction", "syncActions", "recordLocation", "uploadDocument", "securityCapabilities"]) assert.equal(typeof controller[method], "function");
+for (const requirement of Array.from({ length: 10 }, (_, index) => `ACC-FRS-MOB-${String(index + 1).padStart(3, "0")}`)) assert.ok(rebuildSql.includes(requirement), `Missing Chapter 32 requirement: ${requirement}`);
+for (const table of ["mobile_devices", "mobile_push_subscriptions", "mobile_sync_queue", "mobile_location_events", "mobile_uploads"]) assert.ok(rebuildSql.includes(table), `Missing mobile table: ${table}`);
+for (const endpoint of ["/mobile", "/api/mobile/devices", "/api/mobile/push-subscriptions", "/api/mobile/sync/queue", "/api/mobile/sync", "/api/mobile/location", "/api/mobile/uploads"]) assert.ok(routeSource.includes(endpoint), `Missing mobile endpoint: ${endpoint}`);
+assert.ok(fs.existsSync(path.join(root, "public", "manifest.json")));
+assert.ok(serviceWorker.includes("caches") && serviceWorker.includes("fetch"));
+assert.ok(mobileScript.includes("geolocation") && mobileScript.includes("serviceWorker") && mobileScript.includes("/api/mobile/sync"));
+assert.ok(fs.existsSync(path.join(root, "views", "mobile", "access.ejs")));
+assert.ok(fs.existsSync(path.join(root, "public", "styles", "mobile.css")));
+console.log("Chapter 32 mobile contract: PASS");

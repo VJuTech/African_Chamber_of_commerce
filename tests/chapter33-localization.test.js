@@ -1,0 +1,15 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const localizationModel = require(path.join(root, "models", "localizationModel"));
+const route = fs.readFileSync(path.join(root, "routes", "localizationRoute.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["ensureSchema", "getSupportedLanguages", "getSupportedCurrencies", "getTranslations", "translate", "detectLocale", "getUserPreferences", "saveUserPreferences", "getExchangeRate", "convertCurrency", "formatCurrency", "formatDate", "formatNumber"]) assert.equal(typeof localizationModel[method], "function", `${method} should be exported`);
+assert.equal(localizationModel.detectLocale("fr-FR,fr;q=0.9,en;q=0.8"), "fr-FR");
+assert.equal(localizationModel.detectLocale("xx-ZZ"), "en-NG");
+assert.equal(localizationModel.formatNumber(1234.5, "en-NG"), "1,234.5");
+for (const table of ["localization_languages", "localization_currencies", "localization_translations", "localization_exchange_rates", "user_localization_preferences", "localization_audit_logs"]) assert.ok(rebuildSql.includes(table), `Missing localization table: ${table}`);
+assert.ok(route.includes("/settings/localization") && route.includes("updatePreferences"));
+assert.ok(fs.existsSync(path.join(root, "views", "localization", "settings.ejs")));
+console.log("Chapter 33 localization contract: PASS");

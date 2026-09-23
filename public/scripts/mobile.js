@@ -1,0 +1,19 @@
+(() => {
+  const root = document.querySelector("[data-mobile-app]");
+  if (!root) return;
+  const status = root.querySelector("[data-connection-status]");
+  const dot = root.querySelector("[data-connection-dot]");
+  const syncStatus = root.querySelector("[data-sync-status]");
+  const installationId = localStorage.getItem("acc-mobile-installation") || crypto.randomUUID();
+  localStorage.setItem("acc-mobile-installation", installationId);
+  let deviceId = null;
+  const setConnection = () => { const online = navigator.onLine; status.textContent = online ? "Connected securely" : "Offline mode"; dot.style.background = online ? "#7bd9a8" : "#f2b84b"; syncStatus.textContent = online ? "PostgreSQL sync available" : "Actions will queue until reconnect"; };
+  const request = (url, options = {}) => fetch(url, { credentials: "same-origin", headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
+  const register = async () => { const result = await request("/api/mobile/devices", { method: "POST", body: JSON.stringify({ installationId, platform: /Android/i.test(navigator.userAgent) ? "android" : /iPhone|iPad/i.test(navigator.userAgent) ? "ios" : "web", deviceLabel: navigator.userAgent.includes("Mobile") ? "Mobile browser" : "Web browser", capabilities: { serviceWorker: "serviceWorker" in navigator, push: "PushManager" in window, webAuthn: "credentials" in navigator } }) }); if (result.ok) deviceId = (await result.json()).device.id; };
+  const sync = async () => { if (!navigator.onLine) return; const result = await request("/api/mobile/sync", { method: "POST", body: JSON.stringify({ deviceId }) }); if (result.ok) syncStatus.textContent = `${(await result.json()).synced.length} action(s) synced`; };
+  const installButton = root.querySelector("[data-install]"); let deferredPrompt; window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); deferredPrompt = event; installButton.hidden = false; }); installButton.addEventListener("click", async () => { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; installButton.hidden = true; } });
+  root.querySelector("[data-sync]").addEventListener("click", sync);
+  root.querySelector("[data-location]").addEventListener("click", () => { const output = root.querySelector("[data-location-status]"); if (!navigator.geolocation) { output.textContent = "Location is not available in this browser."; return; } output.textContent = "Requesting permission..."; navigator.geolocation.getCurrentPosition(async (position) => { const result = await request("/api/mobile/location", { method: "POST", body: JSON.stringify({ deviceId, latitude: position.coords.latitude, longitude: position.coords.longitude, accuracyM: position.coords.accuracy }) }); output.textContent = result.ok ? "Location shared for this session." : "Location could not be saved."; }, () => { output.textContent = "Location permission was not granted."; }, { enableHighAccuracy: false, maximumAge: 300000, timeout: 8000 }); });
+  root.querySelector("[data-upload-form]").addEventListener("submit", async (event) => { event.preventDefault(); const output = root.querySelector("[data-upload-status]"); const form = new FormData(event.currentTarget); form.append("deviceId", deviceId || ""); output.textContent = "Uploading securely..."; const result = await fetch("/api/mobile/uploads", { method: "POST", body: form, credentials: "same-origin" }); output.textContent = result.ok ? "Upload saved." : "Upload failed. Check the file type and size."; });
+  window.addEventListener("online", () => { setConnection(); sync(); }); window.addEventListener("offline", setConnection); setConnection(); register().then(sync); if ("serviceWorker" in navigator) navigator.serviceWorker.register("/scripts/service-worker.js").catch(() => {});
+})();

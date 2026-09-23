@@ -1,0 +1,13 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const dataModel = require(path.join(root, "models", "dataManagementModel"));
+const route = fs.readFileSync(path.join(root, "routes", "dataManagementRoute.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["ensureSchema", "audit", "getDashboard", "runIntegrityChecks", "requestBackup", "requestRecovery", "archiveRecord", "recordVersion", "updateRecoveryStatus", "updateArchiveStatus"]) assert.equal(typeof dataModel[method], "function", `${method} should be exported`);
+for (const table of ["data_catalog_resources", "data_integrity_checks", "data_archives", "data_versions", "data_backup_schedules", "data_recovery_requests", "data_management_audit_logs"]) assert.ok(rebuildSql.includes(table), `Missing data-management table: ${table}`);
+for (const routePath of ["/admin/data-management", "/admin/data-management/integrity-checks", "/admin/data-management/backups", "/admin/data-management/recovery", "/admin/data-management/archive", "/admin/data-management/versions"]) assert.ok(route.includes(routePath), `Missing data-management route: ${routePath}`);
+assert.ok(route.includes("admin.data.read") && route.includes("admin.data.manage"));
+assert.ok(fs.existsSync(path.join(root, "views", "admin", "data-management.ejs")));
+console.log("Chapter 34 data-management contract: PASS");

@@ -1,0 +1,12 @@
+<main class="support-page support-page--narrow">
+  <header class="support-hero"><div><p class="support-kicker">Support intake</p><h1>Report an issue</h1><p>Give the support team enough context to reproduce and resolve the problem quickly.</p></div></header>
+  <% if (error) { %><p class="support-error"><%= error %></p><% } %>
+  <form class="support-form" action="/support/tickets" method="post" enctype="multipart/form-data">
+    <label>Issue title<input name="title" required maxlength="220" placeholder="What went wrong?"></label>
+    <div class="support-form__grid"><label>Category<select name="category"><option value="bug">Bug or error</option><option value="incident">Service incident</option><option value="question">Question</option><option value="feature">Feature request</option><option value="maintenance">Maintenance</option><option value="other">Other</option></select></label><label>Priority<select name="priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></label></div>
+    <label>Maintenance type <select name="maintenanceType"><option value="">Not applicable</option><option value="corrective">Corrective</option><option value="preventive">Preventive</option><option value="adaptive">Adaptive</option><option value="perfective">Perfective</option></select></label>
+    <label>Description<textarea name="description" required rows="8" placeholder="Include steps to reproduce, expected behavior, and what you observed."></textarea></label>
+    <label class="support-upload">Screenshot or evidence<input type="file" name="screenshot" accept="image/png,image/jpeg,image/webp"></label>
+    <div class="support-form__actions"><a href="/support">Cancel</a><button class="support-button" type="submit">Submit ticket <span aria-hidden="true">&rarr;</span></button></div>
+  </form>
+</main>

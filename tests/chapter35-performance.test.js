@@ -1,0 +1,14 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const performanceModel = require(path.join(root, "models", "performanceModel"));
+const route = fs.readFileSync(path.join(root, "routes", "performanceRoute.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["ensureSchema", "requestMiddleware", "getDashboard", "updateProfile", "runPeakLoadCheck", "createOptimization", "recordRequest", "getCached", "setCached"]) assert.equal(typeof performanceModel[method], "function", `${method} should be exported`);
+for (const table of ["performance_request_metrics", "performance_capacity_profiles", "performance_cache_entries", "performance_peak_load_checks", "performance_optimization_actions"]) assert.ok(rebuildSql.includes(table), `Missing performance table: ${table}`);
+for (const requirement of Array.from({ length: 10 }, (_, index) => `ACC-FRS-PERF-${String(index + 1).padStart(3, "0")}`)) assert.ok(rebuildSql.includes(requirement), `Missing performance requirement: ${requirement}`);
+for (const routePath of ["/admin/performance", "/admin/performance/profiles/:environmentKey", "/admin/performance/peak-load", "/admin/performance/optimizations"]) assert.ok(route.includes(routePath), `Missing performance route: ${routePath}`);
+assert.ok(route.includes("admin.performance.read") && route.includes("admin.performance.manage"));
+assert.ok(fs.existsSync(path.join(root, "views", "admin", "performance.ejs")));
+console.log("Chapter 35 performance contract: PASS");

@@ -1,0 +1,16 @@
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const { ensureAuthenticated } = require("../controllers/accountController");
+const { requirePermission, requireRole } = require("../middleware/rbacMiddleware");
+const controller = require("../controllers/onboardingController");
+const router = express.Router();
+const upload = multer({ dest: path.join(__dirname, "..", "storage", "migration"), limits: { fileSize: 25 * 1024 * 1024 } });
+const access = [ensureAuthenticated, requireRole("platform_admin", "system_admin", "acc_management_admin", "super_admin")];
+router.get("/admin/onboarding", ...access, requirePermission("admin.onboarding.read"), controller.page);
+router.post("/admin/onboarding/files", ...access, requirePermission("admin.onboarding.manage"), upload.single("migrationFile"), controller.fileImport);
+router.post("/admin/onboarding/api-sources", ...access, requirePermission("admin.onboarding.manage"), controller.apiSource);
+router.post("/admin/onboarding/api-sources/:id/import", ...access, requirePermission("admin.onboarding.manage"), controller.apiImport);
+router.post("/admin/onboarding/assistance", ...access, requirePermission("admin.onboarding.manage"), controller.assistance);
+router.post("/admin/onboarding/assistance/:id", ...access, requirePermission("admin.onboarding.manage"), controller.assistanceStatus);
+module.exports = router;

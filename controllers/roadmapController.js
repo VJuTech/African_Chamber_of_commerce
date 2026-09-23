@@ -1,0 +1,14 @@
+const roadmapModel = require("../models/roadmapModel");
+function currentUser(req) { return req.session && req.session.user ? req.session.user : null; }
+function redirect(res, message) { return res.redirect(`/admin/roadmap?message=${encodeURIComponent(message)}`); }
+async function publicPage(req, res, next) { try { return res.render("roadmap/index", { title: "ACC roadmap", user: currentUser(req), ...await roadmapModel.getRoadmap(false), message: req.query.message || "" }); } catch (error) { return next(error); } }
+async function adminPage(req, res, next) { try { return res.render("admin/roadmap", { title: "Roadmap governance", user: currentUser(req), ...await roadmapModel.getAdminDashboard(), message: req.query.message || "", phaseStatuses: roadmapModel.phaseStatuses, featureStatuses: roadmapModel.featureStatuses, priorities: roadmapModel.priorities, evaluationStatuses: roadmapModel.evaluationStatuses, feedbackStatuses: roadmapModel.feedbackStatuses }); } catch (error) { return next(error); } }
+async function feature(req, res, next) { try { const result = await roadmapModel.createFeature(currentUser(req).id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function featureStatus(req, res, next) { try { const result = await roadmapModel.updateFeature(currentUser(req).id, req.params.id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function innovation(req, res, next) { try { const result = await roadmapModel.createInnovation(currentUser(req).id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function evaluation(req, res, next) { try { const result = await roadmapModel.createEvaluation(currentUser(req).id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function goal(req, res, next) { try { const result = await roadmapModel.createGoal(currentUser(req).id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function scalability(req, res, next) { try { const result = await roadmapModel.createScalabilityPlan(currentUser(req).id, req.body); return redirect(res, result.message); } catch (error) { return next(error); } }
+async function feedback(req, res, next) { try { const result = await roadmapModel.submitFeedback(currentUser(req) ? currentUser(req).id : null, req.body); return res.redirect(`/roadmap?message=${encodeURIComponent(result.message)}`); } catch (error) { return next(error); } }
+async function feedbackStatus(req, res, next) { try { const result = await roadmapModel.updateFeedback(currentUser(req).id, req.params.id, req.body.status); return redirect(res, result.message); } catch (error) { return next(error); } }
+module.exports = { publicPage, adminPage, feature, featureStatus, innovation, evaluation, goal, scalability, feedback, feedbackStatus };

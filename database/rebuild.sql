@@ -42,6 +42,21 @@ DROP TABLE IF EXISTS membership_limits CASCADE;
 DROP TABLE IF EXISTS membership_tiers CASCADE;
 DROP TABLE IF EXISTS profile_contact_change_requests CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS log_monitor_alerts CASCADE;
+DROP TABLE IF EXISTS error_logs CASCADE;
+DROP TABLE IF EXISTS application_logs CASCADE;
+DROP TABLE IF EXISTS log_retention_policies CASCADE;
+DROP TABLE IF EXISTS qa_reports CASCADE;
+DROP TABLE IF EXISTS qa_bugs CASCADE;
+DROP TABLE IF EXISTS qa_test_runs CASCADE;
+DROP TABLE IF EXISTS qa_test_cases CASCADE;
+DROP TABLE IF EXISTS qa_test_plans CASCADE;
+DROP TABLE IF EXISTS release_audit_logs CASCADE;
+DROP TABLE IF EXISTS release_monitoring CASCADE;
+DROP TABLE IF EXISTS release_compatibility CASCADE;
+DROP TABLE IF EXISTS release_notes CASCADE;
+DROP TABLE IF EXISTS release_plans CASCADE;
+DROP TABLE IF EXISTS release_versions CASCADE;
 DROP TABLE IF EXISTS notification_audit_logs CASCADE;
 DROP TABLE IF EXISTS notification_deliveries CASCADE;
 DROP TABLE IF EXISTS notification_preferences CASCADE;
@@ -97,6 +112,23 @@ DROP TABLE IF EXISTS analytics_report_audits CASCADE;
 DROP TABLE IF EXISTS analytics_events CASCADE;
 DROP TABLE IF EXISTS security_audit_logs CASCADE;
 DROP TABLE IF EXISTS security_alerts CASCADE;
+DROP TABLE IF EXISTS ai_audit_logs CASCADE;
+DROP TABLE IF EXISTS ai_models CASCADE;
+DROP TABLE IF EXISTS ai_alerts CASCADE;
+DROP TABLE IF EXISTS ai_predictions CASCADE;
+DROP TABLE IF EXISTS ai_fraud_cases CASCADE;
+DROP TABLE IF EXISTS ai_search_queries CASCADE;
+DROP TABLE IF EXISTS ai_recommendations CASCADE;
+DROP TABLE IF EXISTS ai_interaction_events CASCADE;
+DROP TABLE IF EXISTS ai_user_profiles CASCADE;
+DROP TABLE IF EXISTS partnership_audit_logs CASCADE;
+DROP TABLE IF EXISTS partnership_monitoring CASCADE;
+DROP TABLE IF EXISTS partnership_exchanges CASCADE;
+DROP TABLE IF EXISTS partnership_verifications CASCADE;
+DROP TABLE IF EXISTS partnership_access_grants CASCADE;
+DROP TABLE IF EXISTS partnership_credentials CASCADE;
+DROP TABLE IF EXISTS partnership_integrations CASCADE;
+DROP TABLE IF EXISTS partnership_partners CASCADE;
 DROP TABLE IF EXISTS security_mfa_challenges CASCADE;
 DROP TABLE IF EXISTS security_mfa_methods CASCADE;
 DROP TABLE IF EXISTS security_login_attempts CASCADE;
@@ -113,6 +145,12 @@ DROP TABLE IF EXISTS deployment_alerts CASCADE;
 DROP TABLE IF EXISTS deployment_metrics CASCADE;
 DROP TABLE IF EXISTS deployment_releases CASCADE;
 DROP TABLE IF EXISTS deployment_environments CASCADE;
+DROP TABLE IF EXISTS onboarding_migration_audit_logs CASCADE;
+DROP TABLE IF EXISTS onboarding_assistance CASCADE;
+DROP TABLE IF EXISTS migration_api_sources CASCADE;
+DROP TABLE IF EXISTS migration_rows CASCADE;
+DROP TABLE IF EXISTS migration_jobs CASCADE;
+DROP TABLE IF EXISTS onboarding_profiles CASCADE;
 DROP TABLE IF EXISTS assistant_support_messages CASCADE;
 DROP TABLE IF EXISTS assistant_support_requests CASCADE;
 DROP TABLE IF EXISTS user_ux_preferences CASCADE;
@@ -278,7 +316,7 @@ INSERT INTO localization_exchange_rates (base_currency, target_currency, rate, s
 
 CREATE TABLE requirements (
   id SERIAL PRIMARY KEY,
-  requirement_id VARCHAR(40) NOT NULL UNIQUE CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-PERF)-[0-9]{3}$'),
+  requirement_id VARCHAR(40) NOT NULL UNIQUE CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$'),
   name VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   actor VARCHAR(200) NOT NULL,
@@ -361,6 +399,260 @@ VALUES
   ('FR-MSG-001', 'Messaging delivery lifecycle', 'Users can send, deliver, read, and respond to messages in an authorized conversation.', 'Authenticated user', 'Participants have access to the conversation and are not blocked.', 'Message status and notification/audit records reflect delivery and reading.', 'high', 'functional', ARRAY['conversations', 'messages', 'messaging_notifications']),
   ('FR-SEC-001', 'Access control enforcement', 'Protected actions require an authenticated user with the required role and permission.', 'Platform administrator', 'RBAC schema and session access context are available.', 'Unauthorized actions are denied and critical role changes are audited.', 'critical', 'security', ARRAY['roles', 'permissions', 'user_roles', 'audit_logs']),
   ('FR-OPS-001', 'Validation and error recovery', 'Invalid input is returned to the user, unexpected failures are logged, and retryable payment/notification operations can retry.', 'Any platform user', 'A workflow action has been submitted.', 'Validation feedback, durable error records, and retry audit events exist.', 'high', 'non_functional', ARRAY['audit_logs', 'payment_gateway_events', 'notification_deliveries'])
+ON CONFLICT (requirement_id) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 37: AVAILABILITY & RELIABILITY
+-- ========================================
+CREATE TABLE IF NOT EXISTS availability_services (
+  id BIGSERIAL PRIMARY KEY,
+  service_key VARCHAR(120) NOT NULL UNIQUE,
+  display_name VARCHAR(160) NOT NULL,
+  criticality VARCHAR(20) NOT NULL DEFAULT 'critical' CHECK (criticality IN ('critical','non_critical')),
+  health_url VARCHAR(500),
+  expected_response_ms INTEGER NOT NULL DEFAULT 2000 CHECK (expected_response_ms > 0),
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  degraded_mode BOOLEAN NOT NULL DEFAULT FALSE,
+  backup_service_key VARCHAR(120),
+  last_status VARCHAR(20) NOT NULL DEFAULT 'unknown' CHECK (last_status IN ('healthy','degraded','failed','unknown')),
+  last_checked_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS availability_health_checks (
+  id BIGSERIAL PRIMARY KEY,
+  service_id BIGINT NOT NULL REFERENCES availability_services(id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('healthy','degraded','failed')),
+  response_time_ms INTEGER,
+  http_status INTEGER,
+  error_message TEXT,
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS availability_redundancy_components (
+  id BIGSERIAL PRIMARY KEY,
+  component_key VARCHAR(120) NOT NULL UNIQUE,
+  component_type VARCHAR(40) NOT NULL CHECK (component_type IN ('application','database','backup','network','service')),
+  primary_reference VARCHAR(255) NOT NULL,
+  secondary_reference VARCHAR(255),
+  status VARCHAR(20) NOT NULL DEFAULT 'ready' CHECK (status IN ('ready','degraded','unavailable','testing')),
+  failover_mode VARCHAR(30) NOT NULL DEFAULT 'automatic' CHECK (failover_mode IN ('automatic','manual','none')),
+  last_verified_at TIMESTAMPTZ,
+  notes TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS availability_incidents (
+  id BIGSERIAL PRIMARY KEY,
+  service_id BIGINT REFERENCES availability_services(id) ON DELETE SET NULL,
+  severity VARCHAR(20) NOT NULL CHECK (severity IN ('warning','critical')),
+  incident_type VARCHAR(40) NOT NULL CHECK (incident_type IN ('downtime','degraded','health_check_failure','database_failure')),
+  title VARCHAR(200) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','investigating','resolved')),
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMPTZ,
+  resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS availability_failover_events (
+  id BIGSERIAL PRIMARY KEY,
+  service_id BIGINT REFERENCES availability_services(id) ON DELETE SET NULL,
+  from_reference VARCHAR(255),
+  to_reference VARCHAR(255),
+  trigger_type VARCHAR(30) NOT NULL CHECK (trigger_type IN ('automatic','manual','test')),
+  outcome VARCHAR(30) NOT NULL CHECK (outcome IN ('initiated','completed','failed')),
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS availability_recovery_actions (
+  id BIGSERIAL PRIMARY KEY,
+  incident_id BIGINT REFERENCES availability_incidents(id) ON DELETE SET NULL,
+  action_type VARCHAR(40) NOT NULL CHECK (action_type IN ('retry','restart','degrade','restore','failover')),
+  status VARCHAR(30) NOT NULL DEFAULT 'completed' CHECK (status IN ('requested','in_progress','completed','failed')),
+  attempts INTEGER NOT NULL DEFAULT 1 CHECK (attempts > 0),
+  notes TEXT,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS availability_audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  event_type VARCHAR(80) NOT NULL,
+  incident_id BIGINT REFERENCES availability_incidents(id) ON DELETE SET NULL,
+  service_id BIGINT REFERENCES availability_services(id) ON DELETE SET NULL,
+  outcome VARCHAR(30) NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS availability_checks_service_idx ON availability_health_checks(service_id, checked_at DESC);
+CREATE INDEX IF NOT EXISTS availability_incidents_status_idx ON availability_incidents(status, detected_at DESC);
+CREATE INDEX IF NOT EXISTS availability_audit_created_idx ON availability_audit_logs(created_at DESC);
+INSERT INTO availability_services (service_key, display_name, criticality, health_url, backup_service_key) VALUES
+  ('postgresql', 'PostgreSQL database', 'critical', '/healthz', NULL),
+  ('web_application', 'ACC web application', 'critical', '/healthz', 'web_application_backup'),
+  ('notifications', 'Notification delivery', 'non_critical', '/healthz', NULL),
+  ('assistant', 'ACC Assistance', 'non_critical', '/healthz', NULL)
+ON CONFLICT (service_key) DO NOTHING;
+INSERT INTO availability_redundancy_components (component_key, component_type, primary_reference, secondary_reference, status, failover_mode, notes) VALUES
+  ('application_instances', 'application', 'Configured production instance pool', 'Configured standby instance pool', 'ready', 'automatic', 'Provider/load-balancer failover must be enabled in the deployment target.'),
+  ('web_application_backup', 'application', 'Primary ACC web application', 'Configured standby ACC web application', 'ready', 'automatic', 'Standby application target used by automatic availability failover.'),
+  ('postgresql_backup', 'backup', 'Primary PostgreSQL database', 'Encrypted verified backup', 'ready', 'manual', 'Database promotion requires the managed PostgreSQL provider or operator runbook.'),
+  ('notification_delivery', 'service', 'In-app notification queue', 'Email/SMS provider queue', 'ready', 'automatic', 'Non-critical channels may degrade while in-app alerts continue.')
+ON CONFLICT (component_key) DO NOTHING;
+INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies) VALUES
+  ('ACC-FRS-AVAIL-001','High availability','The system shall maintain at least 99.9% uptime with availability evidence persisted for review.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_services','availability_health_checks']),
+  ('ACC-FRS-AVAIL-002','Fault tolerance','The platform shall continue functioning when a monitored component fails.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_incidents','availability_recovery_actions']),
+  ('ACC-FRS-AVAIL-003','Redundant infrastructure','The platform shall record redundant services and backup infrastructure supporting continuity.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_redundancy_components']),
+  ('ACC-FRS-AVAIL-004','Automatic failover','The platform shall detect an unavailable service and record an automatic failover action.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_failover_events']),
+  ('ACC-FRS-AVAIL-005','System health monitoring','The platform shall continuously persist service health and response-time checks.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_health_checks']),
+  ('ACC-FRS-AVAIL-006','Error recovery','The platform shall record retry and recovery actions for failed services.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','high','non_functional',ARRAY['availability_recovery_actions']),
+  ('ACC-FRS-AVAIL-007','Graceful degradation','The platform shall identify non-critical features that can be degraded while core services remain available.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','high','non_functional',ARRAY['availability_services']),
+  ('ACC-FRS-AVAIL-008','Backup systems availability','The platform shall track whether backup systems are ready and when they were last verified.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_redundancy_components','deployment_backups']),
+  ('ACC-FRS-AVAIL-009','Incident alerting','The platform shall create immediate administrator alerts for availability incidents.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','critical','non_functional',ARRAY['availability_incidents','deployment_alerts']),
+  ('ACC-FRS-AVAIL-010','Availability audit logging','Downtime, failover, and recovery actions shall be recorded in an auditable PostgreSQL log.','Operations administrator','PostgreSQL and deployment telemetry are available.','Availability evidence is persisted and reviewable.','high','non_functional',ARRAY['availability_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
+SELECT id, 'As an operations administrator, I want availability controls so ACC remains dependable.', 'views/admin/availability.ejs', 'GET /admin/availability and POST /admin/availability/health-checks', ARRAY['availability_services','availability_health_checks','availability_incidents','availability_audit_logs'], 'tests/chapter37-availability.test.js', 'Reliability', '1.0', 'complete', 'Chapter 37 availability controls are PostgreSQL-backed.'
+FROM requirements WHERE requirement_id LIKE 'ACC-FRS-AVAIL-%'
+ON CONFLICT (requirement_id) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 38: MAINTENANCE & SUPPORT
+-- ========================================
+CREATE TABLE IF NOT EXISTS support_slas (id BIGSERIAL PRIMARY KEY, name VARCHAR(120) NOT NULL UNIQUE, priority VARCHAR(20) NOT NULL CHECK (priority IN ('low','medium','high','critical')), response_minutes INTEGER NOT NULL CHECK (response_minutes > 0), resolution_minutes INTEGER NOT NULL CHECK (resolution_minutes >= response_minutes), active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS support_tickets (id BIGSERIAL PRIMARY KEY, ticket_number VARCHAR(30) NOT NULL UNIQUE, reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, category VARCHAR(30) NOT NULL CHECK (category IN ('bug','question','incident','feature','maintenance','other')), maintenance_type VARCHAR(20) CHECK (maintenance_type IN ('corrective','preventive','adaptive','perfective')), priority VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','critical')), status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','resolved','closed')), sla_id BIGINT REFERENCES support_slas(id) ON DELETE SET NULL, first_responded_at TIMESTAMPTZ, resolved_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS support_ticket_comments (id BIGSERIAL PRIMARY KEY, ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE, author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT NOT NULL, internal BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS support_ticket_attachments (id BIGSERIAL PRIMARY KEY, ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE, uploaded_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, original_name VARCHAR(255) NOT NULL, storage_path TEXT NOT NULL, mime_type VARCHAR(120) NOT NULL, file_size INTEGER NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS maintenance_windows (id BIGSERIAL PRIMARY KEY, title VARCHAR(220) NOT NULL, description TEXT, maintenance_type VARCHAR(20) NOT NULL CHECK (maintenance_type IN ('corrective','preventive','adaptive','perfective')), starts_at TIMESTAMPTZ NOT NULL, ends_at TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at), status VARCHAR(20) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','active','completed','cancelled')), notify_users BOOLEAN NOT NULL DEFAULT TRUE, created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS maintenance_logs (id BIGSERIAL PRIMARY KEY, maintenance_window_id BIGINT REFERENCES maintenance_windows(id) ON DELETE SET NULL, actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL, event_type VARCHAR(40) NOT NULL CHECK (event_type IN ('update','fix','system_change','window_created','window_completed')), summary TEXT NOT NULL, details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS knowledge_base_articles (id BIGSERIAL PRIMARY KEY, slug VARCHAR(180) NOT NULL UNIQUE, title VARCHAR(220) NOT NULL, article_type VARCHAR(20) NOT NULL CHECK (article_type IN ('faq','tutorial','guide')), summary TEXT NOT NULL, body TEXT NOT NULL, published BOOLEAN NOT NULL DEFAULT TRUE, author_id INTEGER REFERENCES users(id) ON DELETE SET NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS support_improvements (id BIGSERIAL PRIMARY KEY, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','in_progress','completed','cancelled')), source_ticket_id BIGINT REFERENCES support_tickets(id) ON DELETE SET NULL, owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL, completed_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS support_tickets_status_idx ON support_tickets(status, priority, created_at DESC);
+CREATE INDEX IF NOT EXISTS support_comments_ticket_idx ON support_ticket_comments(ticket_id, created_at);
+CREATE INDEX IF NOT EXISTS maintenance_windows_dates_idx ON maintenance_windows(starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS maintenance_logs_created_idx ON maintenance_logs(created_at DESC);
+INSERT INTO support_slas (name, priority, response_minutes, resolution_minutes) VALUES ('Critical support','critical',30,240),('High support','high',120,1440),('Standard support','medium',480,4320),('Low support','low',1440,10080) ON CONFLICT (name) DO NOTHING;
+INSERT INTO knowledge_base_articles (slug, title, article_type, summary, body, published) VALUES
+  ('getting-started','Getting started with ACC','guide','Find your way around the ACC workspace and business tools.','Sign in, complete your profile, then use the workspace navigation to discover directory, networking, marketplace, events, and procurement services.',TRUE),
+  ('reporting-an-issue','How to report an issue','tutorial','Learn what information helps the support team respond quickly.','Include the page, steps to reproduce, expected behavior, observed behavior, and a screenshot when available. Choose the priority that best describes the business impact.',TRUE),
+  ('account-security','Account security FAQ','faq','Answers to common account and access questions.','Use the account recovery flow for forgotten credentials and contact ACC support when you see activity you do not recognize.',TRUE)
+ON CONFLICT (slug) DO NOTHING;
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-SUP-001','Issue reporting system','Users can report issues with screenshots attached.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','critical','functional',ARRAY['support_tickets','support_ticket_attachments']),
+('ACC-FRS-SUP-002','Ticket management system','Support tickets are created and tracked through open, in-progress, and resolved states.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','critical','functional',ARRAY['support_tickets']),
+('ACC-FRS-SUP-003','Support dashboard','Support teams can review ticket overview and priority levels.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','high','functional',ARRAY['support_tickets','support_slas']),
+('ACC-FRS-SUP-004','User notifications for support','Users receive notifications when support tickets are received or resolved.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','high','functional',ARRAY['support_tickets','notifications']),
+('ACC-FRS-SUP-005','SLA management','Response and resolution targets are monitored for support tickets.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','high','functional',ARRAY['support_slas','support_tickets']),
+('ACC-FRS-SUP-006','System maintenance scheduling','Authorized operators can schedule maintenance windows and notify users.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','high','functional',ARRAY['maintenance_windows']),
+('ACC-FRS-SUP-007','Bug tracking system','Internal bugs and issues are documented and resolved.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','critical','functional',ARRAY['support_tickets','support_ticket_comments']),
+('ACC-FRS-SUP-008','Knowledge base and help center','Users can find FAQs, tutorials, and guides.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','high','functional',ARRAY['knowledge_base_articles']),
+('ACC-FRS-SUP-009','Maintenance logging','Updates, fixes, and system changes are logged.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','medium','functional',ARRAY['maintenance_logs']),
+('ACC-FRS-SUP-010','Continuous improvement tracking','Platform improvements are documented over time.','ACC support operator','PostgreSQL is available and the user is authenticated.','Support evidence is persisted and visible to authorized operators.','medium','functional',ARRAY['support_improvements'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As an ACC user, I want maintenance and support controls so platform support is dependable.','views/support/help-center.ejs and views/admin/support.ejs','POST /support/tickets and GET /admin/support',ARRAY['support_tickets','support_slas','maintenance_windows','maintenance_logs','knowledge_base_articles','support_improvements'],'tests/chapter38-support.test.js','Maintenance and Support','1.0','complete','Chapter 38 support controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-SUP-%' ON CONFLICT (requirement_id) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 39: LOGGING & ERROR HANDLING
+-- ========================================
+CREATE TABLE IF NOT EXISTS application_logs (id BIGSERIAL PRIMARY KEY, event_type VARCHAR(120) NOT NULL, severity VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (severity IN ('critical','warning','info')), source VARCHAR(80) NOT NULL DEFAULT 'application', user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, request_id VARCHAR(120), method VARCHAR(12), path VARCHAR(500), outcome VARCHAR(30) NOT NULL DEFAULT 'success', message TEXT NOT NULL, details JSONB NOT NULL DEFAULT '{}'::jsonb, previous_hash VARCHAR(64), record_hash VARCHAR(64) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS error_logs (id BIGSERIAL PRIMARY KEY, application_log_id BIGINT REFERENCES application_logs(id) ON DELETE SET NULL, error_name VARCHAR(160), error_code VARCHAR(80), message TEXT NOT NULL, stack_trace TEXT, severity VARCHAR(20) NOT NULL CHECK (severity IN ('critical','warning','info')), recoverable BOOLEAN NOT NULL DEFAULT FALSE, recovery_action VARCHAR(120), status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','resolved')), created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS log_retention_policies (id BIGSERIAL PRIMARY KEY, log_type VARCHAR(40) NOT NULL UNIQUE CHECK (log_type IN ('application','error','security','audit')), retention_days INTEGER NOT NULL CHECK (retention_days > 0), active BOOLEAN NOT NULL DEFAULT TRUE, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS log_monitor_alerts (id BIGSERIAL PRIMARY KEY, alert_type VARCHAR(80) NOT NULL, severity VARCHAR(20) NOT NULL CHECK (severity IN ('critical','warning','info')), message TEXT NOT NULL, signature VARCHAR(180), occurrence_count INTEGER NOT NULL DEFAULT 1, status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','resolved')), first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (alert_type, signature, status));
+CREATE INDEX IF NOT EXISTS application_logs_created_idx ON application_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS application_logs_severity_idx ON application_logs(severity, created_at DESC);
+CREATE INDEX IF NOT EXISTS error_logs_status_idx ON error_logs(status, severity, created_at DESC);
+CREATE INDEX IF NOT EXISTS log_monitor_alerts_status_idx ON log_monitor_alerts(status, last_seen_at DESC);
+INSERT INTO log_retention_policies (log_type, retention_days) VALUES ('application',365),('error',730),('security',1095),('audit',2555) ON CONFLICT (log_type) DO NOTHING;
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-LOG-001','Event logging','Critical system events are recorded accurately.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','non_functional',ARRAY['application_logs']),
+('ACC-FRS-LOG-002','Error logging','Application errors are captured with diagnostic details.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','non_functional',ARRAY['error_logs']),
+('ACC-FRS-LOG-003','Log storage','Logs are centralized and securely accessible.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','non_functional',ARRAY['application_logs','error_logs']),
+('ACC-FRS-LOG-004','Error classification','Errors are categorized as critical, warning, or info.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','high','non_functional',ARRAY['error_logs']),
+('ACC-FRS-LOG-005','User-friendly error messages','Users receive understandable error responses.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','non_functional',ARRAY['error_logs']),
+('ACC-FRS-LOG-006','Error recovery mechanisms','Retry and fail-safe recovery actions are recorded.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','high','non_functional',ARRAY['error_logs','application_logs']),
+('ACC-FRS-LOG-007','Log monitoring','Anomalies in logs are detected and surfaced.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','non_functional',ARRAY['log_monitor_alerts']),
+('ACC-FRS-LOG-008','Log retention policy','Log retention periods are defined and reviewable.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','medium','non_functional',ARRAY['log_retention_policies']),
+('ACC-FRS-LOG-009','Secure logging','Logs are protected against unauthorized modification and access.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','security',ARRAY['application_logs','admin_audit_logs']),
+('ACC-FRS-LOG-010','Logging audit trail','Activities can be traced through durable log records.','Platform operations administrator','PostgreSQL and the application request context are available.','Logging evidence is durable, classified, traceable, and reviewable.','critical','security',ARRAY['application_logs','audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As a platform operator, I want logging and error controls so ACC remains diagnosable and accountable.','views/admin/logging.ejs and error responses','GET /admin/logging and global error handler',ARRAY['application_logs','error_logs','log_retention_policies','log_monitor_alerts'],'tests/chapter39-logging.test.js','Diagnostics','1.0','complete','Chapter 39 logging controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-LOG-%' ON CONFLICT (requirement_id) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 40: TESTING & QUALITY ASSURANCE
+-- ========================================
+CREATE TABLE IF NOT EXISTS qa_test_plans (id BIGSERIAL PRIMARY KEY, name VARCHAR(180) NOT NULL, release_key VARCHAR(80) NOT NULL, scope TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','active','approved','archived')), owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS qa_test_cases (id BIGSERIAL PRIMARY KEY, plan_id BIGINT REFERENCES qa_test_plans(id) ON DELETE CASCADE, requirement_id BIGINT REFERENCES requirements(id) ON DELETE SET NULL, case_key VARCHAR(40) NOT NULL UNIQUE, title VARCHAR(220) NOT NULL, test_type VARCHAR(20) NOT NULL CHECK (test_type IN ('unit','integration','system','uat','performance','security')), execution_mode VARCHAR(20) NOT NULL CHECK (execution_mode IN ('automated','manual')), scenario TEXT NOT NULL, expected_result TEXT NOT NULL, priority VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','critical')), active BOOLEAN NOT NULL DEFAULT TRUE, created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS qa_test_runs (id BIGSERIAL PRIMARY KEY, plan_id BIGINT REFERENCES qa_test_plans(id) ON DELETE SET NULL, case_id BIGINT NOT NULL REFERENCES qa_test_cases(id) ON DELETE CASCADE, run_type VARCHAR(20) NOT NULL CHECK (run_type IN ('unit','integration','system','uat','regression','performance','security')), execution_mode VARCHAR(20) NOT NULL CHECK (execution_mode IN ('automated','manual')), result VARCHAR(20) NOT NULL CHECK (result IN ('passed','failed','blocked','skipped','pending')), duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0), evidence JSONB NOT NULL DEFAULT '{}'::jsonb, notes TEXT, executed_by INTEGER REFERENCES users(id) ON DELETE SET NULL, executed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS qa_bugs (id BIGSERIAL PRIMARY KEY, bug_key VARCHAR(40) NOT NULL UNIQUE, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, severity VARCHAR(20) NOT NULL CHECK (severity IN ('low','medium','high','critical')), status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','in_progress','fixed','retest','closed','rejected')), test_case_id BIGINT REFERENCES qa_test_cases(id) ON DELETE SET NULL, reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL, assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL, resolution_notes TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TIMESTAMPTZ);
+CREATE TABLE IF NOT EXISTS qa_reports (id BIGSERIAL PRIMARY KEY, report_key VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(180) NOT NULL, report_type VARCHAR(20) NOT NULL CHECK (report_type IN ('test_results','bug_summary','release_readiness')), plan_id BIGINT REFERENCES qa_test_plans(id) ON DELETE SET NULL, summary JSONB NOT NULL DEFAULT '{}'::jsonb, generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS qa_cases_type_idx ON qa_test_cases(test_type, execution_mode, active);
+CREATE INDEX IF NOT EXISTS qa_runs_result_idx ON qa_test_runs(result, executed_at DESC);
+CREATE INDEX IF NOT EXISTS qa_bugs_status_idx ON qa_bugs(status, severity, updated_at DESC);
+CREATE INDEX IF NOT EXISTS qa_reports_created_idx ON qa_reports(created_at DESC);
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-QA-001','Unit testing','Individual components are tested independently.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','non_functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-002','Integration testing','Interactions between platform modules are validated.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','non_functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-003','System testing','Complete platform functionality is validated end to end.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','non_functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-004','User acceptance testing','Real users can approve the platform before release.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-005','Automated testing','Automated scripts support repeatable validation.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','high','non_functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-006','Manual testing','Testers can record human-driven validation.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','high','functional',ARRAY['qa_test_cases','qa_test_runs']),
+('ACC-FRS-QA-007','Regression testing','Existing features are re-tested after changes.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','non_functional',ARRAY['qa_test_runs']),
+('ACC-FRS-QA-008','Performance testing','System behavior under load is validated against targets.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','high','performance',ARRAY['qa_test_runs','performance_request_metrics']),
+('ACC-FRS-QA-009','Security testing','Security checks identify and track vulnerabilities.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','critical','security',ARRAY['qa_test_runs','qa_bugs']),
+('ACC-FRS-QA-010','Test reporting','Results and bug summaries are available for review.','QA administrator','PostgreSQL and an authorized QA operator are available.','Testing evidence is persisted, reviewable, and linked to defects and reports.','high','functional',ARRAY['qa_reports','qa_bugs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As a QA operator, I want testing and quality controls so releases are validated before deployment.','views/admin/qa.ejs','GET /admin/qa and POST /admin/qa/*',ARRAY['qa_test_plans','qa_test_cases','qa_test_runs','qa_bugs','qa_reports'],'tests/chapter40-qa.test.js','Testing and QA','1.0','complete','Chapter 40 QA controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-QA-%' ON CONFLICT (requirement_id) DO NOTHING;
+
+-- ========================================
+-- CHAPTER 41: VERSIONING & RELEASE MANAGEMENT
+-- ========================================
+CREATE TABLE IF NOT EXISTS release_versions (id BIGSERIAL PRIMARY KEY, version VARCHAR(80) NOT NULL UNIQUE, major INTEGER NOT NULL CHECK (major >= 0), minor INTEGER NOT NULL CHECK (minor >= 0), patch INTEGER NOT NULL CHECK (patch >= 0), prerelease VARCHAR(120), build_metadata VARCHAR(120), component VARCHAR(120) NOT NULL DEFAULT 'acc-platform', commit_sha VARCHAR(120), created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS release_plans (id BIGSERIAL PRIMARY KEY, version_id BIGINT NOT NULL REFERENCES release_versions(id) ON DELETE CASCADE, release_type VARCHAR(20) NOT NULL CHECK (release_type IN ('major','minor','patch','hotfix')), title VARCHAR(220) NOT NULL, scope TEXT NOT NULL, environment_id INTEGER REFERENCES deployment_environments(id) ON DELETE SET NULL, scheduled_at TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','in_progress','ready','released','rolled_back','cancelled')), qa_report_id BIGINT REFERENCES qa_reports(id) ON DELETE SET NULL, previous_version_id BIGINT REFERENCES release_versions(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS release_notes (id BIGSERIAL PRIMARY KEY, release_plan_id BIGINT NOT NULL REFERENCES release_plans(id) ON DELETE CASCADE, category VARCHAR(20) NOT NULL CHECK (category IN ('feature','bug_fix','change','security','breaking')), title VARCHAR(220) NOT NULL, body TEXT NOT NULL, audience VARCHAR(20) NOT NULL DEFAULT 'admin' CHECK (audience IN ('user','admin','internal')), created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS release_compatibility (id BIGSERIAL PRIMARY KEY, release_plan_id BIGINT NOT NULL REFERENCES release_plans(id) ON DELETE CASCADE, integration_name VARCHAR(160) NOT NULL, minimum_version VARCHAR(80), compatibility_status VARCHAR(20) NOT NULL DEFAULT 'required' CHECK (compatibility_status IN ('required','verified','deprecated','breaking')), verification_notes TEXT, verified_at TIMESTAMPTZ, verified_by INTEGER REFERENCES users(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS release_monitoring (id BIGSERIAL PRIMARY KEY, release_plan_id BIGINT NOT NULL REFERENCES release_plans(id) ON DELETE CASCADE, environment_id INTEGER REFERENCES deployment_environments(id) ON DELETE SET NULL, status VARCHAR(20) NOT NULL CHECK (status IN ('healthy','watch','incident','resolved')), error_rate NUMERIC(7,4) CHECK (error_rate IS NULL OR error_rate >= 0), response_time_ms INTEGER CHECK (response_time_ms IS NULL OR response_time_ms >= 0), issue_summary TEXT, recorded_by INTEGER REFERENCES users(id) ON DELETE SET NULL, recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS release_audit_logs (id BIGSERIAL PRIMARY KEY, release_plan_id BIGINT REFERENCES release_plans(id) ON DELETE SET NULL, version_id BIGINT REFERENCES release_versions(id) ON DELETE SET NULL, actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL, event_type VARCHAR(80) NOT NULL, outcome VARCHAR(30) NOT NULL DEFAULT 'success', details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS release_plans_status_idx ON release_plans(status, scheduled_at);
+CREATE INDEX IF NOT EXISTS release_notes_plan_idx ON release_notes(release_plan_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS release_monitoring_plan_idx ON release_monitoring(release_plan_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS release_audit_created_idx ON release_audit_logs(created_at DESC);
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-REL-001','Version control system','System components and release versions are tracked accurately.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','critical','non_functional',ARRAY['release_versions','release_audit_logs']),
+('ACC-FRS-REL-002','Semantic versioning','Versions follow Major.Minor.Patch semantic versioning.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','non_functional',ARRAY['release_versions']),
+('ACC-FRS-REL-003','Release planning','Release schedules and feature lists are planned in advance.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','functional',ARRAY['release_plans','release_notes']),
+('ACC-FRS-REL-004','Release deployment','Prepared versions can be deployed through a controlled workflow.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','critical','functional',ARRAY['release_plans','deployment_releases']),
+('ACC-FRS-REL-005','Rollback mechanism','A release can be safely reverted to a previous version.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','critical','functional',ARRAY['release_plans','deployment_releases']),
+('ACC-FRS-REL-006','Release notes','New features, fixes, and changes are documented.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','functional',ARRAY['release_notes']),
+('ACC-FRS-REL-007','Feature flagging','Features can be enabled or disabled without redeployment.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','functional',ARRAY['system_feature_flags','release_audit_logs']),
+('ACC-FRS-REL-008','Backward compatibility','Compatibility requirements for older integrations are recorded.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','functional',ARRAY['release_compatibility']),
+('ACC-FRS-REL-009','Release monitoring','Post-release behavior and issues are monitored.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','critical','non_functional',ARRAY['release_monitoring','deployment_metrics']),
+('ACC-FRS-REL-010','Release audit logging','Version, deployment, and rollback activities are durably logged.','Release administrator','PostgreSQL, deployment, and QA records are available.','Version and release evidence is controlled, deployed, monitored, and auditable.','high','security',ARRAY['release_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As a release administrator, I want versioning and release controls so ACC evolves safely.','views/admin/releases.ejs','GET /admin/releases and POST /admin/releases/*',ARRAY['release_versions','release_plans','release_notes','release_compatibility','release_monitoring','release_audit_logs'],'tests/chapter41-release.test.js','Versioning and Release Management','1.0','complete','Chapter 41 release controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-REL-%' ON CONFLICT (requirement_id) DO NOTHING;
+
+-- Chapter 32 mobile and installable PWA access layer.
+DROP TABLE IF EXISTS mobile_uploads CASCADE;
+DROP TABLE IF EXISTS mobile_location_events CASCADE;
+DROP TABLE IF EXISTS mobile_sync_queue CASCADE;
+DROP TABLE IF EXISTS mobile_push_subscriptions CASCADE;
+DROP TABLE IF EXISTS mobile_devices CASCADE;
+CREATE TABLE mobile_devices (id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, installation_id VARCHAR(180) NOT NULL, platform VARCHAR(20) NOT NULL CHECK (platform IN ('android','ios','web','other')), device_label VARCHAR(120), user_agent VARCHAR(500), capabilities JSONB NOT NULL DEFAULT '{}'::jsonb, last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, installation_id));
+CREATE TABLE mobile_push_subscriptions (id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_id BIGINT REFERENCES mobile_devices(id) ON DELETE CASCADE, endpoint TEXT NOT NULL UNIQUE, subscription JSONB NOT NULL, enabled BOOLEAN NOT NULL DEFAULT TRUE, last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE mobile_sync_queue (id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_id BIGINT REFERENCES mobile_devices(id) ON DELETE SET NULL, client_action_id VARCHAR(180) NOT NULL, action_type VARCHAR(80) NOT NULL, payload JSONB NOT NULL DEFAULT '{}'::jsonb, status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','synced','rejected')), error_message TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, synced_at TIMESTAMPTZ, UNIQUE(user_id, client_action_id));
+CREATE TABLE mobile_location_events (id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_id BIGINT REFERENCES mobile_devices(id) ON DELETE SET NULL, latitude NUMERIC(9,6) NOT NULL CHECK (latitude BETWEEN -90 AND 90), longitude NUMERIC(9,6) NOT NULL CHECK (longitude BETWEEN -180 AND 180), accuracy_m NUMERIC(10,2), purpose VARCHAR(40) NOT NULL DEFAULT 'nearby_search', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE mobile_uploads (id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_id BIGINT REFERENCES mobile_devices(id) ON DELETE SET NULL, original_name VARCHAR(255) NOT NULL, stored_path VARCHAR(500) NOT NULL, mime_type VARCHAR(120) NOT NULL, size_bytes INTEGER NOT NULL CHECK (size_bytes > 0), created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-MOB-001','Mobile and PWA availability','Members can access ACC services through responsive web and an installable PWA on Android and iOS.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-002','Secure mobile authentication','Mobile access uses the shared verified account session and exposes optional platform biometric capability detection.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','critical','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-003','Responsive mobile experience','Core member workflows remain usable on small touch screens and low bandwidth connections.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-004','Push notifications','The platform stores device push subscriptions and links them to persisted notification preferences.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-005','Offline cache and sync','The client can queue non-sensitive actions offline and reconcile them with PostgreSQL after reconnecting.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-006','Camera and document capture','Authenticated members can submit validated image or document uploads from a mobile device.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-007','Location services','Members can opt in to store coarse location signals for nearby business and delivery experiences.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','medium','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-008','Backend synchronization','Mobile device state, sync operations, and upload metadata are durable and auditable in PostgreSQL.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','critical','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-009','Low-bandwidth performance','Mobile responses support compact payloads, cache headers, and connection-aware client behavior.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','high','functional',ARRAY['mobile_devices','mobile_sync_queue']),
+('ACC-FRS-MOB-010','Secure storage and transport','Sensitive data remains server-side, sessions are HttpOnly, and mobile endpoints validate ownership and input.','ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.','critical','functional',ARRAY['mobile_devices','mobile_sync_queue'])
 ON CONFLICT (requirement_id) DO NOTHING;
 
 INSERT INTO requirement_traceability (requirement_id, user_story, ui_reference, api_reference, database_objects, test_case, sprint, release, coverage_status, notes)
@@ -2649,3 +2941,280 @@ VALUES
  ('FR-COMP-009','Compliance audit logging','Compliance actions record actor, subject, entity, outcome, and details.','Compliance reviewer','Compliance operation executes.','Audit events are retained in PostgreSQL.','critical','security',ARRAY['compliance_audit_logs']),
  ('FR-COMP-010','Compliance operations access','Compliance queues and decisions are restricted to authorized administrators.','ACC administrator','RBAC access context exists.','Unauthorized access is denied.','critical','security',ARRAY['permissions','compliance_audit_logs'])
 ON CONFLICT (requirement_id) DO NOTHING;
+
+INSERT INTO permissions (permission_key, resource, action, description) VALUES
+  ('admin.availability.read','admin_availability','read','View service health, uptime evidence, failover posture, incidents, and recovery activity.'),
+  ('admin.availability.manage','admin_availability','manage','Run health checks, record recovery actions, and resolve availability incidents.')
+ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin')
+  AND p.permission_key IN ('admin.availability.read','admin.availability.manage')
+ON CONFLICT DO NOTHING;
+INSERT INTO permissions (permission_key, resource, action, description) VALUES
+  ('admin.support.read','admin_support','read','View support tickets, SLAs, maintenance windows, help content, and analytics.'),
+  ('admin.support.manage','admin_support','manage','Manage tickets, maintenance windows, knowledge content, logs, and improvements.'),
+  ('admin.logging.read','admin_logging','read','View application, error, security, audit, retention, and monitoring logs.'),
+  ('admin.logging.manage','admin_logging','manage','Acknowledge log alerts and manage logging controls.'),
+  ('admin.qa.read','admin_qa','read','View QA plans, test cases, runs, defects, and reports.'),
+  ('admin.qa.manage','admin_qa','manage','Create and execute QA tests, track defects, and generate reports.'),
+  ('admin.release.read','admin_release','read','View versions, release plans, notes, compatibility, monitoring, and audit history.'),
+  ('admin.release.manage','admin_release','manage','Plan releases, deploy or rollback versions, manage flags, notes, compatibility, and monitoring.')
+ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin')
+  AND p.permission_key IN ('admin.support.read','admin.support.manage','admin.logging.read','admin.logging.manage','admin.qa.read','admin.qa.manage','admin.release.read','admin.release.manage')
+ON CONFLICT DO NOTHING;
+
+-- ========================================
+-- CHAPTER 42: DATA MIGRATION & ONBOARDING
+-- ========================================
+
+CREATE TABLE onboarding_profiles (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  onboarding_type VARCHAR(20) NOT NULL CHECK (onboarding_type IN ('individual','business','enterprise')),
+  current_step VARCHAR(60) NOT NULL DEFAULT 'account', progress_percent INTEGER NOT NULL DEFAULT 0 CHECK (progress_percent BETWEEN 0 AND 100),
+  status VARCHAR(20) NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress','completed','paused')),
+  guidance JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE migration_jobs (
+  id BIGSERIAL PRIMARY KEY, job_key VARCHAR(50) NOT NULL UNIQUE,
+  import_type VARCHAR(20) NOT NULL CHECK (import_type IN ('users','businesses')),
+  source_type VARCHAR(20) NOT NULL CHECK (source_type IN ('manual','file','api')),
+  source_name VARCHAR(255), file_name VARCHAR(255),
+  status VARCHAR(30) NOT NULL DEFAULT 'uploaded' CHECK (status IN ('uploaded','validating','processing','completed','completed_with_errors','failed')),
+  total_rows INTEGER NOT NULL DEFAULT 0, processed_rows INTEGER NOT NULL DEFAULT 0, valid_rows INTEGER NOT NULL DEFAULT 0, imported_rows INTEGER NOT NULL DEFAULT 0, error_rows INTEGER NOT NULL DEFAULT 0,
+  started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ, initiated_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE migration_rows (
+  id BIGSERIAL PRIMARY KEY, job_id BIGINT NOT NULL REFERENCES migration_jobs(id) ON DELETE CASCADE, row_number INTEGER NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb, status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','valid','imported','error')),
+  target_id BIGINT, errors JSONB NOT NULL DEFAULT '[]'::jsonb, processed_at TIMESTAMPTZ, UNIQUE(job_id, row_number)
+);
+CREATE TABLE migration_api_sources (
+  id BIGSERIAL PRIMARY KEY, source_key VARCHAR(100) NOT NULL UNIQUE, source_name VARCHAR(180) NOT NULL,
+  import_type VARCHAR(20) NOT NULL CHECK (import_type IN ('users','businesses')), endpoint_url VARCHAR(500), active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_job_id BIGINT REFERENCES migration_jobs(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE onboarding_assistance (
+  id BIGSERIAL PRIMARY KEY, subject_type VARCHAR(20) NOT NULL CHECK (subject_type IN ('user','business','migration_job')), subject_id BIGINT NOT NULL,
+  requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL, assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','assigned','in_progress','completed','cancelled')),
+  task_title VARCHAR(220) NOT NULL, notes TEXT, due_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE onboarding_migration_audit_logs (
+  id BIGSERIAL PRIMARY KEY, actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL, job_id BIGINT REFERENCES migration_jobs(id) ON DELETE SET NULL,
+  event_type VARCHAR(100) NOT NULL, outcome VARCHAR(30) NOT NULL DEFAULT 'success', details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_migration_jobs_status ON migration_jobs(status, created_at DESC);
+CREATE INDEX idx_migration_rows_job_status ON migration_rows(job_id, status, row_number);
+CREATE INDEX idx_onboarding_assistance_status ON onboarding_assistance(status, due_at);
+CREATE INDEX idx_onboarding_audit_created ON onboarding_migration_audit_logs(created_at DESC);
+
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-ONB-001','User onboarding','Users complete guided account and profile onboarding.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','critical','functional',ARRAY['onboarding_profiles']),
+('ACC-FRS-ONB-002','Business onboarding','Businesses can register and submit documents for verification.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','critical','functional',ARRAY['business_accounts']),
+('ACC-FRS-ONB-003','Bulk onboarding','Authorized operators can bulk onboard users and businesses from CSV or Excel.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','high','functional',ARRAY['migration_jobs','migration_rows']),
+('ACC-FRS-ONB-004','Data migration via files','Migration jobs parse uploaded CSV and Excel files into validated records.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','high','functional',ARRAY['migration_jobs']),
+('ACC-FRS-ONB-005','API-based data migration','Authorized external systems can submit migration payloads through an API.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','high','functional',ARRAY['migration_api_sources']),
+('ACC-FRS-ONB-006','Data validation during migration','Required fields and supported formats are validated before storage.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','critical','security',ARRAY['migration_rows']),
+('ACC-FRS-ONB-007','Migration error handling','Invalid rows are retained with clear, reviewable errors.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','high','functional',ARRAY['migration_rows']),
+('ACC-FRS-ONB-008','Migration progress tracking','Migration progress is visible through durable job counters and status.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','medium','functional',ARRAY['migration_jobs']),
+('ACC-FRS-ONB-009','Assisted onboarding','Operators can assign guided onboarding tasks and support notes.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','medium','functional',ARRAY['onboarding_assistance']),
+('ACC-FRS-ONB-010','Onboarding and migration logging','Onboarding, imports, and errors are logged in PostgreSQL.','Onboarding administrator','PostgreSQL and validated source data are available.','Onboarding state is durable and reviewable.','high','security',ARRAY['onboarding_migration_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As an ACC growth operator, I want migration and onboarding controls so member growth is safe.','views/admin/onboarding.ejs','GET /admin/onboarding and POST /admin/onboarding/*',ARRAY['onboarding_profiles','migration_jobs','migration_rows','migration_api_sources','onboarding_assistance','onboarding_migration_audit_logs'],'tests/chapter42-onboarding.test.js','Data Migration and Onboarding','1.0','complete','Chapter 42 onboarding controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-ONB-%' ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO permissions (permission_key, resource, action, description) VALUES
+('admin.onboarding.read','admin_onboarding','read','View onboarding profiles, migration jobs, progress, errors, and assistance.'),
+('admin.onboarding.manage','admin_onboarding','manage','Create migrations, process imports, configure API sources, and manage assisted onboarding.')
+ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin') AND p.permission_key IN ('admin.onboarding.read','admin.onboarding.manage')
+ON CONFLICT DO NOTHING;
+
+-- ========================================
+-- CHAPTER 43: AI & RECOMMENDATION SYSTEM
+-- ========================================
+
+CREATE TABLE ai_user_profiles (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  recommendations_enabled BOOLEAN NOT NULL DEFAULT TRUE, behavior_analysis_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  fraud_alerts_enabled BOOLEAN NOT NULL DEFAULT TRUE, personalization_scope VARCHAR(20) NOT NULL DEFAULT 'platform' CHECK (personalization_scope IN ('none','platform','business')),
+  interests JSONB NOT NULL DEFAULT '[]'::jsonb, consent_version VARCHAR(40) NOT NULL DEFAULT '1.0', consented_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE ai_interaction_events (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, business_id INTEGER REFERENCES business_accounts(id) ON DELETE SET NULL,
+  event_type VARCHAR(80) NOT NULL, resource_type VARCHAR(60), resource_id VARCHAR(120), query_text VARCHAR(160), metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE ai_recommendations (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recommendation_type VARCHAR(30) NOT NULL CHECK (recommendation_type IN ('business','product','service','opportunity')), target_id BIGINT NOT NULL,
+  target_type VARCHAR(40) NOT NULL, score NUMERIC(8,4) NOT NULL DEFAULT 0, reason VARCHAR(500) NOT NULL,
+  model_version VARCHAR(80) NOT NULL DEFAULT 'rules-v1', feedback VARCHAR(20) CHECK (feedback IN ('positive','negative','dismissed')),
+  status VARCHAR(20) NOT NULL DEFAULT 'shown' CHECK (status IN ('shown','clicked','dismissed','expired')), generated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, feedback_at TIMESTAMPTZ
+);
+CREATE TABLE ai_search_queries (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, query_text VARCHAR(160) NOT NULL,
+  suggestions JSONB NOT NULL DEFAULT '[]'::jsonb, result_ids JSONB NOT NULL DEFAULT '[]'::jsonb, result_count INTEGER NOT NULL DEFAULT 0,
+  ranking_version VARCHAR(80) NOT NULL DEFAULT 'rank-v1', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE ai_fraud_cases (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  subject_type VARCHAR(30) NOT NULL, subject_id BIGINT, risk_score NUMERIC(8,4) NOT NULL CHECK (risk_score BETWEEN 0 AND 100),
+  risk_level VARCHAR(20) NOT NULL CHECK (risk_level IN ('low','medium','high','critical')), indicators JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open','reviewing','confirmed','dismissed','blocked')), resolution_note TEXT,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TIMESTAMPTZ
+);
+CREATE TABLE ai_predictions (
+  id BIGSERIAL PRIMARY KEY, business_id INTEGER REFERENCES business_accounts(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  prediction_type VARCHAR(60) NOT NULL, subject_type VARCHAR(40) NOT NULL, subject_id BIGINT, forecast JSONB NOT NULL DEFAULT '{}'::jsonb,
+  confidence NUMERIC(8,4) NOT NULL DEFAULT 0 CHECK (confidence BETWEEN 0 AND 100), horizon VARCHAR(60) NOT NULL, model_version VARCHAR(80) NOT NULL DEFAULT 'forecast-v1',
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMPTZ
+);
+CREATE TABLE ai_alerts (
+  id BIGSERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, fraud_case_id BIGINT REFERENCES ai_fraud_cases(id) ON DELETE CASCADE,
+  prediction_id BIGINT REFERENCES ai_predictions(id) ON DELETE CASCADE, alert_type VARCHAR(40) NOT NULL, severity VARCHAR(20) NOT NULL CHECK (severity IN ('info','medium','high','critical')),
+  title VARCHAR(220) NOT NULL, message TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'unread' CHECK (status IN ('unread','acknowledged','resolved','dismissed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TIMESTAMPTZ
+);
+CREATE TABLE ai_models (
+  id BIGSERIAL PRIMARY KEY, model_key VARCHAR(100) NOT NULL, version VARCHAR(80) NOT NULL, model_type VARCHAR(60) NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active','testing','retired','degraded')), precision_score NUMERIC(8,4), recall_score NUMERIC(8,4), recommendation_ctr NUMERIC(8,4), false_positive_rate NUMERIC(8,4), training_events INTEGER NOT NULL DEFAULT 0, last_evaluated_at TIMESTAMPTZ, notes TEXT,
+  UNIQUE(model_key, version)
+);
+CREATE TABLE ai_audit_logs (
+  id BIGSERIAL PRIMARY KEY, actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL, user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(100) NOT NULL, decision VARCHAR(100), model_version VARCHAR(80), details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_ai_interaction_user_created ON ai_interaction_events(user_id, occurred_at DESC);
+CREATE INDEX idx_ai_recommendations_user_created ON ai_recommendations(user_id, generated_at DESC);
+CREATE INDEX idx_ai_search_queries_query ON ai_search_queries(query_text, created_at DESC);
+CREATE INDEX idx_ai_fraud_cases_status ON ai_fraud_cases(status, risk_score DESC, detected_at DESC);
+CREATE INDEX idx_ai_alerts_status ON ai_alerts(status, severity, created_at DESC);
+CREATE INDEX idx_ai_audit_created ON ai_audit_logs(created_at DESC);
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-AI-001','Recommendation Engine','The system shall provide personalized recommendations for businesses, products, and services.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','high','functional',ARRAY['ai_recommendations']),
+('ACC-FRS-AI-002','Smart Search','The system shall enhance search with auto-suggestions and ranked results.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','high','functional',ARRAY['ai_search_queries','marketplace_listings']),
+('ACC-FRS-AI-003','Fraud Detection System','The system shall detect and flag suspicious activities and high-risk transactions.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','critical','security',ARRAY['ai_fraud_cases','ai_alerts']),
+('ACC-FRS-AI-004','User Behavior Analysis','The system shall analyze user behavior patterns accurately.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','high','functional',ARRAY['ai_interaction_events']),
+('ACC-FRS-AI-005','Predictive Analytics','The system shall provide useful market, demand, and business predictions.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','medium','functional',ARRAY['ai_predictions','orders']),
+('ACC-FRS-AI-006','Continuous Learning','The system shall improve recommendations over time through persisted feedback and interactions.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','high','functional',ARRAY['ai_interaction_events','ai_recommendations']),
+('ACC-FRS-AI-007','AI-Based Alerts','The system shall generate timely and relevant fraud and opportunity alerts.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','high','functional',ARRAY['ai_alerts']),
+('ACC-FRS-AI-008','Data Privacy in AI','The system shall respect consent, minimization, access, and deletion controls for AI data.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','critical','security',ARRAY['ai_user_profiles']),
+('ACC-FRS-AI-009','AI Model Monitoring','The system shall monitor model and scoring performance.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','medium','non_functional',ARRAY['ai_models']),
+('ACC-FRS-AI-010','AI Activity Logging','The system shall log recommendations, alerts, searches, decisions, and model actions.','AI administrator','PostgreSQL source data and applicable consent are available.','AI decisions, recommendations, alerts, privacy actions, and model health are durable and auditable.','medium','security',ARRAY['ai_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As an ACC user or operator, I want intelligence controls so the platform becomes more useful and trustworthy.','views/ai/dashboard.ejs and views/admin/ai.ejs','GET /ai and GET /admin/ai',ARRAY['ai_user_profiles','ai_interaction_events','ai_recommendations','ai_search_queries','ai_fraud_cases','ai_predictions','ai_alerts','ai_models','ai_audit_logs'],'tests/chapter43-ai.test.js','AI and Recommendation System','1.0','complete','Chapter 43 intelligence controls are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-AI-%' ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO permissions (permission_key, resource, action, description) VALUES
+('ai.recommendations.read','ai_intelligence','read','View personalized recommendations and AI insights.'),
+('ai.interactions.write','ai_intelligence','write','Record consented AI interaction and recommendation feedback.'),
+('admin.ai.read','admin_ai','read','View AI recommendations, fraud, alerts, predictions, and model health.'),
+('admin.ai.manage','admin_ai','manage','Manage AI cases, alerts, model monitoring, privacy controls, and decisions.')
+ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin','compliance_officer') AND p.permission_key IN ('admin.ai.read','admin.ai.manage')
+ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+WHERE r.role_key IN ('registered_user','verified_user','business_member','business_admin') AND p.permission_key IN ('ai.recommendations.read','ai.interactions.write')
+ON CONFLICT DO NOTHING;
+
+-- ========================================
+-- CHAPTER 44: THIRD-PARTY ECOSYSTEM & PARTNERSHIPS
+-- ========================================
+
+CREATE TABLE partnership_partners (
+  id BIGSERIAL PRIMARY KEY, legal_name VARCHAR(180) NOT NULL, display_name VARCHAR(160) NOT NULL,
+  partner_type VARCHAR(40) NOT NULL CHECK (partner_type IN ('financial','logistics','government','technology','business_network')),
+  country_code VARCHAR(3), contact_email VARCHAR(180) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'applicant' CHECK (status IN ('applicant','onboarding','active','suspended','rejected')),
+  api_client_id BIGINT REFERENCES api_clients(id) ON DELETE SET NULL, notes TEXT, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  approved_by BIGINT REFERENCES users(id) ON DELETE SET NULL, approved_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE partnership_integrations (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT NOT NULL REFERENCES partnership_partners(id) ON DELETE CASCADE, name VARCHAR(160) NOT NULL,
+  integration_type VARCHAR(30) NOT NULL CHECK (integration_type IN ('api','webhook','data_sharing','embedded')), service_area VARCHAR(40) NOT NULL,
+  provider VARCHAR(160) NOT NULL, endpoint_url TEXT, auth_method VARCHAR(60) NOT NULL DEFAULT 'api_key', status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','configured','healthy','degraded','unavailable','revoked')),
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb, last_checked_at TIMESTAMPTZ, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE partnership_credentials (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT NOT NULL REFERENCES partnership_partners(id) ON DELETE CASCADE, key_prefix VARCHAR(32) NOT NULL,
+  secret_hash VARCHAR(128) NOT NULL UNIQUE, scopes JSONB NOT NULL DEFAULT '[]'::jsonb, status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','expired')),
+  issued_by BIGINT REFERENCES users(id) ON DELETE SET NULL, expires_at TIMESTAMPTZ, last_used_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, revoked_at TIMESTAMPTZ
+);
+CREATE TABLE partnership_access_grants (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT NOT NULL REFERENCES partnership_partners(id) ON DELETE CASCADE, scope VARCHAR(80) NOT NULL,
+  granted_by BIGINT REFERENCES users(id) ON DELETE SET NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, revoked_at TIMESTAMPTZ,
+  UNIQUE (partner_id, scope)
+);
+CREATE TABLE partnership_verifications (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT NOT NULL REFERENCES partnership_partners(id) ON DELETE CASCADE, verification_type VARCHAR(50) NOT NULL,
+  reference_number VARCHAR(160), source_name VARCHAR(180) NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','verified','failed','expired')),
+  evidence JSONB NOT NULL DEFAULT '{}'::jsonb, verified_by BIGINT REFERENCES users(id) ON DELETE SET NULL, verified_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE partnership_exchanges (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT REFERENCES partnership_partners(id) ON DELETE SET NULL, integration_id BIGINT REFERENCES partnership_integrations(id) ON DELETE SET NULL,
+  direction VARCHAR(20) NOT NULL CHECK (direction IN ('inbound','outbound')), event_type VARCHAR(120) NOT NULL, external_reference VARCHAR(180), payload_hash VARCHAR(128),
+  encrypted BOOLEAN NOT NULL DEFAULT TRUE, authenticated BOOLEAN NOT NULL DEFAULT TRUE, status VARCHAR(30) NOT NULL DEFAULT 'received', response_code INTEGER, latency_ms INTEGER,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb, occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE partnership_monitoring (
+  id BIGSERIAL PRIMARY KEY, partner_id BIGINT NOT NULL REFERENCES partnership_partners(id) ON DELETE CASCADE, window_start TIMESTAMPTZ NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 0, success_count INTEGER NOT NULL DEFAULT 0, failure_count INTEGER NOT NULL DEFAULT 0, average_latency_ms INTEGER NOT NULL DEFAULT 0,
+  uptime_percent NUMERIC(6,2) NOT NULL DEFAULT 100, last_event_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (partner_id, window_start)
+);
+CREATE TABLE partnership_audit_logs (
+  id BIGSERIAL PRIMARY KEY, actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, partner_id BIGINT REFERENCES partnership_partners(id) ON DELETE SET NULL,
+  event_type VARCHAR(120) NOT NULL, outcome VARCHAR(30) NOT NULL DEFAULT 'success', details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_partnership_exchange_created ON partnership_exchanges(occurred_at DESC);
+CREATE INDEX idx_partnership_audit_created ON partnership_audit_logs(created_at DESC);
+CREATE INDEX idx_partnership_credentials_hash ON partnership_credentials(secret_hash);
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES
+('ACC-FRS-PART-001','Third-Party Integration Support','The system shall support integration with external systems.','ACC partnership administrator','PostgreSQL and approved partner credentials are available.','External systems connect through governed integration records and exchange APIs.','critical','functional',ARRAY['partnership_partners','partnership_integrations']),
+('ACC-FRS-PART-002','Partner Onboarding','The system shall onboard third-party partners.','ACC partnership administrator','A partner registration request is available.','Partner registration, credential issuance, and access approval are persisted.','high','functional',ARRAY['partnership_partners','partnership_credentials']),
+('ACC-FRS-PART-003','API Access for Partners','The system shall provide APIs for partner systems.','ACC partnership administrator','An active partner credential with approved scopes exists.','Partner API requests are authenticated, scoped, and logged.','critical','security',ARRAY['partnership_credentials','partnership_exchanges']),
+('ACC-FRS-PART-004','Secure Data Exchange','The system shall ensure secure communication with partners.','ACC partnership administrator','Partner authentication and exchange endpoint are configured.','Exchange encryption and authentication posture are recorded.','critical','security',ARRAY['partnership_exchanges']),
+('ACC-FRS-PART-005','Payment Provider Integration','The system shall integrate with payment providers.','Financial partner','A financial partner is active.','Payment integration configuration and exchanges are reviewable.','critical','functional',ARRAY['partnership_integrations','payments']),
+('ACC-FRS-PART-006','Logistics Integration','The system shall integrate with logistics providers.','Logistics partner','A logistics partner is active.','Shipment and delivery exchange events are available.','high','functional',ARRAY['partnership_integrations','shipments']),
+('ACC-FRS-PART-007','Government Integration','The system shall integrate with government systems where applicable.','Government partner','A government or regulatory partner is active.','Verification exchanges and evidence are retained.','high','functional',ARRAY['partnership_integrations','partnership_verifications']),
+('ACC-FRS-PART-008','Partner Monitoring','The system shall monitor partner activity and performance.','ACC partnership administrator','Partner exchanges have been recorded.','Partner request, failure, latency, and uptime metrics are available.','medium','non_functional',ARRAY['partnership_monitoring','partnership_exchanges']),
+('ACC-FRS-PART-009','Partner Access Control','The system shall control partner permissions.','ACC partnership administrator','A partner scope has been reviewed.','Access scopes can be granted and revoked per partner.','critical','security',ARRAY['partnership_access_grants','partnership_credentials']),
+('ACC-FRS-PART-010','Partnership Logging','The system shall log all partner interactions.','ACC partnership administrator','A partner workflow or exchange occurs.','API calls, exchanges, integration events, and decisions are audited.','high','security',ARRAY['partnership_audit_logs'])
+ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes)
+SELECT id,'As an ACC operator, I want governed partner integrations so the chamber can safely expand its ecosystem.','views/admin/partnerships.ejs','GET /admin/partnerships and /api/partners/v1/*',ARRAY['partnership_partners','partnership_integrations','partnership_credentials','partnership_access_grants','partnership_verifications','partnership_exchanges','partnership_monitoring','partnership_audit_logs'],'tests/chapter44-partnerships.test.js','Third-Party Ecosystem and Partnerships','1.0','complete','Chapter 44 partner governance and exchange APIs are PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-PART-%' ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO permissions (permission_key,resource,action,description) VALUES
+('admin.partnerships.read','admin_partnerships','read','View partners, integrations, credentials, exchanges, metrics, and partnership audit evidence.'),
+('admin.partnerships.manage','admin_partnerships','manage','Onboard partners, issue credentials, configure integrations, grant access, and manage partnership status.'),
+('partner.profile.read','partner_profile','read','Read the authenticated partner profile and approved integration scope.'),
+('partner.exchanges.write','partner_exchanges','create','Submit authenticated partner exchange events.')
+ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin') AND p.permission_key IN ('admin.partnerships.read','admin.partnerships.manage') ON CONFLICT DO NOTHING;
+
+DROP TABLE IF EXISTS roadmap_audit_logs, roadmap_scalability_plans, roadmap_feedback, roadmap_technology_evaluations, roadmap_innovations, roadmap_features, roadmap_goals, roadmap_phases CASCADE;
+CREATE TABLE roadmap_phases (id BIGSERIAL PRIMARY KEY, phase_key VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(160) NOT NULL, description TEXT NOT NULL, sequence_number INTEGER NOT NULL UNIQUE, status VARCHAR(20) NOT NULL DEFAULT 'planned', target_start DATE, target_end DATE, owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_goals (id BIGSERIAL PRIMARY KEY, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, goal_area VARCHAR(100) NOT NULL, metric_name VARCHAR(120), target_value VARCHAR(120), status VARCHAR(20) NOT NULL DEFAULT 'active', owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_features (id BIGSERIAL PRIMARY KEY, phase_id BIGINT REFERENCES roadmap_phases(id) ON DELETE SET NULL, goal_id BIGINT REFERENCES roadmap_goals(id) ON DELETE SET NULL, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, priority VARCHAR(20) NOT NULL DEFAULT 'medium', status VARCHAR(30) NOT NULL DEFAULT 'idea', stakeholder_visibility VARCHAR(20) NOT NULL DEFAULT 'public', target_quarter VARCHAR(20), release_plan_id BIGINT REFERENCES release_plans(id) ON DELETE SET NULL, owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_innovations (id BIGSERIAL PRIMARY KEY, title VARCHAR(220) NOT NULL, description TEXT NOT NULL, category VARCHAR(100) NOT NULL, hypothesis TEXT, expected_value TEXT, status VARCHAR(30) NOT NULL DEFAULT 'proposed', owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_technology_evaluations (id BIGSERIAL PRIMARY KEY, technology_name VARCHAR(180) NOT NULL, category VARCHAR(100) NOT NULL, use_case TEXT NOT NULL, evaluation_criteria JSONB NOT NULL DEFAULT '{}'::jsonb, recommendation TEXT, status VARCHAR(30) NOT NULL DEFAULT 'proposed', evaluated_by BIGINT REFERENCES users(id) ON DELETE SET NULL, evaluated_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_feedback (id BIGSERIAL PRIMARY KEY, feature_id BIGINT REFERENCES roadmap_features(id) ON DELETE SET NULL, user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, stakeholder_name VARCHAR(160), stakeholder_email VARCHAR(180), feedback_type VARCHAR(50) NOT NULL DEFAULT 'suggestion', rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5), message TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'new', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, reviewed_at TIMESTAMPTZ, reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL);
+CREATE TABLE roadmap_scalability_plans (id BIGSERIAL PRIMARY KEY, area VARCHAR(120) NOT NULL, current_capacity VARCHAR(180) NOT NULL, target_capacity VARCHAR(180) NOT NULL, strategy TEXT NOT NULL, target_date DATE, status VARCHAR(20) NOT NULL DEFAULT 'planned', owner_id BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE roadmap_audit_logs (id BIGSERIAL PRIMARY KEY, actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL, entity_type VARCHAR(80) NOT NULL, entity_id BIGINT, event_type VARCHAR(100) NOT NULL, previous_value JSONB, next_value JSONB, details JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX idx_roadmap_features_status ON roadmap_features(status, priority);
+CREATE INDEX idx_roadmap_feedback_status ON roadmap_feedback(status, created_at DESC);
+CREATE INDEX idx_roadmap_audit_created ON roadmap_audit_logs(created_at DESC);
+INSERT INTO roadmap_phases (phase_key,name,description,sequence_number,status) VALUES ('phase-1','Core platform','Registration, marketplace, payments, compliance, and analytics.',1,'completed'),('phase-2','Expansion & optimization','Advanced analytics, mobile, discovery, UX, and regional expansion.',2,'active'),('phase-3','Intelligence & automation','AI recommendations, prediction, workflow automation, and fraud controls.',3,'active'),('phase-4','Ecosystem integration','Banks, government, logistics, and partner marketplace capabilities.',4,'active'),('phase-5','Continental infrastructure','Cross-border trade, identity, payments, financing, and credit systems.',5,'planned');
+INSERT INTO requirements (requirement_id,name,description,actor,preconditions,postconditions,priority,category,dependencies) VALUES ('ACC-FRS-ROAD-001','Roadmap management','The system shall maintain a structured product roadmap.','ACC roadmap administrator','PostgreSQL and governance access are available.','Roadmap decisions are persisted.','high','functional',ARRAY['roadmap_phases','roadmap_features']),('ACC-FRS-ROAD-002','Feature planning','The system shall support planning of future features.','ACC roadmap administrator','A roadmap phase exists.','Features have accountable status and priority.','high','functional',ARRAY['roadmap_features']),('ACC-FRS-ROAD-003','Innovation tracking','The system shall track innovation initiatives.','ACC roadmap administrator','An initiative is proposed.','Innovation status and expected value are recorded.','medium','functional',ARRAY['roadmap_innovations']),('ACC-FRS-ROAD-004','Feedback-driven development','The system shall incorporate user feedback into roadmap decisions.','Stakeholder','A feedback message is submitted.','Feedback is reviewable and auditable.','high','functional',ARRAY['roadmap_feedback']),('ACC-FRS-ROAD-005','Technology evaluation','The system shall evaluate new technologies for adoption.','ACC roadmap administrator','A technology use case is defined.','Evaluation recommendation is persisted.','medium','functional',ARRAY['roadmap_technology_evaluations']),('ACC-FRS-ROAD-006','Roadmap visibility','The system shall provide visibility of future plans to stakeholders.','Stakeholder','The public roadmap is available.','Public features and phases are visible.','medium','functional',ARRAY['roadmap_phases','roadmap_features']),('ACC-FRS-ROAD-007','Strategic alignment','The system shall align roadmap with business goals.','ACC roadmap administrator','A strategic goal is defined.','Features can reference goals.','high','functional',ARRAY['roadmap_goals','roadmap_features']),('ACC-FRS-ROAD-008','Incremental delivery','The system shall deliver features in phases.','ACC roadmap administrator','A release plan is available.','Features can reference release plans and phases.','high','functional',ARRAY['roadmap_features','release_plans']),('ACC-FRS-ROAD-009','Scalability planning','The system shall plan for future scalability.','ACC roadmap administrator','A capacity gap is identified.','Capacity strategy and target are recorded.','high','non_functional',ARRAY['roadmap_scalability_plans']),('ACC-FRS-ROAD-010','Roadmap audit logging','The system shall log roadmap changes.','ACC roadmap administrator','A roadmap record changes.','The change is retained in an audit log.','medium','security',ARRAY['roadmap_audit_logs']) ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO requirement_traceability (requirement_id,user_story,ui_reference,api_reference,database_objects,test_case,sprint,release,coverage_status,notes) SELECT id,'As an ACC stakeholder, I want a governed future roadmap so delivery remains visible, aligned, and accountable.','views/roadmap/index.ejs and views/admin/roadmap.ejs','GET /roadmap and /admin/roadmap',ARRAY['roadmap_phases','roadmap_goals','roadmap_features','roadmap_innovations','roadmap_technology_evaluations','roadmap_feedback','roadmap_scalability_plans','roadmap_audit_logs'],'tests/chapter45-roadmap.test.js','Future enhancements and roadmap','1.0','complete','Chapter 45 roadmap governance is PostgreSQL-backed.' FROM requirements WHERE requirement_id LIKE 'ACC-FRS-ROAD-%' ON CONFLICT (requirement_id) DO NOTHING;
+INSERT INTO permissions (permission_key,resource,action,description) VALUES ('roadmap.read','roadmap','read','View public roadmap plans.'),('admin.roadmap.read','admin_roadmap','read','View roadmap governance evidence.'),('admin.roadmap.manage','admin_roadmap','manage','Manage roadmap planning and audit evidence.') ON CONFLICT (permission_key) DO NOTHING;
+INSERT INTO role_permissions (role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.role_key IN ('platform_admin','system_admin','acc_management_admin','super_admin') AND p.permission_key IN ('admin.roadmap.read','admin.roadmap.manage') ON CONFLICT DO NOTHING;
+INSERT INTO role_permissions (role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.role_key IN ('registered_user','verified_user','business_member','business_admin') AND p.permission_key='roadmap.read' ON CONFLICT DO NOTHING;

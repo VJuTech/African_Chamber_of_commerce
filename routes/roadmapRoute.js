@@ -1,0 +1,17 @@
+const express = require("express");
+const { ensureAuthenticated } = require("../controllers/accountController");
+const { requirePermission, requireRole } = require("../middleware/rbacMiddleware");
+const controller = require("../controllers/roadmapController");
+const router = express.Router();
+const adminAccess = [ensureAuthenticated, requireRole("acc_management_admin", "platform_admin", "system_admin", "super_admin")];
+router.get("/roadmap", controller.publicPage);
+router.post("/roadmap/feedback", controller.feedback);
+router.get("/admin/roadmap", ...adminAccess, requirePermission("admin.roadmap.read"), controller.adminPage);
+router.post("/admin/roadmap/features", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.feature);
+router.post("/admin/roadmap/features/:id/status", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.featureStatus);
+router.post("/admin/roadmap/innovations", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.innovation);
+router.post("/admin/roadmap/evaluations", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.evaluation);
+router.post("/admin/roadmap/goals", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.goal);
+router.post("/admin/roadmap/scalability", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.scalability);
+router.post("/admin/roadmap/feedback/:id/status", ...adminAccess, requirePermission("admin.roadmap.manage"), controller.feedbackStatus);
+module.exports = router;

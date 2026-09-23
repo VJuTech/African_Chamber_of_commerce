@@ -1,0 +1,16 @@
+const express = require("express");
+const { ensureAuthenticated } = require("../controllers/accountController");
+const { requirePermission, requireRole } = require("../middleware/rbacMiddleware");
+const controller = require("../controllers/releaseController");
+const router = express.Router();
+const access = [ensureAuthenticated, requireRole("platform_admin", "system_admin", "acc_management_admin", "super_admin")];
+router.get("/admin/releases", ...access, requirePermission("admin.release.read"), controller.page);
+router.post("/admin/releases/versions", ...access, requirePermission("admin.release.manage"), controller.version);
+router.post("/admin/releases/plans", ...access, requirePermission("admin.release.manage"), controller.plan);
+router.post("/admin/releases/notes", ...access, requirePermission("admin.release.manage"), controller.note);
+router.post("/admin/releases/compatibility", ...access, requirePermission("admin.release.manage"), controller.compatibility);
+router.post("/admin/releases/deploy", ...access, requirePermission("admin.release.manage"), controller.deploy);
+router.post("/admin/releases/rollback", ...access, requirePermission("admin.release.manage"), controller.rollback);
+router.post("/admin/releases/monitoring", ...access, requirePermission("admin.release.manage"), controller.monitor);
+router.post("/admin/releases/features/:key", ...access, requirePermission("admin.release.manage"), controller.feature);
+module.exports = router;

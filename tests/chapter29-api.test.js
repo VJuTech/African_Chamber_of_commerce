@@ -1,0 +1,18 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const apiModel = require(path.join(root, "models", "apiModel"));
+const apiRoute = fs.readFileSync(path.join(root, "routes", "apiRoute.js"), "utf8");
+const apiAdminRoute = fs.readFileSync(path.join(root, "routes", "apiAdminRoute.js"), "utf8");
+const apiController = fs.readFileSync(path.join(root, "controllers", "apiController.js"), "utf8");
+const apiGateway = fs.readFileSync(path.join(root, "middleware", "apiGateway.js"), "utf8");
+const rebuildSql = fs.readFileSync(path.join(root, "database", "rebuild.sql"), "utf8");
+for (const method of ["hashSecret", "createClient", "authenticateKey", "consumeRateLimit", "recordRequest", "listClients", "revokeKey", "getUsageSummary", "getRequestLogs", "createWebhook", "listWebhooks", "revokeWebhook", "retryWebhook"]) assert.equal(typeof apiModel[method], "function", `${method} should be exported`);
+assert.deepEqual(apiModel.API_SCOPES, ["users.read", "businesses.read", "listings.read", "orders.read", "payments.read"]);
+assert.notEqual(apiModel.hashSecret("secret"), "secret");
+for (const table of ["api_clients", "api_keys", "api_rate_limit_windows", "api_request_logs", "webhook_subscriptions", "webhook_deliveries"]) assert.ok(rebuildSql.includes(table), `Missing API table: ${table}`);
+for (const route of ["/api/docs", "/api/:version/users", "/api/:version/businesses", "/api/:version/listings", "/api/:version/orders", "/api/:version/payments"]) assert.ok(apiRoute.includes(route), `Missing API route: ${route}`);
+assert.ok(apiAdminRoute.includes("/admin/api"));
+assert.ok(apiController.includes("documentation") && apiGateway.includes("apiGateway"));
+console.log("Chapter 29 API contract: PASS");
