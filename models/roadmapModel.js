@@ -25,7 +25,7 @@ function numberOrNull(value) { return Number.isFinite(Number(value)) && Number(v
 async function ensureSchema() {
   await pool.query(`
     ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_requirement_id_check;
-    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-[A-Z0-9]+)-[0-9]{3}$');
+    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$');
     CREATE TABLE IF NOT EXISTS roadmap_phases (
       id BIGSERIAL PRIMARY KEY, phase_key VARCHAR(40) NOT NULL UNIQUE, name VARCHAR(160) NOT NULL, description TEXT NOT NULL,
       sequence_number INTEGER NOT NULL UNIQUE CHECK (sequence_number > 0), status VARCHAR(20) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','active','completed','paused')),

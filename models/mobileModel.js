@@ -16,7 +16,7 @@ const MOBILE_REQUIREMENTS = [
 async function ensureSchema() {
   await pool.query(`
     ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_requirement_id_check;
-    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB))-[0-9]{3}$');
+    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$');
     CREATE TABLE IF NOT EXISTS mobile_devices (
       id BIGSERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -77,7 +77,11 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS mobile_location_user_idx ON mobile_location_events(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS mobile_uploads_user_idx ON mobile_uploads(user_id, created_at DESC);
   `);
-  await pool.query(`INSERT INTO permissions (permission_key, resource, action, description) VALUES ('mobile.access','mobile','access','Use the authenticated ACC mobile and PWA experience.') ON CONFLICT (permission_key) DO NOTHING`);
+  await pool.query(`
+    ALTER TABLE permissions DROP CONSTRAINT IF EXISTS permissions_action_check;
+    ALTER TABLE permissions ADD CONSTRAINT permissions_action_check CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage', 'write', 'access'));
+    INSERT INTO permissions (permission_key, resource, action, description) VALUES ('mobile.access','mobile','access','Use the authenticated ACC mobile and PWA experience.') ON CONFLICT (permission_key) DO NOTHING;
+  `);
   for (const [requirementId, name, description, priority] of MOBILE_REQUIREMENTS) {
     await pool.query(`INSERT INTO requirements (requirement_id, name, description, actor, preconditions, postconditions, priority, category, dependencies) VALUES ($1,$2,$3,'ACC member','A verified ACC account and PostgreSQL are available.','Mobile activity is validated and persisted.',$4,'functional',ARRAY['mobile_devices','mobile_sync_queue']) ON CONFLICT (requirement_id) DO NOTHING`, [requirementId, name, description, priority]);
   }

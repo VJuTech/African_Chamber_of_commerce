@@ -27,7 +27,7 @@ function normalizeVersion(value) {
 async function ensureSchema() {
   await pool.query(`
     ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_requirement_id_check;
-    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL))-[0-9]{3}$');
+    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$');
     CREATE TABLE IF NOT EXISTS release_versions (
       id BIGSERIAL PRIMARY KEY,
       version VARCHAR(80) NOT NULL UNIQUE,

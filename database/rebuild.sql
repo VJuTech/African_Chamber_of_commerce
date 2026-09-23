@@ -957,7 +957,7 @@ CREATE TABLE permissions (
   id SERIAL PRIMARY KEY,
   permission_key VARCHAR(120) NOT NULL UNIQUE,
   resource VARCHAR(80) NOT NULL,
-  action VARCHAR(30) NOT NULL CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage', 'write')),
+  action VARCHAR(30) NOT NULL CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage', 'write', 'access')),
   description TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

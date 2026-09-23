@@ -17,7 +17,7 @@ const SUPPORT_REQUIREMENTS = [
 async function ensureSchema() {
   await pool.query(`
     ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_requirement_id_check;
-    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG))-[0-9]{3}$');
+    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$');
     CREATE TABLE IF NOT EXISTS support_slas (
       id BIGSERIAL PRIMARY KEY,
       name VARCHAR(120) NOT NULL UNIQUE,

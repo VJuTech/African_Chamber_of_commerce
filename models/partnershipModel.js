@@ -28,7 +28,7 @@ function text(value, max = 240) { return String(value || "").trim().slice(0, max
 async function ensureSchema() {
   await pool.query(`
     ALTER TABLE requirements DROP CONSTRAINT IF EXISTS requirements_requirement_id_check;
-    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-[A-Z0-9]+)-[0-9]{3}$');
+    ALTER TABLE requirements ADD CONSTRAINT requirements_requirement_id_check CHECK (requirement_id ~ '^(FR-[A-Z0-9]+|ACC-FRS-(PERF|MOB|AVAIL|SUP|LOG|QA|REL|ONB|AI|PART|ROAD))-[0-9]{3}$');
     CREATE TABLE IF NOT EXISTS partnership_partners (
       id BIGSERIAL PRIMARY KEY, legal_name VARCHAR(180) NOT NULL, display_name VARCHAR(160) NOT NULL,
       partner_type VARCHAR(40) NOT NULL CHECK (partner_type IN ('financial','logistics','government','technology','business_network')),
