@@ -606,6 +606,23 @@ SELECT id,'As a QA operator, I want testing and quality controls so releases are
 -- ========================================
 -- CHAPTER 41: VERSIONING & RELEASE MANAGEMENT
 -- ========================================
+CREATE TABLE deployment_environments (
+  id SERIAL PRIMARY KEY,
+  environment_key VARCHAR(30) NOT NULL UNIQUE CHECK (environment_key IN ('development', 'qa', 'staging', 'production')),
+  display_name VARCHAR(100) NOT NULL,
+  provider VARCHAR(120) NOT NULL,
+  region VARCHAR(120),
+  base_url VARCHAR(500),
+  status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'healthy', 'degraded', 'maintenance', 'offline')),
+  desired_instances INTEGER NOT NULL DEFAULT 1 CHECK (desired_instances > 0),
+  min_instances INTEGER NOT NULL DEFAULT 1 CHECK (min_instances > 0),
+  max_instances INTEGER NOT NULL DEFAULT 1 CHECK (max_instances >= min_instances),
+  isolation_notes TEXT,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS release_versions (id BIGSERIAL PRIMARY KEY, version VARCHAR(80) NOT NULL UNIQUE, major INTEGER NOT NULL CHECK (major >= 0), minor INTEGER NOT NULL CHECK (minor >= 0), patch INTEGER NOT NULL CHECK (patch >= 0), prerelease VARCHAR(120), build_metadata VARCHAR(120), component VARCHAR(120) NOT NULL DEFAULT 'acc-platform', commit_sha VARCHAR(120), created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS release_plans (id BIGSERIAL PRIMARY KEY, version_id BIGINT NOT NULL REFERENCES release_versions(id) ON DELETE CASCADE, release_type VARCHAR(20) NOT NULL CHECK (release_type IN ('major','minor','patch','hotfix')), title VARCHAR(220) NOT NULL, scope TEXT NOT NULL, environment_id INTEGER REFERENCES deployment_environments(id) ON DELETE SET NULL, scheduled_at TIMESTAMPTZ, status VARCHAR(20) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','in_progress','ready','released','rolled_back','cancelled')), qa_report_id BIGINT REFERENCES qa_reports(id) ON DELETE SET NULL, previous_version_id BIGINT REFERENCES release_versions(id) ON DELETE SET NULL, created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS release_notes (id BIGSERIAL PRIMARY KEY, release_plan_id BIGINT NOT NULL REFERENCES release_plans(id) ON DELETE CASCADE, category VARCHAR(20) NOT NULL CHECK (category IN ('feature','bug_fix','change','security','breaking')), title VARCHAR(220) NOT NULL, body TEXT NOT NULL, audience VARCHAR(20) NOT NULL DEFAULT 'admin' CHECK (audience IN ('user','admin','internal')), created_by INTEGER REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -940,7 +957,7 @@ CREATE TABLE permissions (
   id SERIAL PRIMARY KEY,
   permission_key VARCHAR(120) NOT NULL UNIQUE,
   resource VARCHAR(80) NOT NULL,
-  action VARCHAR(30) NOT NULL CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage')),
+  action VARCHAR(30) NOT NULL CHECK (action IN ('create', 'read', 'update', 'delete', 'approve', 'reject', 'manage', 'write')),
   description TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -1351,23 +1368,6 @@ CREATE INDEX idx_platform_integration_events_integration ON platform_integration
 -- ========================================
 -- CHAPTER 30: SYSTEM DEPLOYMENT & INFRASTRUCTURE
 -- ========================================
-
-CREATE TABLE deployment_environments (
-  id SERIAL PRIMARY KEY,
-  environment_key VARCHAR(30) NOT NULL UNIQUE CHECK (environment_key IN ('development', 'qa', 'staging', 'production')),
-  display_name VARCHAR(100) NOT NULL,
-  provider VARCHAR(120) NOT NULL,
-  region VARCHAR(120),
-  base_url VARCHAR(500),
-  status VARCHAR(30) NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'healthy', 'degraded', 'maintenance', 'offline')),
-  desired_instances INTEGER NOT NULL DEFAULT 1 CHECK (desired_instances > 0),
-  min_instances INTEGER NOT NULL DEFAULT 1 CHECK (min_instances > 0),
-  max_instances INTEGER NOT NULL DEFAULT 1 CHECK (max_instances >= min_instances),
-  isolation_notes TEXT,
-  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE deployment_releases (
   id BIGSERIAL PRIMARY KEY,
