@@ -13,6 +13,7 @@
 .notification-panel h2 { margin: 0; color: #153e55; font-size: 1.3rem; }
 .notification-panel__header p { margin: .35rem 0 0; font-size: .9rem; }
 .notification-count { color: #b74d35; font-size: .8rem; font-weight: 800; }
+.notification-nav-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; box-sizing: border-box; margin-left: .3rem; padding: 0 .3rem; border-radius: 999px; color: #fff; background: #d9684d; font-size: .68rem; font-weight: 800; line-height: 1; vertical-align: middle; }
 .notification-list { display: grid; gap: .7rem; }
 .notification-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid #e1e8ea; border-left: 4px solid #c8d5da; background: #fbfcfc; }
 .notification-item--unread { border-left-color: #d9684d; background: #fffaf6; }

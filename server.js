@@ -9,6 +9,7 @@ const session = require("express-session");
 const PgSession = require("connect-pg-simple")(session);
 const path = require("path");
 const pool = require("./database/connection");
+const notificationModel = require("./models/notificationModel");
 require("dotenv").config();
 
 // Load route modules and error handlers.
@@ -256,6 +257,15 @@ async function initApp() {
   // Load durable UX preferences once for every request after session state exists.
   app.use(loadUserUx);
   app.use(performanceModel.requestMiddleware());
+  app.use(async (req, res, next) => {
+    try {
+      const user = req.session && req.session.user ? req.session.user : null;
+      res.locals.notificationUnreadCount = user ? await notificationModel.getUnreadCount(user.id) : 0;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  });
   app.use(async (req, res, next) => {
     try {
       const user = req.session && req.session.user ? req.session.user : null;

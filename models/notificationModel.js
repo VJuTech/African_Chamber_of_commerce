@@ -16,7 +16,8 @@ function normalizePreferences(input = {}) {
 
 function mapNotification(row) {
   if (!row) return null;
-  return { id: String(row.id), userId: Number(row.user_id), type: row.notification_type, priority: row.priority, title: row.title, message: row.message, link: row.link, status: row.status, dedupeKey: row.dedupe_key, createdAt: new Date(row.created_at).toISOString(), ...(row.read_at ? { readAt: new Date(row.read_at).toISOString() } : {}) };
+  const isRead = Boolean(row.read_at) || row.status === "read";
+  return { id: String(row.id), userId: Number(row.user_id), type: row.notification_type, priority: row.priority, title: row.title, message: row.message, link: row.link, status: isRead ? "read" : "unread", dedupeKey: row.dedupe_key, createdAt: new Date(row.created_at).toISOString(), ...(row.read_at ? { readAt: new Date(row.read_at).toISOString() } : {}) };
 }
 
 async function writeAudit(eventType, details = {}, notificationId = null, userId = null, channel = null, client = pool) {
@@ -97,6 +98,11 @@ async function generateFromEvent(eventName, payload = {}) {
 
 async function getNotificationsForUser(userId, limit = 50) { const result = await pool.query("SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2", [Number(userId), Number(limit)]); return result.rows.map(mapNotification); }
 
+async function getUnreadCount(userId) {
+  const result = await pool.query("SELECT COUNT(*)::integer AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL", [Number(userId)]);
+  return Number(result.rows[0] ? result.rows[0].count : 0);
+}
+
 async function markAsRead(userId, notificationId) {
   const result = await pool.query("UPDATE notifications SET status = 'read', read_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING *", [notificationId, Number(userId)]);
   if (!result.rowCount) return { success: false, message: "Notification not found." };
@@ -111,7 +117,6 @@ async function processQueue() {
     const attempts = Number(delivery.attempts) + 1;
     if (delivery.channel === "in_app") {
       await pool.query("UPDATE notification_deliveries SET status = 'delivered', attempts = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2", [attempts, delivery.id]);
-      await pool.query("UPDATE notifications SET status = CASE WHEN status = 'unread' THEN 'delivered' ELSE status END WHERE id = $1", [delivery.notification_id]);
       await writeAudit("notification_sent", { notificationId: String(delivery.notification_id), channel: delivery.channel }, delivery.notification_id, null, delivery.channel);
     } else if (attempts >= 3) {
       await pool.query("UPDATE notification_deliveries SET status = 'failed', attempts = $1 WHERE id = $2", [attempts, delivery.id]);
@@ -131,4 +136,4 @@ function subscribe(userId, handler) { const eventName = `user:${Number(userId)}`
 const queueTimer = setInterval(() => { processQueue().catch((error) => console.error("Notification queue processing failed:", error.message)); }, 30 * 1000);
 if (queueTimer.unref) queueTimer.unref();
 
-module.exports = { supportedChannels, supportedTypes, generateNotification, generateFromEvent, getNotificationsForUser, markAsRead, getPreferences, savePreferences, processQueue, getDeliveryQueue, getAuditLog, subscribe };
+module.exports = { supportedChannels, supportedTypes, generateNotification, generateFromEvent, getNotificationsForUser, getUnreadCount, markAsRead, getPreferences, savePreferences, processQueue, getDeliveryQueue, getAuditLog, subscribe };

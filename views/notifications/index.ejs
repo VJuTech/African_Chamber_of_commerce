@@ -3,7 +3,7 @@
   <section class="notification-hero"><div><p class="notification-kicker">Chapter 25 / Communication heartbeat</p><h1>Notifications</h1><p>Stay aware of transactions, conversations, events, and important ACC system updates.</p></div><span class="notification-live-indicator" data-notification-live>Live connection</span></section>
   <% if (message) { %><div class="notification-notice"><%= message %></div><% } %>
   <div class="notification-layout">
-    <section class="notification-panel"><div class="notification-panel__header"><div><h2>Recent activity</h2><p>Newest alerts appear first. Unread items remain highlighted until reviewed.</p></div><span class="notification-count"><%= notifications.filter((item) => item.status === 'unread').length %> unread</span></div>
+    <section class="notification-panel"><div class="notification-panel__header"><div><h2>Recent activity</h2><p>Newest alerts appear first. Unread items remain highlighted until reviewed.</p></div><span class="notification-count"><%= notifications.filter((item) => item.status !== 'read').length %> unread</span></div>
       <div class="notification-list" data-notification-list>
         <% if (!notifications.length) { %><p class="notification-empty">You are all caught up. New alerts will appear here.</p><% } %>
         <% notifications.forEach(function(notification) { %>
