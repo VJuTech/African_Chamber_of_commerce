@@ -98,18 +98,18 @@
           <a class="workspace-sidebar__signout" href="/logout">Sign out <span aria-hidden="true">&rarr;</span></a>
         </aside>
         <main class="container workspace-main" id="main-content">
-          <% if (breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
-          <% if (feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
-          <% if (feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
+          <% if (typeof breadcrumbs !== 'undefined' && breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
+          <% if (typeof feedbackMessage !== 'undefined' && feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
+          <% if (typeof feedbackError !== 'undefined' && feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
           <%- body %>
         </main>
       </div>
     <% } else { %>
       <!-- Main content area where public page-specific templates are rendered. -->
       <main class="container" id="main-content">
-        <% if (breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
-        <% if (feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
-        <% if (feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
+        <% if (typeof breadcrumbs !== 'undefined' && breadcrumbs && breadcrumbs.length) { %><nav class="breadcrumbs" aria-label="Breadcrumb"><ol><% breadcrumbs.forEach((crumb, index) => { %><li><% if (crumb.href) { %><a href="<%= crumb.href %>"><%= crumb.label %></a><% } else { %><span aria-current="page"><%= crumb.label %></span><% } %></li><% }); %></ol></nav><% } %>
+        <% if (typeof feedbackMessage !== 'undefined' && feedbackMessage) { %><div class="ux-feedback ux-feedback--success" role="status" aria-live="polite"><%= feedbackMessage %></div><% } %>
+        <% if (typeof feedbackError !== 'undefined' && feedbackError) { %><div class="ux-feedback ux-feedback--error" role="alert" aria-live="assertive"><%= feedbackError %></div><% } %>
         <%- body %>
       </main>
     <% } %>
