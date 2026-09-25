@@ -31,3 +31,9 @@ logs/
 # README.md is the file that contains the documentation for your project.
 # It should be included in your repository and not ignored by git.
 README.md
+
+.venv
+advert/output
+advert/download-server.py
+advert/render-advert.ps1
+advert/README.md
