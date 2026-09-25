@@ -4,7 +4,7 @@
   const status = root.querySelector("[data-connection-status]");
   const dot = root.querySelector("[data-connection-dot]");
   const syncStatus = root.querySelector("[data-sync-status]");
-  const installationId = localStorage.getItem("acc-mobile-installation") || crypto.randomUUID();
+  const installationId = localStorage.getItem("acc-mobile-installation") || (crypto.randomUUID ? crypto.randomUUID() : `acc-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   localStorage.setItem("acc-mobile-installation", installationId);
   let deviceId = null;
   const setConnection = () => { const online = navigator.onLine; status.textContent = online ? "Connected securely" : "Offline mode"; dot.style.background = online ? "#7bd9a8" : "#f2b84b"; syncStatus.textContent = online ? "PostgreSQL sync available" : "Actions will queue until reconnect"; };
